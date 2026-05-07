@@ -1,0 +1,243 @@
+package com.baccours.kronos.ui.setup
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.baccours.kronos.model.WorkoutConfig
+import com.baccours.kronos.model.WorkoutItemType
+import com.baccours.kronos.model.WorkoutMode
+import com.baccours.kronos.ui.components.HybridStepper
+import com.baccours.kronos.ui.components.TimeInput
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SetupScreen(
+    viewModel: SetupViewModel = viewModel(),
+    onStartWorkout: (WorkoutConfig) -> Unit = {}
+) {
+    val uiState by viewModel.uiState.collectAsState()
+
+    Scaffold(
+        modifier = Modifier.fillMaxSize(),
+        contentWindowInsets = WindowInsets.systemBars,
+        topBar = {
+            TopAppBar(
+                title = { Text("Kronos Setup", fontWeight = FontWeight.Bold) },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    titleContentColor = MaterialTheme.colorScheme.primary
+                )
+            )
+        },
+        floatingActionButton = {
+            ExtendedFloatingActionButton(
+                onClick = { onStartWorkout(uiState) },
+                icon = { Icon(Icons.Default.PlayArrow, contentDescription = null) },
+                text = { Text("START") },
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary
+            )
+        }
+    ) { padding ->
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            // Mode Selection
+            item {
+                Text("Workout Mode", style = MaterialTheme.typography.titleMedium)
+                SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                    SegmentedButton(
+                        selected = uiState.mode == WorkoutMode.TIMER,
+                        onClick = { viewModel.updateMode(WorkoutMode.TIMER) },
+                        shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2)
+                    ) {
+                        Text("Timer")
+                    }
+                    SegmentedButton(
+                        selected = uiState.mode == WorkoutMode.FOR_TIME,
+                        onClick = { viewModel.updateMode(WorkoutMode.FOR_TIME) },
+                        shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2)
+                    ) {
+                        Text("For Time")
+                    }
+                }
+            }
+
+            // Sets and Rounds
+            item {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Sets", style = MaterialTheme.typography.titleMedium)
+                        HybridStepper(
+                            value = uiState.sets,
+                            onValueChange = viewModel::updateSets,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Rounds per Set", style = MaterialTheme.typography.titleMedium)
+                        HybridStepper(
+                            value = uiState.roundsPerSet,
+                            onValueChange = viewModel::updateRoundsPerSet,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                }
+            }
+
+            // Work/Rest Sequence Header
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Sequence", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                    IconButton(onClick = viewModel::addItem) {
+                        Icon(Icons.Default.Add, contentDescription = "Add item")
+                    }
+                }
+            }
+
+            // Work/Rest Sequence Items
+            itemsIndexed(uiState.items) { index, item ->
+                WorkoutItemRow(
+                    index = index + 1,
+                    type = item.type,
+                    durationSeconds = item.durationSeconds,
+                    onDurationChange = { viewModel.updateItemDuration(item.id, it) },
+                    onDelete = { viewModel.removeItem(item.id) }
+                )
+            }
+
+            // Rest Between Sets
+            item {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.3f))
+                        .padding(16.dp)
+                ) {
+                    Text("Rest Between Sets", style = MaterialTheme.typography.titleMedium)
+                    TimeInput(
+                        durationSeconds = uiState.restBetweenSetsSeconds,
+                        onDurationChange = viewModel::updateRestBetweenSets,
+                        showRedOnZero = false,
+                        modifier = Modifier.align(Alignment.CenterHorizontally)
+                    )
+                }
+            }
+
+            // Total Duration
+            item {
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        val totalSecs = uiState.totalDurationSeconds
+                        val h = totalSecs / 3600
+                        val m = (totalSecs % 3600) / 60
+                        val s = totalSecs % 60
+                        val timeStr = if (h > 0) "%02d:%02d:%02d".format(h, m, s) else "%02d:%02d".format(m, s)
+                        
+                        Text("Total Estimated Duration", style = MaterialTheme.typography.labelLarge)
+                        Text(
+                            text = timeStr,
+                            style = MaterialTheme.typography.displayMedium,
+                            fontWeight = FontWeight.Black,
+                            color = MaterialTheme.colorScheme.onTertiaryContainer
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(80.dp)) // Extra space for FAB
+            }
+        }
+    }
+}
+
+@Composable
+fun WorkoutItemRow(
+    index: Int,
+    type: WorkoutItemType,
+    durationSeconds: Int,
+    onDurationChange: (Int) -> Unit,
+    onDelete: () -> Unit
+) {
+    val backgroundColor = if (type == WorkoutItemType.WORK) {
+        MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
+    } else {
+        MaterialTheme.colorScheme.secondary.copy(alpha = 0.1f)
+    }
+    
+    val accentColor = if (type == WorkoutItemType.WORK) {
+        MaterialTheme.colorScheme.primary
+    } else {
+        MaterialTheme.colorScheme.secondary
+    }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(backgroundColor)
+            .padding(12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .size(32.dp)
+                .clip(RoundedCornerShape(8.dp))
+                .background(accentColor),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = index.toString(),
+                color = if (type == WorkoutItemType.WORK) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSecondary,
+                fontWeight = FontWeight.Bold
+            )
+        }
+        
+        Spacer(modifier = Modifier.width(16.dp))
+        
+        Text(
+            text = if (type == WorkoutItemType.WORK) "WORK" else "REST",
+            style = MaterialTheme.typography.bodyLarge,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.weight(1f)
+        )
+
+        TimeInput(
+            durationSeconds = durationSeconds,
+            onDurationChange = onDurationChange
+        )
+
+        IconButton(onClick = onDelete) {
+            Icon(Icons.Default.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error)
+        }
+    }
+}

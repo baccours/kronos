@@ -1,0 +1,4 @@
+<resources>
+
+    <style name="Theme.Kronos" parent="Theme.MaterialComponents.Light" />
+</resources>
