@@ -2,7 +2,6 @@ package com.baccours.kronos
 
 import android.Manifest
 import android.content.ComponentName
-import android.content.Context
 import android.content.Intent
 import android.content.ServiceConnection
 import android.content.pm.PackageManager
@@ -15,16 +14,14 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
-import androidx.compose.foundation.layout.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.baccours.kronos.model.WorkoutMode
 import com.baccours.kronos.repository.TimerStatus
 import com.baccours.kronos.service.WorkoutService
 import com.baccours.kronos.ui.running.RunningScreen
@@ -83,12 +80,6 @@ class MainActivity : ComponentActivity() {
                 val uiState by mainViewModel.uiState.collectAsStateWithLifecycle()
                 val context = LocalContext.current
 
-                LaunchedEffect(uiState.timerStatus) {
-                    if (uiState.timerStatus != TimerStatus.NOT_STARTED && !isBound) {
-                        bindToService()
-                    }
-                }
-
                 if (uiState.timerStatus == TimerStatus.NOT_STARTED) {
                     SetupScreen(
                         onStartWorkout = { config ->
@@ -101,6 +92,7 @@ class MainActivity : ComponentActivity() {
                             } else {
                                 context.startService(intent)
                             }
+                            bindToService()
                         }
                     )
                 } else {
@@ -117,7 +109,7 @@ class MainActivity : ComponentActivity() {
 
     private fun bindToService() {
         Intent(this, WorkoutService::class.java).also { intent ->
-            bindService(intent, connection, Context.BIND_AUTO_CREATE)
+            bindService(intent, connection, BIND_AUTO_CREATE)
         }
     }
 
@@ -130,6 +122,10 @@ class MainActivity : ComponentActivity() {
 
     override fun onStart() {
         super.onStart()
+        // If workout is already running, bind to it
+        if (mainViewModel.uiState.value.timerStatus != TimerStatus.NOT_STARTED && !isBound) {
+            bindToService()
+        }
     }
 
     override fun onStop() {

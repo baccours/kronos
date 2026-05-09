@@ -6,7 +6,6 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -20,13 +19,14 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.baccours.kronos.ui.Remove
 
 @Composable
 fun HybridStepper(
     value: Int,
     onValueChange: (Int) -> Unit,
-    range: IntRange = 1..99,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    range: IntRange = 1..99
 ) {
     var isEditing by remember { mutableStateOf(false) }
     var editValue by remember { mutableStateOf("") }
@@ -71,9 +71,9 @@ fun HybridStepper(
                     modifier = Modifier
                         .focusRequester(focusRequester)
                         .onFocusChanged {
-                            if (!it.isFocused && isEditing) {
+                            /*if (!it.isFocused && isEditing) {
                                 isEditing = false
-                            }
+                            }*/
                         },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     textStyle = TextStyle(

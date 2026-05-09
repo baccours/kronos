@@ -14,7 +14,7 @@ data class MainUiState(
 )
 
 class MainViewModel(
-    private val repository: TimerRepository = TimerRepository
+    repository: TimerRepository = TimerRepository
 ) : ViewModel() {
     val uiState: StateFlow<MainUiState> = repository.timerState
         .map { state ->
