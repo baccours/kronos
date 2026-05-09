@@ -22,10 +22,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.baccours.kronos.model.WorkoutItemType
 import com.baccours.kronos.model.WorkoutMode
-import com.baccours.kronos.repository.TimerRepository
-import com.baccours.kronos.repository.TimerState
 import com.baccours.kronos.repository.TimerStatus
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -34,12 +34,13 @@ fun RunningScreen(
     onPause: () -> Unit,
     onResume: () -> Unit,
     onStop: () -> Unit,
-    onSkip: () -> Unit = {}
+    onSkip: () -> Unit = {},
+    viewModel: RunningViewModel = viewModel()
 ) {
-    val timerState by TimerRepository.timerState.collectAsState()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     
     BackHandler {
-        if (timerState.status == TimerStatus.RUNNING) {
+        if (uiState.status == TimerStatus.RUNNING) {
             onPause()
         } else {
             onStop()
@@ -53,12 +54,12 @@ fun RunningScreen(
             CenterAlignedTopAppBar(
                 title = {
                     Text(
-                        text = if (timerState.status == TimerStatus.FINISHED) "Finished" else "Kronos",
+                        text = if (uiState.status == TimerStatus.FINISHED) "Finished" else "Kronos",
                         style = MaterialTheme.typography.titleLarge
                     )
                 },
                 actions = {
-                    if (timerState.status != TimerStatus.FINISHED) {
+                    if (uiState.status != TimerStatus.FINISHED) {
                         IconButton(onClick = onStop) {
                             Icon(Icons.Rounded.Close, contentDescription = "Stop")
                         }
@@ -74,11 +75,11 @@ fun RunningScreen(
                 .padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            if (timerState.status == TimerStatus.FINISHED) {
-                WorkoutFinishedView(timerState, onStop)
+            if (uiState.status == TimerStatus.FINISHED) {
+                WorkoutFinishedView(uiState, onStop)
             } else {
                 WorkoutRunningView(
-                    state = timerState,
+                    uiState = uiState,
                     onPause = onPause,
                     onResume = onResume,
                     onSkip = onSkip
@@ -90,56 +91,36 @@ fun RunningScreen(
 
 @Composable
 fun ColumnScope.WorkoutRunningView(
-    state: TimerState,
+    uiState: RunningUiState,
     onPause: () -> Unit,
     onResume: () -> Unit,
     onSkip: () -> Unit
 ) {
-    val config = state.config ?: return
-    
     // Header Info
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceEvenly
     ) {
-        InfoColumn(label = "SET", value = "${state.currentSet}/${config.sets}")
-        InfoColumn(label = "ROUND", value = "${state.currentRound}/${config.roundsPerSet}")
+        InfoColumn(label = "SET", value = uiState.currentSetText)
+        InfoColumn(label = "ROUND", value = uiState.currentRoundText)
     }
 
     Spacer(modifier = Modifier.height(32.dp))
 
     // Current Item Name
-    val itemName = when {
-        state.isReadyCountdown -> "GET READY"
-        state.isRestBetweenSets -> "REST BETWEEN SETS"
-        else -> state.currentItem?.let { item ->
-            item.name.ifBlank { item.type.name }
-        } ?: "WORK"
-    }
-
     Text(
-        text = itemName,
+        text = uiState.itemName,
         style = MaterialTheme.typography.headlineMedium,
         fontWeight = FontWeight.Bold,
-        color = if (state.currentItem?.type == WorkoutItemType.REST || state.isRestBetweenSets) 
-            MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.primary
+        color = if (uiState.isWorkItem) 
+            MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary
     )
 
     Spacer(modifier = Modifier.weight(1f))
 
     // Central Timer Display
-    val displaySeconds = if (config.mode == WorkoutMode.TIMER || state.isRestBetweenSets || state.isReadyCountdown) {
-        state.remainingSeconds
-    } else {
-        state.elapsedSeconds
-    }
-
-    val minutes = displaySeconds / 60
-    val seconds = displaySeconds % 60
-    val timeText = "%02d:%02d".format(minutes, seconds)
-
     Text(
-        text = timeText,
+        text = uiState.displayTime,
         style = MaterialTheme.typography.displayLarge.copy(
             fontSize = 100.sp,
             fontWeight = FontWeight.Black
@@ -147,10 +128,9 @@ fun ColumnScope.WorkoutRunningView(
         color = MaterialTheme.colorScheme.onSurface
     )
 
-    if (config.mode == WorkoutMode.TIMER && !state.isReadyCountdown) {
-        val totalRemaining = state.totalRemainingSeconds
+    uiState.totalRemainingTime?.let { totalRemaining ->
         Text(
-            text = "Total remaining: %02d:%02d".format(totalRemaining / 60, totalRemaining % 60),
+            text = "Total remaining: $totalRemaining",
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -159,7 +139,7 @@ fun ColumnScope.WorkoutRunningView(
     Spacer(modifier = Modifier.weight(1f))
 
     // For Time Mode extra UI
-    if (config.mode == WorkoutMode.FOR_TIME && !state.isReadyCountdown && !state.isRestBetweenSets) {
+    if (uiState.nextButtonText != null) {
         Button(
             onClick = onSkip,
             modifier = Modifier.fillMaxWidth(),
@@ -167,21 +147,39 @@ fun ColumnScope.WorkoutRunningView(
         ) {
             Icon(Icons.Rounded.Done, contentDescription = null)
             Spacer(Modifier.width(8.dp))
-            Text("DONE (Round Complete)")
+            Text(uiState.nextButtonText)
         }
         
         Spacer(modifier = Modifier.height(16.dp))
-        
-        if (state.roundTimes.isNotEmpty()) {
-            Text(
-                text = "Previous Rounds",
-                style = MaterialTheme.typography.titleSmall,
-                modifier = Modifier.fillMaxWidth(),
-                textAlign = TextAlign.Start
-            )
-            LazyColumn(modifier = Modifier.height(100.dp).fillMaxWidth()) {
-                items(state.roundTimes.reversed()) { time ->
-                    Text("Round: %02d:%02d".format(time / 60, time % 60))
+    }
+
+    if (uiState.roundTimes.isNotEmpty()) {
+        Text(
+            text = "History",
+            style = MaterialTheme.typography.titleSmall,
+            modifier = Modifier.fillMaxWidth(),
+            textAlign = TextAlign.Start
+        )
+        LazyColumn(
+            modifier = Modifier
+                .height(120.dp)
+                .fillMaxWidth(),
+            contentPadding = PaddingValues(vertical = 4.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            items(uiState.roundTimes.reversed()) { timeText ->
+                Card(
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                    )
+                ) {
+                    Text(
+                        text = timeText,
+                        modifier = Modifier
+                            .padding(horizontal = 12.dp, vertical = 4.dp)
+                            .fillMaxWidth(),
+                        style = MaterialTheme.typography.bodyMedium
+                    )
                 }
             }
         }
@@ -195,9 +193,9 @@ fun ColumnScope.WorkoutRunningView(
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        if (state.status == TimerStatus.RUNNING) {
+        if (uiState.status == TimerStatus.RUNNING) {
             ControlCircleButton(icon = Icons.Rounded.Pause, onClick = onPause)
-        } else if (state.status == TimerStatus.PAUSED) {
+        } else if (uiState.status == TimerStatus.PAUSED) {
             ControlCircleButton(icon = Icons.Rounded.PlayArrow, onClick = onResume)
         }
     }
@@ -226,7 +224,7 @@ fun ControlCircleButton(icon: ImageVector, onClick: () -> Unit) {
 }
 
 @Composable
-fun WorkoutFinishedView(state: TimerState, onStop: () -> Unit) {
+fun WorkoutFinishedView(uiState: RunningUiState, onStop: () -> Unit) {
     Column(
         modifier = Modifier.fillMaxSize(),
         horizontalAlignment = Alignment.CenterHorizontally,

@@ -14,6 +14,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.viewModels
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -22,8 +23,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.baccours.kronos.model.WorkoutMode
-import com.baccours.kronos.repository.TimerRepository
 import com.baccours.kronos.repository.TimerStatus
 import com.baccours.kronos.service.WorkoutService
 import com.baccours.kronos.ui.running.RunningScreen
@@ -33,6 +34,7 @@ import com.baccours.kronos.ui.theme.KronosTheme
 class MainActivity : ComponentActivity() {
     private var workoutService: WorkoutService? = null
     private var isBound = false
+    private val mainViewModel: MainViewModel by viewModels()
 
     private val connection = object : ServiceConnection {
         override fun onServiceConnected(className: ComponentName, service: IBinder) {
@@ -78,10 +80,16 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
-                val timerState by TimerRepository.timerState.collectAsState()
+                val uiState by mainViewModel.uiState.collectAsStateWithLifecycle()
                 val context = LocalContext.current
 
-                if (timerState.status == TimerStatus.NOT_STARTED) {
+                LaunchedEffect(uiState.timerStatus) {
+                    if (uiState.timerStatus != TimerStatus.NOT_STARTED && !isBound) {
+                        bindToService()
+                    }
+                }
+
+                if (uiState.timerStatus == TimerStatus.NOT_STARTED) {
                     SetupScreen(
                         onStartWorkout = { config ->
                             val intent = Intent(context, WorkoutService::class.java).apply {
@@ -93,7 +101,6 @@ class MainActivity : ComponentActivity() {
                             } else {
                                 context.startService(intent)
                             }
-                            bindToService()
                         }
                     )
                 } else {
@@ -123,10 +130,6 @@ class MainActivity : ComponentActivity() {
 
     override fun onStart() {
         super.onStart()
-        // If workout is already running, bind to it
-        if (TimerRepository.timerState.value.status != TimerStatus.NOT_STARTED) {
-            bindToService()
-        }
     }
 
     override fun onStop() {
