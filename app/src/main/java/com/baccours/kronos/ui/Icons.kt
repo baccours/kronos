@@ -1,6 +1,5 @@
 package com.baccours.kronos.ui
 
-import androidx.compose.material.icons.Icons
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathFillType
 import androidx.compose.ui.graphics.SolidColor
@@ -10,8 +9,10 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.path
 import androidx.compose.ui.unit.dp
 
+object Icons
+
 @Suppress("UnusedReceiverParameter")
-val Icons.Filled.Remove: ImageVector
+val Icons.Remove: ImageVector
     get() {
         val currentIcon = remove
         if (currentIcon != null) {
@@ -45,7 +46,7 @@ val Icons.Filled.Remove: ImageVector
 private var remove: ImageVector? = null
 
 @Suppress("UnusedReceiverParameter")
-val Icons.Rounded.Pause: ImageVector
+val Icons.Pause: ImageVector
     get() {
         val currentIcon = pause
         if (currentIcon != null) {
@@ -89,7 +90,7 @@ val Icons.Rounded.Pause: ImageVector
 private var pause: ImageVector? = null
 
 @Suppress("UnusedReceiverParameter")
-val Icons.Rounded.EmojiEvents: ImageVector
+val Icons.EmojiEvents: ImageVector
     get() {
         val currentIcon = emojiEvents
         if (currentIcon != null) {

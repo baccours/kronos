@@ -17,10 +17,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -41,9 +37,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.baccours.kronos.R
 import com.baccours.kronos.model.WorkoutConfig
 import com.baccours.kronos.model.WorkoutItemType
 import com.baccours.kronos.model.WorkoutMode
@@ -73,7 +71,7 @@ fun SetupScreen(
         floatingActionButton = {
             ExtendedFloatingActionButton(
                 onClick = { onStartWorkout(uiState) },
-                icon = { Icon(Icons.Default.PlayArrow, contentDescription = null) },
+                icon = { Icon(painterResource(id = R.drawable.ic_play_arrow), contentDescription = null) },
                 text = { Text("START") },
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = MaterialTheme.colorScheme.onPrimary
@@ -139,7 +137,7 @@ fun SetupScreen(
                 ) {
                     Text("Sequence", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                     IconButton(onClick = viewModel::addItem) {
-                        Icon(Icons.Default.Add, contentDescription = "Add item")
+                        Icon(painterResource(id = R.drawable.ic_add), contentDescription = "Add item")
                     }
                 }
             }
@@ -262,7 +260,7 @@ fun WorkoutItemRow(
         )
 
         IconButton(onClick = onDelete) {
-            Icon(Icons.Default.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error)
+            Icon(painterResource(id = R.drawable.ic_delete), contentDescription = "Delete", tint = MaterialTheme.colorScheme.error)
         }
     }
 }

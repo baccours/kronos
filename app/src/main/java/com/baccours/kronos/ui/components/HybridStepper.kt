@@ -7,8 +7,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -25,12 +23,13 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.baccours.kronos.ui.Remove
+import com.baccours.kronos.R
 
 @Composable
 fun HybridStepper(
@@ -52,7 +51,7 @@ fun HybridStepper(
             onClick = { if (value > range.first) onValueChange(value - 1) },
             enabled = value > range.first
         ) {
-            Icon(Icons.Default.Remove, contentDescription = "Decrease")
+            Icon(painterResource(id = R.drawable.ic_remove), contentDescription = "Decrease")
         }
 
         Box(
@@ -111,7 +110,7 @@ fun HybridStepper(
             onClick = { if (value < range.last) onValueChange(value + 1) },
             enabled = value < range.last
         ) {
-            Icon(Icons.Default.Add, contentDescription = "Increase")
+            Icon(painterResource(id = R.drawable.ic_add), contentDescription = "Increase")
         }
     }
 }

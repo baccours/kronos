@@ -18,10 +18,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.Done
-import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -39,16 +35,16 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.painter.Painter
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.baccours.kronos.R
 import com.baccours.kronos.repository.TimerStatus
-import com.baccours.kronos.ui.EmojiEvents
-import com.baccours.kronos.ui.Pause
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -83,7 +79,7 @@ fun RunningScreen(
                 actions = {
                     if (uiState.status != TimerStatus.FINISHED) {
                         IconButton(onClick = onStop) {
-                            Icon(Icons.Rounded.Close, contentDescription = "Stop")
+                            Icon(painterResource(id = R.drawable.ic_close), contentDescription = "Stop")
                         }
                     }
                 }
@@ -167,7 +163,7 @@ fun ColumnScope.WorkoutRunningView(
             modifier = Modifier.fillMaxWidth(),
             colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.tertiary)
         ) {
-            Icon(Icons.Rounded.Done, contentDescription = null)
+            Icon(painterResource(id = R.drawable.ic_check), contentDescription = null)
             Spacer(Modifier.width(8.dp))
             Text(uiState.nextButtonText)
         }
@@ -216,9 +212,9 @@ fun ColumnScope.WorkoutRunningView(
         verticalAlignment = Alignment.CenterVertically
     ) {
         if (uiState.status == TimerStatus.RUNNING) {
-            ControlCircleButton(icon = Icons.Rounded.Pause, onClick = onPause)
+            ControlCircleButton(icon = painterResource(id = R.drawable.ic_pause), onClick = onPause)
         } else if (uiState.status == TimerStatus.PAUSED) {
-            ControlCircleButton(icon = Icons.Rounded.PlayArrow, onClick = onResume)
+            ControlCircleButton(icon = painterResource(id = R.drawable.ic_play_arrow), onClick = onResume)
         }
     }
 }
@@ -232,7 +228,7 @@ fun InfoColumn(label: String, value: String) {
 }
 
 @Composable
-fun ControlCircleButton(icon: ImageVector, onClick: () -> Unit) {
+fun ControlCircleButton(icon: Painter, onClick: () -> Unit) {
     FilledIconButton(
         onClick = onClick,
         modifier = Modifier.size(80.dp),
@@ -253,7 +249,7 @@ fun WorkoutFinishedView(uiState: RunningUiState, onStop: () -> Unit) {
         verticalArrangement = Arrangement.Center
     ) {
         Icon(
-            Icons.Rounded.EmojiEvents,
+            painterResource(id = R.drawable.ic_trophy),
             contentDescription = null,
             modifier = Modifier.size(120.dp),
             tint = MaterialTheme.colorScheme.primary
