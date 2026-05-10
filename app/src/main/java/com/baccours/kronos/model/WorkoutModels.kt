@@ -1,29 +1,34 @@
 package com.baccours.kronos.model
 
-import java.io.Serializable
+import android.os.Parcelable
+import kotlinx.parcelize.Parcelize
 
-enum class WorkoutMode : Serializable {
+@Parcelize
+enum class WorkoutMode : Parcelable {
     TIMER, FOR_TIME
 }
 
-enum class WorkoutItemType : Serializable {
+@Parcelize
+enum class WorkoutItemType : Parcelable {
     WORK, REST
 }
 
+@Parcelize
 data class WorkoutItem(
     val id: String = java.util.UUID.randomUUID().toString(),
     val name: String = "",
     val type: WorkoutItemType = WorkoutItemType.WORK,
     val durationSeconds: Int = 30
-) : Serializable
+) : Parcelable
 
+@Parcelize
 data class WorkoutConfig(
     val mode: WorkoutMode = WorkoutMode.TIMER,
     val sets: Int = 1,
     val roundsPerSet: Int = 1,
     val items: List<WorkoutItem> = listOf(WorkoutItem(type = WorkoutItemType.WORK), WorkoutItem(type = WorkoutItemType.REST)),
     val restBetweenSetsSeconds: Int = 60
-) : Serializable {
+) : Parcelable {
     val totalDurationSeconds: Int
         get() {
             val itemsDuration = items.sumOf { it.durationSeconds }

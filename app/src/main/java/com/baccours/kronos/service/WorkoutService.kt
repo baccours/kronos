@@ -1,6 +1,10 @@
 package com.baccours.kronos.service
 
-import android.app.*
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
+import android.app.Service
 import android.content.Intent
 import android.os.Binder
 import android.os.Build
@@ -14,7 +18,14 @@ import com.baccours.kronos.model.WorkoutMode
 import com.baccours.kronos.repository.TimerRepository
 import com.baccours.kronos.repository.TimerStatus
 import com.baccours.kronos.repository.TimerState
-import kotlinx.coroutines.*
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 
 class WorkoutService : Service() {
 
@@ -45,10 +56,10 @@ class WorkoutService : Service() {
         when (intent?.action) {
             ACTION_START -> {
                 val config = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                    intent.getSerializableExtra(EXTRA_CONFIG, WorkoutConfig::class.java)
+                    intent.getParcelableExtra(EXTRA_CONFIG, WorkoutConfig::class.java)
                 } else {
                     @Suppress("DEPRECATION")
-                    intent.getSerializableExtra(EXTRA_CONFIG) as? WorkoutConfig
+                    intent.getParcelableExtra<WorkoutConfig>(EXTRA_CONFIG)
                 }
                 startWorkout(config)
             }
