@@ -37,16 +37,18 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.baccours.kronos.R
 import com.baccours.kronos.model.WorkoutConfig
 import com.baccours.kronos.model.WorkoutItemType
 import com.baccours.kronos.model.WorkoutMode
+import com.baccours.kronos.ui.icons.Add
 import com.baccours.kronos.ui.components.HybridStepper
 import com.baccours.kronos.ui.components.TimeInput
+import com.baccours.kronos.ui.icons.Delete
+import com.baccours.kronos.ui.icons.Icons
+import com.baccours.kronos.ui.icons.Play
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -71,7 +73,7 @@ fun SetupScreen(
         floatingActionButton = {
             ExtendedFloatingActionButton(
                 onClick = { onStartWorkout(uiState) },
-                icon = { Icon(painterResource(id = R.drawable.ic_play_arrow), contentDescription = null) },
+                icon = { Icon(Icons.Play, contentDescription = null) },
                 text = { Text("START") },
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = MaterialTheme.colorScheme.onPrimary
@@ -137,7 +139,7 @@ fun SetupScreen(
                 ) {
                     Text("Sequence", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                     IconButton(onClick = viewModel::addItem) {
-                        Icon(painterResource(id = R.drawable.ic_add), contentDescription = "Add item")
+                        Icon(Icons.Add, contentDescription = "Add item")
                     }
                 }
             }
@@ -260,7 +262,7 @@ fun WorkoutItemRow(
         )
 
         IconButton(onClick = onDelete) {
-            Icon(painterResource(id = R.drawable.ic_delete), contentDescription = "Delete", tint = MaterialTheme.colorScheme.error)
+            Icon(Icons.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error)
         }
     }
 }
