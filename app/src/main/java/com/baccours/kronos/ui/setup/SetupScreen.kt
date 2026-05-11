@@ -37,6 +37,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -57,149 +60,175 @@ fun SetupScreen(
     onStartWorkout: (WorkoutConfig) -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val focusManager = LocalFocusManager.current
 
-    Scaffold(
-        modifier = Modifier.fillMaxSize(),
-        contentWindowInsets = WindowInsets.systemBars,
-        topBar = {
-            TopAppBar(
-                title = { Text("Kronos Setup", fontWeight = FontWeight.Bold) },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                    titleContentColor = MaterialTheme.colorScheme.primary
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .pointerInput(Unit) {
+                awaitPointerEventScope {
+                    while (true) {
+                        awaitPointerEvent(pass = PointerEventPass.Initial)
+                        focusManager.clearFocus()
+                    }
+                }
+            }
+    ) {
+        Scaffold(
+            modifier = Modifier.fillMaxSize(),
+            contentWindowInsets = WindowInsets.systemBars,
+            topBar = {
+                TopAppBar(
+                    title = { Text("Kronos Setup", fontWeight = FontWeight.Bold) },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.surface,
+                        titleContentColor = MaterialTheme.colorScheme.primary
+                    )
                 )
-            )
-        },
-        floatingActionButton = {
-            ExtendedFloatingActionButton(
-                onClick = { onStartWorkout(uiState) },
-                icon = { Icon(Icons.Play, contentDescription = null) },
-                text = { Text("START") },
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary
-            )
-        }
-    ) { padding ->
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            // Mode Selection
-            item {
-                Text("Workout Mode", style = MaterialTheme.typography.titleMedium)
-                SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-                    SegmentedButton(
-                        selected = uiState.mode == WorkoutMode.TIMER,
-                        onClick = { viewModel.updateMode(WorkoutMode.TIMER) },
-                        shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2)
-                    ) {
-                        Text("Timer")
-                    }
-                    SegmentedButton(
-                        selected = uiState.mode == WorkoutMode.FOR_TIME,
-                        onClick = { viewModel.updateMode(WorkoutMode.FOR_TIME) },
-                        shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2)
-                    ) {
-                        Text("For Time")
-                    }
-                }
-            }
-
-            // Sets and Rounds
-            item {
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text("Sets", style = MaterialTheme.typography.titleMedium)
-                        HybridStepper(
-                            value = uiState.sets,
-                            onValueChange = viewModel::updateSets,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    }
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text("Rounds per Set", style = MaterialTheme.typography.titleMedium)
-                        HybridStepper(
-                            value = uiState.roundsPerSet,
-                            onValueChange = viewModel::updateRoundsPerSet,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    }
-                }
-            }
-
-            // Work/Rest Sequence Header
-            item {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text("Sequence", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                    IconButton(onClick = viewModel::addItem) {
-                        Icon(Icons.Add, contentDescription = "Add item")
-                    }
-                }
-            }
-
-            // Work/Rest Sequence Items
-            itemsIndexed(uiState.items) { index, item ->
-                WorkoutItemRow(
-                    index = index + 1,
-                    type = item.type,
-                    durationSeconds = item.durationSeconds,
-                    onDurationChange = { viewModel.updateItemDuration(item.id, it) },
-                    onDelete = { viewModel.removeItem(item.id) }
+            },
+            floatingActionButton = {
+                ExtendedFloatingActionButton(
+                    onClick = { onStartWorkout(uiState) },
+                    icon = { Icon(Icons.Play, contentDescription = null) },
+                    text = { Text("START") },
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary
                 )
             }
+        ) { padding ->
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                // Mode Selection
+                item {
+                    Text("Workout Mode", style = MaterialTheme.typography.titleMedium)
+                    SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                        SegmentedButton(
+                            selected = uiState.mode == WorkoutMode.TIMER,
+                            onClick = { viewModel.updateMode(WorkoutMode.TIMER) },
+                            shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2)
+                        ) {
+                            Text("Timer")
+                        }
+                        SegmentedButton(
+                            selected = uiState.mode == WorkoutMode.FOR_TIME,
+                            onClick = { viewModel.updateMode(WorkoutMode.FOR_TIME) },
+                            shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2)
+                        ) {
+                            Text("For Time")
+                        }
+                    }
+                }
 
-            // Rest Between Sets
-            item {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.3f))
-                        .padding(16.dp)
-                ) {
-                    Text("Rest Between Sets", style = MaterialTheme.typography.titleMedium)
-                    TimeInput(
-                        durationSeconds = uiState.restBetweenSetsSeconds,
-                        onDurationChange = viewModel::updateRestBetweenSets,
-                        modifier = Modifier.align(Alignment.CenterHorizontally),
-                        showRedOnZero = false
+                // Sets and Rounds
+                item {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Sets", style = MaterialTheme.typography.titleMedium)
+                            HybridStepper(
+                                value = uiState.sets,
+                                onValueChange = viewModel::updateSets,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Rounds per Set", style = MaterialTheme.typography.titleMedium)
+                            HybridStepper(
+                                value = uiState.roundsPerSet,
+                                onValueChange = viewModel::updateRoundsPerSet,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+                    }
+                }
+
+                // Work/Rest Sequence Header
+                item {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            "Sequence",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold
+                        )
+                        IconButton(onClick = viewModel::addItem) {
+                            Icon(Icons.Add, contentDescription = "Add item")
+                        }
+                    }
+                }
+
+                // Work/Rest Sequence Items
+                itemsIndexed(uiState.items) { index, item ->
+                    WorkoutItemRow(
+                        index = index + 1,
+                        type = item.type,
+                        durationSeconds = item.durationSeconds,
+                        onDurationChange = { viewModel.updateItemDuration(item.id, it) },
+                        onDelete = { viewModel.removeItem(item.id) }
                     )
                 }
-            }
 
-            // Total Duration
-            item {
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
+                // Rest Between Sets
+                item {
                     Column(
-                        modifier = Modifier.padding(16.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.3f))
+                            .padding(16.dp)
                     ) {
-                        val totalSecs = uiState.totalDurationSeconds
-                        val h = totalSecs / 3600
-                        val m = (totalSecs % 3600) / 60
-                        val s = totalSecs % 60
-                        val timeStr = if (h > 0) "%02d:%02d:%02d".format(h, m, s) else "%02d:%02d".format(m, s)
-                        
-                        Text("Total Estimated Duration", style = MaterialTheme.typography.labelLarge)
-                        Text(
-                            text = timeStr,
-                            style = MaterialTheme.typography.displayMedium,
-                            fontWeight = FontWeight.Black,
-                            color = MaterialTheme.colorScheme.onTertiaryContainer
+                        Text("Rest Between Sets", style = MaterialTheme.typography.titleMedium)
+                        TimeInput(
+                            durationSeconds = uiState.restBetweenSetsSeconds,
+                            onDurationChange = viewModel::updateRestBetweenSets,
+                            modifier = Modifier.align(Alignment.CenterHorizontally),
+                            showRedOnZero = false
                         )
                     }
                 }
-                Spacer(modifier = Modifier.height(80.dp)) // Extra space for FAB
+
+                // Total Duration
+                item {
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(16.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            val totalSecs = uiState.totalDurationSeconds
+                            val h = totalSecs / 3600
+                            val m = (totalSecs % 3600) / 60
+                            val s = totalSecs % 60
+                            val timeStr =
+                                if (h > 0) "%02d:%02d:%02d".format(h, m, s)
+                                else "%02d:%02d".format(m, s)
+
+                            Text(
+                                "Total Estimated Duration",
+                                style = MaterialTheme.typography.labelLarge
+                            )
+                            Text(
+                                text = timeStr,
+                                style = MaterialTheme.typography.displayMedium,
+                                fontWeight = FontWeight.Black,
+                                color = MaterialTheme.colorScheme.onTertiaryContainer
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(80.dp)) // Extra space for FAB
+                }
             }
         }
     }

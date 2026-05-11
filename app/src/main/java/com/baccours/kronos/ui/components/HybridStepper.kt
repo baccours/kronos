@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -23,7 +24,9 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -42,6 +45,7 @@ fun HybridStepper(
     var isEditing by remember { mutableStateOf(false) }
     var editValue by remember { mutableStateOf("") }
     val focusRequester = remember { FocusRequester() }
+    val focusManager = LocalFocusManager.current
 
     Row(
         modifier = modifier,
@@ -65,28 +69,35 @@ fun HybridStepper(
             contentAlignment = Alignment.Center
         ) {
             if (isEditing) {
+                var hasGainedFocus by remember { mutableStateOf(false) }
+
                 BasicTextField(
                     value = editValue,
                     onValueChange = { newValue ->
                         if (newValue.length <= 2 && newValue.all { it.isDigit() }) {
                             editValue = newValue
-                            if (newValue.length == 2) {
-                                val parsed = newValue.toIntOrNull()
-                                if (parsed != null && parsed in range) {
-                                    onValueChange(parsed)
-                                    isEditing = false
-                                }
-                            }
+                            if (newValue.length == 2) focusManager.clearFocus()
                         }
                     },
                     modifier = Modifier
                         .focusRequester(focusRequester)
-                        .onFocusChanged {
-                            /*if (!it.isFocused && isEditing) {
+                        .onFocusChanged { state ->
+                            if (state.isFocused) {
+                                hasGainedFocus = true
+                            } else if (hasGainedFocus) {
+                                editValue.toIntOrNull()?.let { parsed ->
+                                    if (parsed in range) onValueChange(parsed)
+                                }
                                 isEditing = false
-                            }*/
+                            }
                         },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Number,
+                        imeAction = ImeAction.Done
+                    ),
+                    keyboardActions = KeyboardActions(
+                        onDone = { focusManager.clearFocus() }
+                    ),
                     textStyle = TextStyle(
                         color = MaterialTheme.colorScheme.onSurface,
                         fontSize = 20.sp,
