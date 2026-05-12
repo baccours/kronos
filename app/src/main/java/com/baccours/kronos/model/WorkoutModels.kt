@@ -4,29 +4,29 @@ import android.os.Parcelable
 import kotlinx.parcelize.Parcelize
 
 @Parcelize
-enum class WorkoutMode : Parcelable {
+enum class TimerMode : Parcelable {
     TIMER, FOR_TIME
 }
 
 @Parcelize
-enum class WorkoutItemType : Parcelable {
+enum class TaskType : Parcelable {
     WORK, REST
 }
 
 @Parcelize
-data class WorkoutItem(
+data class Task(
     val id: String = java.util.UUID.randomUUID().toString(),
     val name: String = "",
-    val type: WorkoutItemType = WorkoutItemType.WORK,
+    val type: TaskType = TaskType.WORK,
     val durationSeconds: Int = 30
 ) : Parcelable
 
 @Parcelize
-data class WorkoutConfig(
-    val mode: WorkoutMode = WorkoutMode.TIMER,
+data class TimerConfig(
+    val mode: TimerMode = TimerMode.TIMER,
     val sets: Int = 1,
     val roundsPerSet: Int = 1,
-    val items: List<WorkoutItem> = listOf(WorkoutItem(type = WorkoutItemType.WORK), WorkoutItem(type = WorkoutItemType.REST)),
+    val items: List<Task> = listOf(Task(type = TaskType.WORK), Task(type = TaskType.REST)),
     val restBetweenSetsSeconds: Int = 60
 ) : Parcelable {
     val totalDurationSeconds: Int

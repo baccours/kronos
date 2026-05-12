@@ -7,7 +7,7 @@ import android.speech.tts.TextToSpeech
 import android.util.Log
 import java.util.*
 
-class WorkoutAudioManager(context: Context) {
+class TimerAudioManager(context: Context) {
 
     private var tts: TextToSpeech? = null
     private var isTtsReady = false
@@ -19,7 +19,7 @@ class WorkoutAudioManager(context: Context) {
                 tts?.language = Locale.US
                 isTtsReady = true
             } else {
-                Log.e("WorkoutAudioManager", "TTS Initialization failed")
+                Log.e("TimerAudioManager", "TTS Initialization failed")
             }
         }
     }

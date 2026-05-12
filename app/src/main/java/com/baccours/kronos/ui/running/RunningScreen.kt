@@ -98,9 +98,9 @@ fun RunningScreen(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             if (uiState.status == TimerStatus.FINISHED) {
-                WorkoutFinishedView(uiState, onStop)
+                TimerFinishedView(uiState, onStop)
             } else {
-                WorkoutRunningView(
+                TimerRunningView(
                     uiState = uiState,
                     onPause = onPause,
                     onResume = onResume,
@@ -112,7 +112,7 @@ fun RunningScreen(
 }
 
 @Composable
-fun ColumnScope.WorkoutRunningView(
+fun ColumnScope.TimerRunningView(
     uiState: RunningUiState,
     onPause: () -> Unit,
     onResume: () -> Unit,
@@ -246,7 +246,7 @@ fun ControlCircleButton(icon: ImageVector, onClick: () -> Unit) {
 }
 
 @Composable
-fun WorkoutFinishedView(uiState: RunningUiState, onStop: () -> Unit) {
+fun TimerFinishedView(uiState: RunningUiState, onStop: () -> Unit) {
     Column(
         modifier = Modifier.fillMaxSize(),
         horizontalAlignment = Alignment.CenterHorizontally,

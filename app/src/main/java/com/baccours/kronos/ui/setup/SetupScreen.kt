@@ -43,9 +43,9 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.baccours.kronos.model.WorkoutConfig
-import com.baccours.kronos.model.WorkoutItemType
-import com.baccours.kronos.model.WorkoutMode
+import com.baccours.kronos.model.TimerConfig
+import com.baccours.kronos.model.TaskType
+import com.baccours.kronos.model.TimerMode
 import com.baccours.kronos.ui.icons.Add
 import com.baccours.kronos.ui.components.HybridStepper
 import com.baccours.kronos.ui.components.TimeInput
@@ -57,7 +57,7 @@ import com.baccours.kronos.ui.icons.Play
 @Composable
 fun SetupScreen(
     viewModel: SetupViewModel = viewModel(),
-    onStartWorkout: (WorkoutConfig) -> Unit = {}
+    onStartTimer: (TimerConfig) -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val focusManager = LocalFocusManager.current
@@ -88,7 +88,7 @@ fun SetupScreen(
             },
             floatingActionButton = {
                 ExtendedFloatingActionButton(
-                    onClick = { onStartWorkout(uiState) },
+                    onClick = { onStartTimer(uiState) },
                     icon = { Icon(Icons.Play, contentDescription = null) },
                     text = { Text("START") },
                     containerColor = MaterialTheme.colorScheme.primary,
@@ -105,18 +105,17 @@ fun SetupScreen(
             ) {
                 // Mode Selection
                 item {
-                    Text("Workout Mode", style = MaterialTheme.typography.titleMedium)
                     SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
                         SegmentedButton(
-                            selected = uiState.mode == WorkoutMode.TIMER,
-                            onClick = { viewModel.updateMode(WorkoutMode.TIMER) },
+                            selected = uiState.mode == TimerMode.TIMER,
+                            onClick = { viewModel.updateMode(TimerMode.TIMER) },
                             shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2)
                         ) {
                             Text("Timer")
                         }
                         SegmentedButton(
-                            selected = uiState.mode == WorkoutMode.FOR_TIME,
-                            onClick = { viewModel.updateMode(WorkoutMode.FOR_TIME) },
+                            selected = uiState.mode == TimerMode.FOR_TIME,
+                            onClick = { viewModel.updateMode(TimerMode.FOR_TIME) },
                             shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2)
                         ) {
                             Text("For Time")
@@ -169,7 +168,7 @@ fun SetupScreen(
 
                 // Work/Rest Sequence Items
                 itemsIndexed(uiState.items) { index, item ->
-                    WorkoutItemRow(
+                    TaskRow(
                         index = index + 1,
                         type = item.type,
                         durationSeconds = item.durationSeconds,
@@ -235,20 +234,20 @@ fun SetupScreen(
 }
 
 @Composable
-fun WorkoutItemRow(
+fun TaskRow(
     index: Int,
-    type: WorkoutItemType,
+    type: TaskType,
     durationSeconds: Int,
     onDurationChange: (Int) -> Unit,
     onDelete: () -> Unit
 ) {
-    val backgroundColor = if (type == WorkoutItemType.WORK) {
+    val backgroundColor = if (type == TaskType.WORK) {
         MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
     } else {
         MaterialTheme.colorScheme.secondary.copy(alpha = 0.1f)
     }
     
-    val accentColor = if (type == WorkoutItemType.WORK) {
+    val accentColor = if (type == TaskType.WORK) {
         MaterialTheme.colorScheme.primary
     } else {
         MaterialTheme.colorScheme.secondary
@@ -271,7 +270,7 @@ fun WorkoutItemRow(
         ) {
             Text(
                 text = index.toString(),
-                color = if (type == WorkoutItemType.WORK) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSecondary,
+                color = if (type == TaskType.WORK) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSecondary,
                 fontWeight = FontWeight.Bold
             )
         }
@@ -279,7 +278,7 @@ fun WorkoutItemRow(
         Spacer(modifier = Modifier.width(16.dp))
         
         Text(
-            text = if (type == WorkoutItemType.WORK) "WORK" else "REST",
+            text = if (type == TaskType.WORK) "WORK" else "REST",
             style = MaterialTheme.typography.bodyLarge,
             fontWeight = FontWeight.Bold,
             modifier = Modifier.weight(1f)

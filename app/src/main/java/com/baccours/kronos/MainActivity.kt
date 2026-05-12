@@ -23,26 +23,26 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.baccours.kronos.repository.TimerStatus
-import com.baccours.kronos.service.WorkoutService
+import com.baccours.kronos.service.TimerService
 import com.baccours.kronos.ui.running.RunningScreen
 import com.baccours.kronos.ui.setup.SetupScreen
 import com.baccours.kronos.ui.theme.KronosTheme
 
 class MainActivity : ComponentActivity() {
-    private var workoutService: WorkoutService? = null
+    private var timerService: TimerService? = null
     private var isBound = false
     private val mainViewModel: MainViewModel by viewModels()
 
     private val connection = object : ServiceConnection {
         override fun onServiceConnected(className: ComponentName, service: IBinder) {
-            val binder = service as WorkoutService.LocalBinder
-            workoutService = binder.getService()
+            val binder = service as TimerService.LocalBinder
+            timerService = binder.getService()
             isBound = true
         }
 
         override fun onServiceDisconnected(arg0: ComponentName) {
             isBound = false
-            workoutService = null
+            timerService = null
         }
     }
 
@@ -82,10 +82,10 @@ class MainActivity : ComponentActivity() {
 
                 if (uiState.timerStatus == TimerStatus.NOT_STARTED) {
                     SetupScreen(
-                        onStartWorkout = { config ->
-                            val intent = Intent(context, WorkoutService::class.java).apply {
-                                action = WorkoutService.ACTION_START
-                                putExtra(WorkoutService.EXTRA_CONFIG, config)
+                        onStartTimer = { config ->
+                            val intent = Intent(context, TimerService::class.java).apply {
+                                action = TimerService.ACTION_START
+                                putExtra(TimerService.EXTRA_CONFIG, config)
                             }
                             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                                 context.startForegroundService(intent)
@@ -97,10 +97,10 @@ class MainActivity : ComponentActivity() {
                     )
                 } else {
                     RunningScreen(
-                        onPause = { sendServiceAction(WorkoutService.ACTION_PAUSE) },
-                        onResume = { sendServiceAction(WorkoutService.ACTION_RESUME) },
-                        onStop = { sendServiceAction(WorkoutService.ACTION_STOP) },
-                        onSkip = { sendServiceAction(WorkoutService.ACTION_SKIP) }
+                        onPause = { sendServiceAction(TimerService.ACTION_PAUSE) },
+                        onResume = { sendServiceAction(TimerService.ACTION_RESUME) },
+                        onStop = { sendServiceAction(TimerService.ACTION_STOP) },
+                        onSkip = { sendServiceAction(TimerService.ACTION_SKIP) }
                     )
                 }
             }
@@ -108,7 +108,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun bindToService() {
-        Intent(this, WorkoutService::class.java).also { intent ->
+        Intent(this, TimerService::class.java).also { intent ->
             bindService(intent, connection, BIND_AUTO_CREATE)
         }
     }
@@ -122,7 +122,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onStart() {
         super.onStart()
-        // If workout is already running, bind to it
+        // If timer is already running, bind to it
         if (mainViewModel.uiState.value.timerStatus != TimerStatus.NOT_STARTED && !isBound) {
             bindToService()
         }
@@ -134,7 +134,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun sendServiceAction(action: String) {
-        val intent = Intent(this, WorkoutService::class.java).apply {
+        val intent = Intent(this, TimerService::class.java).apply {
             this.action = action
         }
         startService(intent)

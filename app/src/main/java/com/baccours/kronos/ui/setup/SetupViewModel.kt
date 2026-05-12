@@ -1,20 +1,20 @@
 package com.baccours.kronos.ui.setup
 
 import androidx.lifecycle.ViewModel
-import com.baccours.kronos.model.WorkoutConfig
-import com.baccours.kronos.model.WorkoutItem
-import com.baccours.kronos.model.WorkoutItemType
-import com.baccours.kronos.model.WorkoutMode
+import com.baccours.kronos.model.TimerConfig
+import com.baccours.kronos.model.Task
+import com.baccours.kronos.model.TaskType
+import com.baccours.kronos.model.TimerMode
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 
 class SetupViewModel : ViewModel() {
-    private val _uiState = MutableStateFlow(WorkoutConfig())
-    val uiState: StateFlow<WorkoutConfig> = _uiState.asStateFlow()
+    private val _uiState = MutableStateFlow(TimerConfig())
+    val uiState: StateFlow<TimerConfig> = _uiState.asStateFlow()
 
-    fun updateMode(mode: WorkoutMode) {
+    fun updateMode(mode: TimerMode) {
         _uiState.update { it.copy(mode = mode) }
     }
 
@@ -28,9 +28,9 @@ class SetupViewModel : ViewModel() {
 
     fun addItem() {
         _uiState.update {
-            val lastType = it.items.lastOrNull()?.type ?: WorkoutItemType.REST
-            val nextType = if (lastType == WorkoutItemType.WORK) WorkoutItemType.REST else WorkoutItemType.WORK
-            it.copy(items = it.items + WorkoutItem(type = nextType))
+            val lastType = it.items.lastOrNull()?.type ?: TaskType.REST
+            val nextType = if (lastType == TaskType.WORK) TaskType.REST else TaskType.WORK
+            it.copy(items = it.items + Task(type = nextType))
         }
     }
 

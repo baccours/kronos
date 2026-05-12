@@ -13,9 +13,9 @@ import android.os.IBinder
 import android.os.SystemClock
 import androidx.core.app.NotificationCompat
 import com.baccours.kronos.MainActivity
-import com.baccours.kronos.model.WorkoutConfig
-import com.baccours.kronos.model.WorkoutItemType
-import com.baccours.kronos.model.WorkoutMode
+import com.baccours.kronos.model.TimerConfig
+import com.baccours.kronos.model.TaskType
+import com.baccours.kronos.model.TimerMode
 import com.baccours.kronos.repository.TimerRepository
 import com.baccours.kronos.repository.TimerStatus
 import com.baccours.kronos.repository.TimerState
@@ -28,28 +28,28 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
-class WorkoutService : Service() {
+class TimerService : Service() {
 
     private val binder = LocalBinder()
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private var timerJob: Job? = null
     
-    private lateinit var audioManager: WorkoutAudioManager
-    private val channelId = "workout_channel"
+    private lateinit var audioManager: TimerAudioManager
+    private val channelId = "timer_channel"
     private val notificationId = 1
 
     private var itemStartTimeMillis: Long = 0
     private var pausedTimeAtMillis: Long = 0
 
     inner class LocalBinder : Binder() {
-        fun getService(): WorkoutService = this@WorkoutService
+        fun getService(): TimerService = this@TimerService
     }
 
     override fun onBind(intent: Intent?): IBinder = binder
 
     override fun onCreate() {
         super.onCreate()
-        audioManager = WorkoutAudioManager(this)
+        audioManager = TimerAudioManager(this)
         createNotificationChannel()
     }
 
@@ -57,22 +57,22 @@ class WorkoutService : Service() {
         when (intent?.action) {
             ACTION_START -> {
                 val config = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                    intent.getParcelableExtra(EXTRA_CONFIG, WorkoutConfig::class.java)
+                    intent.getParcelableExtra(EXTRA_CONFIG, TimerConfig::class.java)
                 } else {
                     @Suppress("DEPRECATION")
                     intent.getParcelableExtra(EXTRA_CONFIG)
                 }
-                startWorkout(config)
+                startTimer(config)
             }
-            ACTION_PAUSE -> pauseWorkout()
-            ACTION_RESUME -> resumeWorkout()
-            ACTION_STOP -> stopWorkout()
+            ACTION_PAUSE -> pauseTimer()
+            ACTION_RESUME -> resumeTimer()
+            ACTION_STOP -> stopTimer()
             ACTION_SKIP -> moveToNext()
         }
         return START_NOT_STICKY
     }
 
-    private fun startWorkout(config: WorkoutConfig?) {
+    private fun startTimer(config: TimerConfig?) {
         if (config == null) return
         
         TimerRepository.reset()
@@ -102,12 +102,12 @@ class WorkoutService : Service() {
             startForeground(notificationId, notification)
         }
 
-        audioManager.speak("Workout starting in 10 seconds. Get ready.")
+        audioManager.speak("Get ready. 10 seconds.")
         
         startTimerTicker()
     }
 
-    private fun pauseWorkout() {
+    private fun pauseTimer() {
         val currentState = TimerRepository.timerState.value
         if (currentState.status == TimerStatus.RUNNING) {
             timerJob?.cancel()
@@ -117,7 +117,7 @@ class WorkoutService : Service() {
         }
     }
 
-    private fun resumeWorkout() {
+    private fun resumeTimer() {
         val currentState = TimerRepository.timerState.value
         if (currentState.status == TimerStatus.PAUSED) {
             val pauseDuration = SystemClock.elapsedRealtime() - pausedTimeAtMillis
@@ -127,7 +127,7 @@ class WorkoutService : Service() {
         }
     }
 
-    private fun stopWorkout() {
+    private fun stopTimer() {
         timerJob?.cancel()
         TimerRepository.updateState(TimerRepository.timerState.value.copy(status = TimerStatus.NOT_STARTED))
         stopForeground(STOP_FOREGROUND_REMOVE)
@@ -172,7 +172,7 @@ class WorkoutService : Service() {
             currentState.currentItem?.durationSeconds ?: 0
         }
         
-        if (config.mode == WorkoutMode.TIMER || currentState.isRestBetweenSets) {
+        if (config.mode == TimerMode.TIMER || currentState.isRestBetweenSets) {
             val remaining = (totalSeconds - elapsedSinceItemStart).coerceAtLeast(0)
             if (remaining != currentState.remainingSeconds) {
                 TimerRepository.updateState(currentState.copy(remainingSeconds = remaining))
@@ -195,7 +195,7 @@ class WorkoutService : Service() {
                 
                 updateNotification(TimerRepository.timerState.value)
                 // Note: For Time doesn't automatically move to next unless it's a "Rest" item with duration
-                if (currentState.currentItem?.type == WorkoutItemType.REST && elapsedSinceItemStart >= totalSeconds) {
+                if (currentState.currentItem?.type == TaskType.REST && elapsedSinceItemStart >= totalSeconds) {
                     moveToNext()
                 }
             }
@@ -209,7 +209,7 @@ class WorkoutService : Service() {
         
         TimerRepository.updateState(currentState.copy(
             isReadyCountdown = false,
-            remainingSeconds = if (config.mode == WorkoutMode.TIMER) firstItem.durationSeconds else 0,
+            remainingSeconds = if (config.mode == TimerMode.TIMER) firstItem.durationSeconds else 0,
             elapsedSeconds = 0
         ))
         itemStartTimeMillis = SystemClock.elapsedRealtime()
@@ -228,7 +228,7 @@ class WorkoutService : Service() {
         val currentState = TimerRepository.timerState.value
         val config = currentState.config ?: return
         
-        if (config.mode == WorkoutMode.FOR_TIME && !currentState.isRestBetweenSets && currentState.currentItem?.type != WorkoutItemType.REST) {
+        if (config.mode == TimerMode.FOR_TIME && !currentState.isRestBetweenSets && currentState.currentItem?.type != TaskType.REST) {
             val newRoundTimes = currentState.roundTimes + currentState.elapsedSeconds
             TimerRepository.updateState(currentState.copy(roundTimes = newRoundTimes))
         }
@@ -242,7 +242,7 @@ class WorkoutService : Service() {
                 currentSet = nextSet,
                 currentRound = 1,
                 currentItemIndex = 0,
-                remainingSeconds = if (config.mode == WorkoutMode.TIMER) firstItem.durationSeconds else 0,
+                remainingSeconds = if (config.mode == TimerMode.TIMER) firstItem.durationSeconds else 0,
                 elapsedSeconds = 0
             ))
             itemStartTimeMillis = SystemClock.elapsedRealtime()
@@ -263,7 +263,7 @@ class WorkoutService : Service() {
                 if (nextSet < config.sets) {
                     triggerRestBetweenSets = true
                 } else {
-                    finishWorkout()
+                    finishTimer()
                     return
                 }
             }
@@ -283,7 +283,7 @@ class WorkoutService : Service() {
                 currentItemIndex = nextItemIndex,
                 currentRound = nextRound,
                 currentSet = nextSet,
-                remainingSeconds = if (config.mode == WorkoutMode.TIMER) nextItem.durationSeconds else 0,
+                remainingSeconds = if (config.mode == TimerMode.TIMER) nextItem.durationSeconds else 0,
                 elapsedSeconds = 0
             ))
             itemStartTimeMillis = SystemClock.elapsedRealtime()
@@ -292,11 +292,11 @@ class WorkoutService : Service() {
         }
     }
 
-    private fun finishWorkout() {
+    private fun finishTimer() {
         timerJob?.cancel()
         TimerRepository.updateState(TimerRepository.timerState.value.copy(status = TimerStatus.FINISHED))
         audioManager.playCelebration()
-        audioManager.speak("Workout complete! Well done.")
+        audioManager.speak("Well done !")
         updateNotification(TimerRepository.timerState.value)
     }
 
@@ -318,10 +318,10 @@ class WorkoutService : Service() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
                 channelId,
-                "Workout Timer",
+                "Timer",
                 NotificationManager.IMPORTANCE_LOW
             ).apply {
-                description = "Shows active workout timer"
+                description = "Shows active timer"
                 setShowBadge(false)
             }
             val manager = getSystemService(NotificationManager::class.java)
@@ -336,12 +336,12 @@ class WorkoutService : Service() {
         val pendingIntent = PendingIntent.getActivity(this, 0, intent, PendingIntent.FLAG_IMMUTABLE)
 
         val title = when {
-            state.status == TimerStatus.FINISHED -> "Workout Finished"
+            state.status == TimerStatus.FINISHED -> "Finished"
             state.isRestBetweenSets -> "Rest Between Sets"
             else -> "${state.currentItem?.type ?: "Work"} - Set ${state.currentSet}/${state.config?.sets ?: 1}"
         }
 
-        val time = if (state.config?.mode == WorkoutMode.TIMER || state.isRestBetweenSets) {
+        val time = if (state.config?.mode == TimerMode.TIMER || state.isRestBetweenSets) {
             "%02d:%02d".format(state.remainingSeconds / 60, state.remainingSeconds % 60)
         } else {
             "%02d:%02d".format(state.elapsedSeconds / 60, state.elapsedSeconds % 60)
@@ -380,7 +380,7 @@ class WorkoutService : Service() {
     }
 
     private fun getPendingIntent(action: String): PendingIntent {
-        val intent = Intent(this, WorkoutService::class.java).apply { this.action = action }
+        val intent = Intent(this, TimerService::class.java).apply { this.action = action }
         return PendingIntent.getService(this, 0, intent, PendingIntent.FLAG_IMMUTABLE)
     }
 

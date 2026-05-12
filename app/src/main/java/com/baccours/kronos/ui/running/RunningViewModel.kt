@@ -2,8 +2,8 @@ package com.baccours.kronos.ui.running
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.baccours.kronos.model.WorkoutItemType
-import com.baccours.kronos.model.WorkoutMode
+import com.baccours.kronos.model.TaskType
+import com.baccours.kronos.model.TimerMode
 import com.baccours.kronos.repository.TimerRepository
 import com.baccours.kronos.repository.TimerState
 import com.baccours.kronos.repository.TimerStatus
@@ -22,7 +22,7 @@ data class RunningUiState(
     val totalRemainingTime: String? = null,
     val isReadyCountdown: Boolean = false,
     val isRestBetweenSets: Boolean = false,
-    val mode: WorkoutMode? = null,
+    val mode: TimerMode? = null,
     val roundTimes: List<String> = emptyList(),
     val nextButtonText: String? = null
 )
@@ -32,7 +32,7 @@ class RunningViewModel : ViewModel() {
     val uiState: StateFlow<RunningUiState> = TimerRepository.timerState
         .map { state ->
             val config = state.config
-            val workItems = config?.items?.filter { it.type == WorkoutItemType.WORK } ?: emptyList()
+            val workItems = config?.items?.filter { it.type == TaskType.WORK } ?: emptyList()
             val workItemsCount = workItems.size.coerceAtLeast(1)
 
             RunningUiState(
@@ -42,7 +42,7 @@ class RunningViewModel : ViewModel() {
                 itemName = getItemName(state),
                 isWorkItem = isWorkItem(state),
                 displayTime = formatTime(getDisplaySeconds(state)),
-                totalRemainingTime = if (config?.mode == WorkoutMode.TIMER && !state.isReadyCountdown) {
+                totalRemainingTime = if (config?.mode == TimerMode.TIMER && !state.isReadyCountdown) {
                     formatTime(state.totalRemainingSeconds)
                 } else null,
                 isReadyCountdown = state.isReadyCountdown,
@@ -89,7 +89,7 @@ class RunningViewModel : ViewModel() {
 
     private fun getDisplaySeconds(state: TimerState): Int {
         val config = state.config ?: return 0
-        return if (config.mode == WorkoutMode.TIMER || state.isRestBetweenSets || state.isReadyCountdown) {
+        return if (config.mode == TimerMode.TIMER || state.isRestBetweenSets || state.isReadyCountdown) {
             state.remainingSeconds
         } else {
             state.elapsedSeconds
@@ -97,12 +97,12 @@ class RunningViewModel : ViewModel() {
     }
 
     private fun isWorkItem(state: TimerState): Boolean {
-        return !(state.currentItem?.type == WorkoutItemType.REST || state.isRestBetweenSets || state.isReadyCountdown)
+        return !(state.currentItem?.type == TaskType.REST || state.isRestBetweenSets || state.isReadyCountdown)
     }
 
     private fun getNextButtonText(state: TimerState): String? {
         val config = state.config ?: return null
-        if (config.mode != WorkoutMode.FOR_TIME || state.isReadyCountdown || state.isRestBetweenSets || state.currentItem?.type == WorkoutItemType.REST) return null
+        if (config.mode != TimerMode.FOR_TIME || state.isReadyCountdown || state.isRestBetweenSets || state.currentItem?.type == TaskType.REST) return null
 
         return if (state.currentItemIndex == config.items.size - 1) {
             if (state.currentRound == config.roundsPerSet) {

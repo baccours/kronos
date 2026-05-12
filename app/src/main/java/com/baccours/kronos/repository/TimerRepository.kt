@@ -1,8 +1,8 @@
 package com.baccours.kronos.repository
 
-import com.baccours.kronos.model.WorkoutConfig
-import com.baccours.kronos.model.WorkoutItem
-import com.baccours.kronos.model.WorkoutMode
+import com.baccours.kronos.model.TimerConfig
+import com.baccours.kronos.model.Task
+import com.baccours.kronos.model.TimerMode
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -21,10 +21,10 @@ data class TimerState(
     val remainingSeconds: Int = 0,
     val elapsedSeconds: Int = 0,
     val isRestBetweenSets: Boolean = false,
-    val config: WorkoutConfig? = null,
+    val config: TimerConfig? = null,
     val roundTimes: List<Int> = emptyList() // For "For Time" mode
 ) {
-    val currentItem: WorkoutItem?
+    val currentItem: Task?
         get() = config?.items?.getOrNull(currentItemIndex)
 
     val totalRemainingSeconds: Int
@@ -35,7 +35,7 @@ data class TimerState(
             // Time remaining in current set
             val remainingInCurrentRound = if (isRestBetweenSets) 0 else {
                 val pastItemsInRound = cfg.items.take(currentItemIndex).sumOf { it.durationSeconds }
-                val currentItemPast = if (cfg.mode == WorkoutMode.TIMER) {
+                val currentItemPast = if (cfg.mode == TimerMode.TIMER) {
                     currentItem?.durationSeconds?.minus(remainingSeconds) ?: 0
                 } else {
                     elapsedSeconds
