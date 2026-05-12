@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">Kronos</string>
+    <string name="timer_service_description">Maintains active timer when the app is in the background.</string>
 </resources>

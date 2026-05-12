@@ -6,6 +6,7 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
 import android.content.Intent
+import android.content.pm.ServiceInfo
 import android.os.Binder
 import android.os.Build
 import android.os.IBinder
@@ -34,8 +35,8 @@ class WorkoutService : Service() {
     private var timerJob: Job? = null
     
     private lateinit var audioManager: WorkoutAudioManager
-    private val CHANNEL_ID = "workout_channel"
-    private val NOTIFICATION_ID = 1
+    private val channelId = "workout_channel"
+    private val notificationId = 1
 
     private var itemStartTimeMillis: Long = 0
     private var pausedTimeAtMillis: Long = 0
@@ -59,7 +60,7 @@ class WorkoutService : Service() {
                     intent.getParcelableExtra(EXTRA_CONFIG, WorkoutConfig::class.java)
                 } else {
                     @Suppress("DEPRECATION")
-                    intent.getParcelableExtra<WorkoutConfig>(EXTRA_CONFIG)
+                    intent.getParcelableExtra(EXTRA_CONFIG)
                 }
                 startWorkout(config)
             }
@@ -89,8 +90,18 @@ class WorkoutService : Service() {
         ))
         
         itemStartTimeMillis = SystemClock.elapsedRealtime()
-        
-        startForeground(NOTIFICATION_ID, createNotification(TimerRepository.timerState.value))
+
+        val notification = createNotification(TimerRepository.timerState.value)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            startForeground(
+                notificationId,
+                notification,
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
+            )
+        } else {
+            startForeground(notificationId, notification)
+        }
+
         audioManager.speak("Workout starting in 10 seconds. Get ready.")
         
         startTimerTicker()
@@ -177,7 +188,7 @@ class WorkoutService : Service() {
             // For Time mode
             if (elapsedSinceItemStart != currentState.elapsedSeconds) {
                 TimerRepository.updateState(currentState.copy(elapsedSeconds = elapsedSinceItemStart))
-                // Cues for For Time
+                // For Time Cues
                 if (totalSeconds > 0 && elapsedSinceItemStart == totalSeconds / 2) {
                     audioManager.speak("Halfway")
                 }
@@ -203,7 +214,7 @@ class WorkoutService : Service() {
         ))
         itemStartTimeMillis = SystemClock.elapsedRealtime()
         audioManager.playStartBuzzer()
-        audioManager.speak("${firstItem.name.ifBlank { firstItem.type.toString() }}")
+        audioManager.speak(firstItem.name.ifBlank { firstItem.type.toString() })
     }
 
     private fun checkReadyCountdownCues(remaining: Int) {
@@ -242,7 +253,7 @@ class WorkoutService : Service() {
 
         var nextItemIndex = currentState.currentItemIndex + 1
         var nextRound = currentState.currentRound
-        var nextSet = currentState.currentSet
+        val nextSet = currentState.currentSet
         var triggerRestBetweenSets = false
 
         if (nextItemIndex >= config.items.size) {
@@ -290,7 +301,6 @@ class WorkoutService : Service() {
     }
 
     private fun checkAudioCues(remaining: Int, total: Int) {
-        val currentState = TimerRepository.timerState.value
         when (remaining) {
             10 -> if (total >= 30) audioManager.speak("10 seconds remaining")
             3, 2, 1 -> {
@@ -307,7 +317,7 @@ class WorkoutService : Service() {
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
-                CHANNEL_ID,
+                channelId,
                 "Workout Timer",
                 NotificationManager.IMPORTANCE_LOW
             ).apply {
@@ -341,7 +351,7 @@ class WorkoutService : Service() {
             "Round ${state.currentRound}/${state.config?.roundsPerSet ?: 1} | $time"
         }
 
-        val builder = NotificationCompat.Builder(this, CHANNEL_ID)
+        val builder = NotificationCompat.Builder(this, channelId)
             .setContentTitle(title)
             .setContentText(content)
             .setSmallIcon(android.R.drawable.ic_media_play)
@@ -366,7 +376,7 @@ class WorkoutService : Service() {
         if (state.status == TimerStatus.NOT_STARTED) return
         val notification = createNotification(state)
         val manager = getSystemService(NotificationManager::class.java)
-        manager.notify(NOTIFICATION_ID, notification)
+        manager.notify(notificationId, notification)
     }
 
     private fun getPendingIntent(action: String): PendingIntent {
