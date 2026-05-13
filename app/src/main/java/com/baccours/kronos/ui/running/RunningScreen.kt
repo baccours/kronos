@@ -129,12 +129,12 @@ fun ColumnScope.TimerRunningView(
 
     Spacer(modifier = Modifier.height(32.dp))
 
-    // Current Item Name
+    // Current Task Name
     Text(
-        text = uiState.itemName,
+        text = uiState.taskName,
         style = MaterialTheme.typography.headlineMedium,
         fontWeight = FontWeight.Bold,
-        color = if (uiState.isWorkItem) 
+        color = if (uiState.isWorkTask)
             MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary
     )
 

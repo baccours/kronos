@@ -84,7 +84,7 @@ class TimerService : Service() {
             readyCountdownSeconds = 10,
             remainingSeconds = 10,
             elapsedSeconds = 0,
-            currentItemIndex = 0,
+            currentTaskIndex = 0,
             currentRound = 1,
             currentSet = 1
         ))
@@ -158,7 +158,7 @@ class TimerService : Service() {
                 TimerRepository.updateState(currentState.copy(remainingSeconds = remaining))
                 checkReadyCountdownCues(remaining)
                 if (remaining == 0) {
-                    startFirstItem()
+                    startFirstTask()
                 } else {
                     updateNotification(TimerRepository.timerState.value)
                 }
@@ -166,13 +166,13 @@ class TimerService : Service() {
             return
         }
 
-        val totalSeconds = if (currentState.isRestBetweenSets) {
-            config.restBetweenSetsSeconds
+        val totalSeconds = if (currentState.isSetRest) {
+            config.setRestSeconds
         } else {
-            currentState.currentItem?.durationSeconds ?: 0
+            currentState.currentTask?.durationSeconds ?: 0
         }
         
-        if (config.mode == TimerMode.TIMER || currentState.isRestBetweenSets) {
+        if (config.mode == TimerMode.TIMER || currentState.isSetRest) {
             val remaining = (totalSeconds - elapsedSinceItemStart).coerceAtLeast(0)
             if (remaining != currentState.remainingSeconds) {
                 TimerRepository.updateState(currentState.copy(remainingSeconds = remaining))
@@ -195,26 +195,26 @@ class TimerService : Service() {
                 
                 updateNotification(TimerRepository.timerState.value)
                 // Note: For Time doesn't automatically move to next unless it's a "Rest" item with duration
-                if (currentState.currentItem?.type == TaskType.REST && elapsedSinceItemStart >= totalSeconds) {
+                if (currentState.currentTask?.type == TaskType.REST && elapsedSinceItemStart >= totalSeconds) {
                     moveToNext()
                 }
             }
         }
     }
 
-    private fun startFirstItem() {
+    private fun startFirstTask() {
         val currentState = TimerRepository.timerState.value
         val config = currentState.config ?: return
-        val firstItem = config.items.first()
+        val firstTask = config.tasks.first()
         
         TimerRepository.updateState(currentState.copy(
             isReadyCountdown = false,
-            remainingSeconds = if (config.mode == TimerMode.TIMER) firstItem.durationSeconds else 0,
+            remainingSeconds = if (config.mode == TimerMode.TIMER) firstTask.durationSeconds else 0,
             elapsedSeconds = 0
         ))
         itemStartTimeMillis = SystemClock.elapsedRealtime()
         audioManager.playStartBuzzer()
-        audioManager.speak(firstItem.name.ifBlank { firstItem.type.toString() })
+        audioManager.speak(firstTask.name.ifBlank { firstTask.type.toString() })
     }
 
     private fun checkReadyCountdownCues(remaining: Int) {
@@ -228,40 +228,40 @@ class TimerService : Service() {
         val currentState = TimerRepository.timerState.value
         val config = currentState.config ?: return
         
-        if (config.mode == TimerMode.FOR_TIME && !currentState.isRestBetweenSets && currentState.currentItem?.type != TaskType.REST) {
+        if (config.mode == TimerMode.FOR_TIME && !currentState.isSetRest && currentState.currentTask?.type != TaskType.REST) {
             val newRoundTimes = currentState.roundTimes + currentState.elapsedSeconds
             TimerRepository.updateState(currentState.copy(roundTimes = newRoundTimes))
         }
 
-        if (currentState.isRestBetweenSets) {
+        if (currentState.isSetRest) {
             // Finished rest between sets, start next set
             val nextSet = currentState.currentSet + 1
-            val firstItem = config.items.first()
+            val firstTask = config.tasks.first()
             TimerRepository.updateState(currentState.copy(
-                isRestBetweenSets = false,
+                isSetRest = false,
                 currentSet = nextSet,
                 currentRound = 1,
-                currentItemIndex = 0,
-                remainingSeconds = if (config.mode == TimerMode.TIMER) firstItem.durationSeconds else 0,
+                currentTaskIndex = 0,
+                remainingSeconds = if (config.mode == TimerMode.TIMER) firstTask.durationSeconds else 0,
                 elapsedSeconds = 0
             ))
             itemStartTimeMillis = SystemClock.elapsedRealtime()
             audioManager.playStartBuzzer()
-            audioManager.speak("Set $nextSet started. ${firstItem.name.ifBlank { firstItem.type.name }}")
+            audioManager.speak("Set $nextSet started. ${firstTask.name.ifBlank { firstTask.type.name }}")
             return
         }
 
-        var nextItemIndex = currentState.currentItemIndex + 1
+        var nextTaskIndex = currentState.currentTaskIndex + 1
         var nextRound = currentState.currentRound
         val nextSet = currentState.currentSet
-        var triggerRestBetweenSets = false
+        var triggerSetRest = false
 
-        if (nextItemIndex >= config.items.size) {
-            nextItemIndex = 0
+        if (nextTaskIndex >= config.tasks.size) {
+            nextTaskIndex = 0
             nextRound++
-            if (nextRound > config.roundsPerSet) {
+            if (nextRound > config.rounds) {
                 if (nextSet < config.sets) {
-                    triggerRestBetweenSets = true
+                    triggerSetRest = true
                 } else {
                     finishTimer()
                     return
@@ -269,26 +269,26 @@ class TimerService : Service() {
             }
         }
 
-        if (triggerRestBetweenSets) {
+        if (triggerSetRest) {
             TimerRepository.updateState(currentState.copy(
-                isRestBetweenSets = true,
-                remainingSeconds = config.restBetweenSetsSeconds,
+                isSetRest = true,
+                remainingSeconds = config.setRestSeconds,
                 elapsedSeconds = 0
             ))
             itemStartTimeMillis = SystemClock.elapsedRealtime()
             audioManager.speak("Set complete. Rest between sets.")
         } else {
-            val nextItem = config.items[nextItemIndex]
+            val nextTask = config.tasks[nextTaskIndex]
             TimerRepository.updateState(currentState.copy(
-                currentItemIndex = nextItemIndex,
+                currentTaskIndex = nextTaskIndex,
                 currentRound = nextRound,
                 currentSet = nextSet,
-                remainingSeconds = if (config.mode == TimerMode.TIMER) nextItem.durationSeconds else 0,
+                remainingSeconds = if (config.mode == TimerMode.TIMER) nextTask.durationSeconds else 0,
                 elapsedSeconds = 0
             ))
             itemStartTimeMillis = SystemClock.elapsedRealtime()
             audioManager.playStartBuzzer()
-            audioManager.speak(nextItem.name.ifBlank { nextItem.type.name })
+            audioManager.speak(nextTask.name.ifBlank { nextTask.type.name })
         }
     }
 
@@ -337,18 +337,18 @@ class TimerService : Service() {
 
         val title = when {
             state.status == TimerStatus.FINISHED -> "Finished"
-            state.isRestBetweenSets -> "Rest Between Sets"
-            else -> "${state.currentItem?.type ?: "Work"} - Set ${state.currentSet}/${state.config?.sets ?: 1}"
+            state.isSetRest -> "Rest Between Sets"
+            else -> "${state.currentTask?.type ?: "Work"} - Set ${state.currentSet}/${state.config?.sets ?: 1}"
         }
 
-        val time = if (state.config?.mode == TimerMode.TIMER || state.isRestBetweenSets) {
+        val time = if (state.config?.mode == TimerMode.TIMER || state.isSetRest) {
             "%02d:%02d".format(state.remainingSeconds / 60, state.remainingSeconds % 60)
         } else {
             "%02d:%02d".format(state.elapsedSeconds / 60, state.elapsedSeconds % 60)
         }
 
         val content = if (state.status == TimerStatus.FINISHED) "Great job!" else {
-            "Round ${state.currentRound}/${state.config?.roundsPerSet ?: 1} | $time"
+            "Round ${state.currentRound}/${state.config?.rounds ?: 1} | $time"
         }
 
         val builder = NotificationCompat.Builder(this, channelId)

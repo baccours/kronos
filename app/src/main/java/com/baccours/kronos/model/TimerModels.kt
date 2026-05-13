@@ -25,16 +25,16 @@ data class Task(
 data class TimerConfig(
     val mode: TimerMode = TimerMode.TIMER,
     val sets: Int = 1,
-    val roundsPerSet: Int = 1,
-    val items: List<Task> = listOf(Task(type = TaskType.WORK), Task(type = TaskType.REST)),
-    val restBetweenSetsSeconds: Int = 60
+    val rounds: Int = 1,
+    val tasks: List<Task> = listOf(Task(type = TaskType.WORK), Task(type = TaskType.REST)),
+    val setRestSeconds: Int = 60
 ) : Parcelable {
     val totalDurationSeconds: Int
         get() {
-            val itemsDuration = items.sumOf { it.durationSeconds }
-            val totalRounds = roundsPerSet * sets
-            val activeDuration = itemsDuration * totalRounds
-            val setRestDuration = restBetweenSetsSeconds * (sets - 1)
+            val tasksDuration = tasks.sumOf { it.durationSeconds }
+            val totalRounds = rounds * sets
+            val activeDuration = tasksDuration * totalRounds
+            val setRestDuration = setRestSeconds * (sets - 1)
             return activeDuration + setRestDuration
         }
 }

@@ -16,12 +16,12 @@ data class RunningUiState(
     val status: TimerStatus = TimerStatus.NOT_STARTED,
     val currentSetText: String = "",
     val currentRoundText: String = "",
-    val itemName: String = "",
-    val isWorkItem: Boolean = true,
+    val taskName: String = "",
+    val isWorkTask: Boolean = true,
     val displayTime: String = "00:00",
     val totalRemainingTime: String? = null,
     val isReadyCountdown: Boolean = false,
-    val isRestBetweenSets: Boolean = false,
+    val isSetRest: Boolean = false,
     val mode: TimerMode? = null,
     val roundTimes: List<String> = emptyList(),
     val nextButtonText: String? = null
@@ -32,31 +32,31 @@ class RunningViewModel : ViewModel() {
     val uiState: StateFlow<RunningUiState> = TimerRepository.timerState
         .map { state ->
             val config = state.config
-            val workItems = config?.items?.filter { it.type == TaskType.WORK } ?: emptyList()
-            val workItemsCount = workItems.size.coerceAtLeast(1)
+            val workTasks = config?.tasks?.filter { it.type == TaskType.WORK } ?: emptyList()
+            val workTasksCount = workTasks.size.coerceAtLeast(1)
 
             RunningUiState(
                 status = state.status,
                 currentSetText = "${state.currentSet}/${config?.sets ?: 1}",
-                currentRoundText = "${state.currentRound}/${config?.roundsPerSet ?: 1}",
-                itemName = getItemName(state),
-                isWorkItem = isWorkItem(state),
+                currentRoundText = "${state.currentRound}/${config?.rounds ?: 1}",
+                taskName = getTaskName(state),
+                isWorkTask = isWorkTask(state),
                 displayTime = formatTime(getDisplaySeconds(state)),
                 totalRemainingTime = if (config?.mode == TimerMode.TIMER && !state.isReadyCountdown) {
                     formatTime(state.totalRemainingSeconds)
                 } else null,
                 isReadyCountdown = state.isReadyCountdown,
-                isRestBetweenSets = state.isRestBetweenSets,
+                isSetRest = state.isSetRest,
                 mode = config?.mode,
                 roundTimes = state.roundTimes.mapIndexed { index, seconds ->
-                    val roundNum = (index / workItemsCount) + 1
-                    val workItemIndex = index % workItemsCount
-                    val workItem = workItems.getOrNull(workItemIndex)
-                    val label = workItem?.name?.ifBlank {
-                        if (workItems.size > 1) "Item ${workItemIndex + 1}" else "Round $roundNum"
-                    } ?: "Item"
+                    val roundNum = (index / workTasksCount) + 1
+                    val workTaskIndex = index % workTasksCount
+                    val workTask = workTasks.getOrNull(workTaskIndex)
+                    val label = workTask?.name?.ifBlank {
+                        if (workTasks.size > 1) "Task ${workTaskIndex + 1}" else "Round $roundNum"
+                    } ?: "Task"
 
-                    if (workItems.size > 1) {
+                    if (workTasks.size > 1) {
                         "R$roundNum $label: ${formatTime(seconds)}"
                     } else {
                         "$label: ${formatTime(seconds)}"
@@ -77,35 +77,35 @@ class RunningViewModel : ViewModel() {
         return "%02d:%02d".format(mins, secs)
     }
 
-    private fun getItemName(state: TimerState): String {
+    private fun getTaskName(state: TimerState): String {
         return when {
             state.isReadyCountdown -> "GET READY"
-            state.isRestBetweenSets -> "REST BETWEEN SETS"
-            else -> state.currentItem?.let { item ->
-                item.name.ifBlank { item.type.name }
+            state.isSetRest -> "REST BETWEEN SETS"
+            else -> state.currentTask?.let { task ->
+                task.name.ifBlank { task.type.name }
             } ?: "WORK"
         }
     }
 
     private fun getDisplaySeconds(state: TimerState): Int {
         val config = state.config ?: return 0
-        return if (config.mode == TimerMode.TIMER || state.isRestBetweenSets || state.isReadyCountdown) {
+        return if (config.mode == TimerMode.TIMER || state.isSetRest || state.isReadyCountdown) {
             state.remainingSeconds
         } else {
             state.elapsedSeconds
         }
     }
 
-    private fun isWorkItem(state: TimerState): Boolean {
-        return !(state.currentItem?.type == TaskType.REST || state.isRestBetweenSets || state.isReadyCountdown)
+    private fun isWorkTask(state: TimerState): Boolean {
+        return !(state.currentTask?.type == TaskType.REST || state.isSetRest || state.isReadyCountdown)
     }
 
     private fun getNextButtonText(state: TimerState): String? {
         val config = state.config ?: return null
-        if (config.mode != TimerMode.FOR_TIME || state.isReadyCountdown || state.isRestBetweenSets || state.currentItem?.type == TaskType.REST) return null
+        if (config.mode != TimerMode.FOR_TIME || state.isReadyCountdown || state.isSetRest || state.currentTask?.type == TaskType.REST) return null
 
-        return if (state.currentItemIndex == config.items.size - 1) {
-            if (state.currentRound == config.roundsPerSet) {
+        return if (state.currentTaskIndex == config.tasks.size - 1) {
+            if (state.currentRound == config.rounds) {
                 if (state.currentSet == config.sets) "FINISH" else "NEXT SET"
             } else "NEXT ROUND"
         } else {

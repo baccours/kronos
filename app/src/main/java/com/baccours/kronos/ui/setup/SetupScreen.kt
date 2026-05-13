@@ -11,9 +11,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBars
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -41,25 +39,54 @@ import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.baccours.kronos.model.TimerConfig
+import com.baccours.kronos.model.Task
 import com.baccours.kronos.model.TaskType
+import com.baccours.kronos.model.TimerConfig
 import com.baccours.kronos.model.TimerMode
 import com.baccours.kronos.ui.icons.Add
 import com.baccours.kronos.ui.components.HybridStepper
 import com.baccours.kronos.ui.components.TimeInput
-import com.baccours.kronos.ui.icons.Delete
 import com.baccours.kronos.ui.icons.Icons
 import com.baccours.kronos.ui.icons.Play
+import com.baccours.kronos.ui.theme.KronosTheme
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SetupScreen(
     viewModel: SetupViewModel = viewModel(),
     onStartTimer: (TimerConfig) -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
+
+    // Stateful wrapper passing state and events down
+    SetupScreenContent(
+        uiState = uiState,
+        onStartTimer = onStartTimer,
+        updateMode = viewModel::updateMode,
+        updateSets = viewModel::updateSets,
+        updateSetRest = viewModel::updateSetRest,
+        updateRounds = viewModel::updateRounds,
+        addTask = viewModel::addTask,
+        updateTaskDuration = viewModel::updateTaskDuration,
+        removeTask = viewModel::removeTask
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SetupScreenContent(
+    uiState: TimerConfig,
+    onStartTimer: (TimerConfig) -> Unit,
+    updateMode: (TimerMode) -> Unit,
+    updateSets: (Int) -> Unit,
+    updateSetRest: (Int) -> Unit,
+    updateRounds: (Int) -> Unit,
+    addTask: () -> Unit,
+    updateTaskDuration: (String, Int) -> Unit,
+    removeTask: (String) -> Unit
+) {
     val focusManager = LocalFocusManager.current
 
     Box(
@@ -108,14 +135,14 @@ fun SetupScreen(
                     SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
                         SegmentedButton(
                             selected = uiState.mode == TimerMode.TIMER,
-                            onClick = { viewModel.updateMode(TimerMode.TIMER) },
+                            onClick = { updateMode(TimerMode.TIMER) },
                             shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2)
                         ) {
                             Text("Timer")
                         }
                         SegmentedButton(
                             selected = uiState.mode == TimerMode.FOR_TIME,
-                            onClick = { viewModel.updateMode(TimerMode.FOR_TIME) },
+                            onClick = { updateMode(TimerMode.FOR_TIME) },
                             shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2)
                         ) {
                             Text("For Time")
@@ -123,28 +150,59 @@ fun SetupScreen(
                     }
                 }
 
-                // Sets and Rounds
+                // Sets
+                item {
+                    Column(
+                        modifier = Modifier.fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.3f))
+                            .padding(16.dp)
+                    ) {
+                        Text(text = "Sets", style = MaterialTheme.typography.titleLarge)
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            HybridStepper(
+                                value = uiState.sets,
+                                onValueChange = updateSets,
+                                modifier = Modifier.weight(1.1f)
+                            )
+
+                            Row(
+                                modifier = Modifier.weight(0.9f),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Center
+                            ) {
+                                Text(
+                                    text = "rest: ",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                TimeInput(
+                                    durationSeconds = uiState.setRestSeconds,
+                                    onDurationChange = updateSetRest,
+                                    showRedOnZero = false
+                                )
+                            }
+                        }
+                    }
+                }
+
+
+                // Rounds
                 item {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(16.dp)
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text("Sets", style = MaterialTheme.typography.titleMedium)
-                            HybridStepper(
-                                value = uiState.sets,
-                                onValueChange = viewModel::updateSets,
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                        }
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text("Rounds per Set", style = MaterialTheme.typography.titleMedium)
-                            HybridStepper(
-                                value = uiState.roundsPerSet,
-                                onValueChange = viewModel::updateRoundsPerSet,
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                        }
+                        Text("Rounds", style = MaterialTheme.typography.titleLarge)
+                        HybridStepper(
+                            value = uiState.rounds,
+                            onValueChange = updateRounds,
+                            modifier = Modifier.fillMaxWidth()
+                        )
                     }
                 }
 
@@ -160,40 +218,21 @@ fun SetupScreen(
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold
                         )
-                        IconButton(onClick = viewModel::addItem) {
-                            Icon(Icons.Add, contentDescription = "Add item")
+                        IconButton(onClick = addTask) {
+                            Icon(Icons.Add, contentDescription = "Add task")
                         }
                     }
                 }
 
-                // Work/Rest Sequence Items
-                itemsIndexed(uiState.items) { index, item ->
+                // Work/Rest Sequence Tasks
+                itemsIndexed(uiState.tasks) { index, task ->
                     TaskRow(
                         index = index + 1,
-                        type = item.type,
-                        durationSeconds = item.durationSeconds,
-                        onDurationChange = { viewModel.updateItemDuration(item.id, it) },
-                        onDelete = { viewModel.removeItem(item.id) }
+                        type = task.type,
+                        durationSeconds = task.durationSeconds,
+                        onDurationChange = { updateTaskDuration(task.id, it) },
+                        onDelete = { removeTask(task.id) }
                     )
-                }
-
-                // Rest Between Sets
-                item {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.3f))
-                            .padding(16.dp)
-                    ) {
-                        Text("Rest Between Sets", style = MaterialTheme.typography.titleMedium)
-                        TimeInput(
-                            durationSeconds = uiState.restBetweenSetsSeconds,
-                            onDurationChange = viewModel::updateRestBetweenSets,
-                            modifier = Modifier.align(Alignment.CenterHorizontally),
-                            showRedOnZero = false
-                        )
-                    }
                 }
 
                 // Total Duration
@@ -233,64 +272,29 @@ fun SetupScreen(
     }
 }
 
+@Preview(showBackground = true)
 @Composable
-fun TaskRow(
-    index: Int,
-    type: TaskType,
-    durationSeconds: Int,
-    onDurationChange: (Int) -> Unit,
-    onDelete: () -> Unit
-) {
-    val backgroundColor = if (type == TaskType.WORK) {
-        MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
-    } else {
-        MaterialTheme.colorScheme.secondary.copy(alpha = 0.1f)
-    }
-    
-    val accentColor = if (type == TaskType.WORK) {
-        MaterialTheme.colorScheme.primary
-    } else {
-        MaterialTheme.colorScheme.secondary
-    }
-
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .background(backgroundColor)
-            .padding(12.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Box(
-            modifier = Modifier
-                .size(32.dp)
-                .clip(RoundedCornerShape(8.dp))
-                .background(accentColor),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = index.toString(),
-                color = if (type == TaskType.WORK) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSecondary,
-                fontWeight = FontWeight.Bold
-            )
-        }
-        
-        Spacer(modifier = Modifier.width(16.dp))
-        
-        Text(
-            text = if (type == TaskType.WORK) "WORK" else "REST",
-            style = MaterialTheme.typography.bodyLarge,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.weight(1f)
+fun SetupScreenPreview() {
+    KronosTheme {
+        SetupScreenContent(
+            uiState = TimerConfig(
+                mode = TimerMode.TIMER,
+                sets = 2,
+                rounds = 3,
+                setRestSeconds = 60,
+                tasks = listOf(
+                    Task(type = TaskType.WORK, durationSeconds = 30),
+                    Task(type = TaskType.REST, durationSeconds = 10)
+                )
+            ),
+            onStartTimer = {},
+            updateMode = {},
+            updateSets = {},
+            updateRounds = {},
+            addTask = {},
+            updateTaskDuration = { _, _ -> },
+            removeTask = {},
+            updateSetRest = {}
         )
-
-        TimeInput(
-            durationSeconds = durationSeconds,
-            onDurationChange = onDurationChange
-        )
-
-        IconButton(onClick = onDelete) {
-            Icon(Icons.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error)
-        }
     }
 }

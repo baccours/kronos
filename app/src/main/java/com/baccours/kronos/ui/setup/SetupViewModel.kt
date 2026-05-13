@@ -22,33 +22,34 @@ class SetupViewModel : ViewModel() {
         _uiState.update { it.copy(sets = sets) }
     }
 
-    fun updateRoundsPerSet(rounds: Int) {
-        _uiState.update { it.copy(roundsPerSet = rounds) }
+    fun updateSetRest(seconds: Int) {
+        _uiState.update { it.copy(setRestSeconds = seconds) }
     }
 
-    fun addItem() {
+    fun updateRounds(rounds: Int) {
+        _uiState.update { it.copy(rounds = rounds) }
+    }
+
+    fun addTask() {
         _uiState.update {
-            val lastType = it.items.lastOrNull()?.type ?: TaskType.REST
+            val lastType = it.tasks.lastOrNull()?.type ?: TaskType.REST
             val nextType = if (lastType == TaskType.WORK) TaskType.REST else TaskType.WORK
-            it.copy(items = it.items + Task(type = nextType))
+            it.copy(tasks = it.tasks + Task(type = nextType))
         }
     }
 
-    fun removeItem(id: String) {
+    fun removeTask(id: String) {
         _uiState.update {
-            it.copy(items = it.items.filter { item -> item.id != id })
+            it.copy(tasks = it.tasks.filter { task -> task.id != id })
         }
     }
 
-    fun updateItemDuration(id: String, durationSeconds: Int) {
+    fun updateTaskDuration(id: String, durationSeconds: Int) {
         _uiState.update {
-            it.copy(items = it.items.map { item ->
-                if (item.id == id) item.copy(durationSeconds = durationSeconds) else item
+            it.copy(tasks = it.tasks.map { task ->
+                if (task.id == id) task.copy(durationSeconds = durationSeconds) else task
             })
         }
     }
 
-    fun updateRestBetweenSets(durationSeconds: Int) {
-        _uiState.update { it.copy(restBetweenSetsSeconds = durationSeconds) }
-    }
 }
