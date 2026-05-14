@@ -1,7 +1,11 @@
 package com.baccours.kronos.ui.components
 
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -18,14 +22,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalFocusManager
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.sp
+import androidx.compose.ui.unit.dp
 
 @Composable
 fun TimeInput(
@@ -39,12 +43,26 @@ fun TimeInput(
     val focusRequester = remember { FocusRequester() }
     val focusManager = LocalFocusManager.current
 
+    val maxSeconds = (99 * 60) + 59
+
     val displayMinutes = durationSeconds / 60
     val displaySeconds = durationSeconds % 60
     val displayString = "%02d:%02d".format(displayMinutes, displaySeconds)
 
+    val textStyle = MaterialTheme.typography.headlineSmall.copy(
+        fontFamily = FontFamily.Monospace,
+        textAlign = TextAlign.Center
+    )
+
     Box(
         modifier = modifier
+            .width(96.dp)
+            .border(
+                width = 1.dp,
+                color = if (isEditing) MaterialTheme.colorScheme.primary else Color.Transparent,
+                shape = MaterialTheme.shapes.extraSmall
+            )
+            .padding(horizontal = 8.dp, vertical = 4.dp)
             .clickable {
                 isEditing = true
                 editValue = ""
@@ -63,6 +81,7 @@ fun TimeInput(
                     }
                 },
                 modifier = Modifier
+                    .fillMaxWidth()
                     .focusRequester(focusRequester)
                     .onFocusChanged { state ->
                         if (state.isFocused) {
@@ -73,7 +92,8 @@ fun TimeInput(
                                 val padded = editValue.padStart(4, '0')
                                 val mins = padded.substring(0, 2).toIntOrNull() ?: 0
                                 val secs = padded.substring(2, 4).toIntOrNull() ?: 0
-                                onDurationChange(mins * 60 + secs)
+                                val totalSeconds = (mins * 60 + secs).coerceAtMost(maxSeconds)
+                                onDurationChange(totalSeconds)
                             }
                             isEditing = false
                         }
@@ -85,12 +105,7 @@ fun TimeInput(
                 keyboardActions = KeyboardActions(
                     onDone = { focusManager.clearFocus() }
                 ),
-                textStyle = TextStyle(
-                    color = MaterialTheme.colorScheme.onSurface,
-                    fontSize = 24.sp,
-                    textAlign = TextAlign.Center,
-                    fontFamily = FontFamily.Monospace
-                ),
+                textStyle = textStyle.copy(color = MaterialTheme.colorScheme.onSurface),
                 cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
                 singleLine = true
             )
@@ -105,9 +120,9 @@ fun TimeInput(
             }
             Text(
                 text = displayString,
-                style = MaterialTheme.typography.headlineSmall,
-                color = color,
-                fontFamily = FontFamily.Monospace
+                modifier = Modifier.fillMaxWidth(),
+                style = textStyle,
+                color = color
             )
         }
     }
