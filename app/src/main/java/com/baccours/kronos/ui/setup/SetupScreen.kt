@@ -1,16 +1,20 @@
 package com.baccours.kronos.ui.setup
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -26,29 +30,32 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.baccours.kronos.model.Task
 import com.baccours.kronos.model.TaskType
 import com.baccours.kronos.model.TimerConfig
 import com.baccours.kronos.model.TimerMode
-import com.baccours.kronos.ui.icons.Add
 import com.baccours.kronos.ui.components.HybridStepper
 import com.baccours.kronos.ui.components.TimeInput
+import com.baccours.kronos.ui.icons.Add
 import com.baccours.kronos.ui.icons.Icons
 import com.baccours.kronos.ui.icons.Play
 import com.baccours.kronos.ui.theme.KronosTheme
@@ -89,6 +96,10 @@ private fun SetupScreenContent(
 ) {
     val focusManager = LocalFocusManager.current
 
+    val isTimerMode = uiState.mode == TimerMode.TIMER
+    val timerWgt by animateFloatAsState(targetValue = if (isTimerMode) 2f else 1f, label = "TW")
+    val forTimeWgt by animateFloatAsState(targetValue = if (!isTimerMode) 2f else 1f, label = "FTW")
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -103,20 +114,63 @@ private fun SetupScreenContent(
     ) {
         Scaffold(
             modifier = Modifier.fillMaxSize(),
-            contentWindowInsets = WindowInsets.systemBars,
+            contentWindowInsets = WindowInsets.systemBars.only(WindowInsetsSides.Bottom),
             topBar = {
-                TopAppBar(
-                    title = { Text("Kronos Setup", fontWeight = FontWeight.Bold) },
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.surface,
-                        titleContentColor = MaterialTheme.colorScheme.primary
-                    )
-                )
-            },
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .statusBarsPadding(), // Ensures content doesn't go under the clock/icons
+                    color = MaterialTheme.colorScheme.surface,
+                    shadowElevation = 8.dp
+                ) {
+                    // Mode Selection
+                    SingleChoiceSegmentedButtonRow(
+                        modifier = Modifier.fillMaxWidth(),
+                        space = 2.dp
+                    ) {
+                        val modes = listOf(
+                            TimerMode.TIMER to "Beat the beep",
+                            TimerMode.FOR_TIME to "Stop the clock"
+                        )
+
+                        modes.forEachIndexed { index, (mode, labelText) ->
+                            val selected = uiState.mode == mode
+                            SegmentedButton(
+                                selected = selected,
+                                onClick = { updateMode(mode) },
+                                modifier = Modifier
+                                    .weight(if (mode == TimerMode.TIMER) timerWgt else forTimeWgt)
+                                    .height(64.dp),
+                                shape = SegmentedButtonDefaults.itemShape(index = index, count = modes.size),
+                                colors = SegmentedButtonDefaults.colors(
+                                    activeContainerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
+                                    inactiveContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                                    activeContentColor = MaterialTheme.colorScheme.primary,
+                                    inactiveContentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                                ),
+                                border = BorderStroke(0.dp, Color.Transparent),
+                                icon = {},
+                                label = {
+                                    Text(
+                                        text = labelText,
+                                        maxLines = 1,
+                                        style = MaterialTheme.typography.titleLarge.copy(
+                                            fontSize = if (selected) 24.sp else 14.sp,
+                                            fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+                                        ),
+                                        textAlign = TextAlign.Center,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                            )
+                        }
+                    }
+                }
+             },
             floatingActionButton = {
                 ExtendedFloatingActionButton(
                     onClick = { onStartTimer(uiState) },
-                    icon = { Icon(Icons.Play, contentDescription = null) },
+                    icon = { Icon(imageVector = Icons.Play, contentDescription = null) },
                     text = { Text("START") },
                     containerColor = MaterialTheme.colorScheme.primary,
                     contentColor = MaterialTheme.colorScheme.onPrimary
@@ -124,39 +178,19 @@ private fun SetupScreenContent(
             }
         ) { padding ->
             LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
+                modifier = Modifier.fillMaxSize()
                     .padding(padding)
-                    .padding(16.dp),
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                // Mode Selection
-                item {
-                    SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-                        SegmentedButton(
-                            selected = uiState.mode == TimerMode.TIMER,
-                            onClick = { updateMode(TimerMode.TIMER) },
-                            shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2)
-                        ) {
-                            Text("Timer")
-                        }
-                        SegmentedButton(
-                            selected = uiState.mode == TimerMode.FOR_TIME,
-                            onClick = { updateMode(TimerMode.FOR_TIME) },
-                            shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2)
-                        ) {
-                            Text("For Time")
-                        }
-                    }
-                }
-
                 // Sets
                 item {
                     Column(
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier
+                            .fillMaxWidth()
                             .clip(RoundedCornerShape(12.dp))
                             .background(MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.3f))
-                            .padding(16.dp)
+                            .padding(horizontal = 16.dp, vertical = 8.dp)
                     ) {
                         Text(text = "Sets", style = MaterialTheme.typography.titleLarge)
 
@@ -167,16 +201,16 @@ private fun SetupScreenContent(
                             HybridStepper(
                                 value = uiState.sets,
                                 onValueChange = updateSets,
-                                modifier = Modifier.weight(1.1f)
+                                modifier = Modifier.weight(1.2f)
                             )
 
                             Row(
-                                modifier = Modifier.weight(0.9f),
+                                modifier = Modifier.weight(0.8f),
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.Center
                             ) {
                                 Text(
-                                    text = "rest: ",
+                                    text = "rest:",
                                     style = MaterialTheme.typography.titleMedium,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -190,14 +224,16 @@ private fun SetupScreenContent(
                     }
                 }
 
-
                 // Rounds
                 item {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.3f))
+                            .padding(horizontal = 16.dp, vertical = 8.dp)
                     ) {
-                        Text("Rounds", style = MaterialTheme.typography.titleLarge)
+                        Text(text = "Rounds", style = MaterialTheme.typography.titleLarge)
                         HybridStepper(
                             value = uiState.rounds,
                             onValueChange = updateRounds,
@@ -219,7 +255,7 @@ private fun SetupScreenContent(
                             fontWeight = FontWeight.Bold
                         )
                         IconButton(onClick = addTask) {
-                            Icon(Icons.Add, contentDescription = "Add task")
+                            Icon(imageVector = Icons.Add, contentDescription = "Add task")
                         }
                     }
                 }
@@ -265,7 +301,6 @@ private fun SetupScreenContent(
                             )
                         }
                     }
-                    Spacer(modifier = Modifier.height(80.dp)) // Extra space for FAB
                 }
             }
         }

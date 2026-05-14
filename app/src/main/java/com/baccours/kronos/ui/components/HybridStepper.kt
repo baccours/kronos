@@ -1,9 +1,11 @@
 package com.baccours.kronos.ui.components
 
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
@@ -23,9 +25,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
@@ -52,16 +56,27 @@ fun HybridStepper(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.Center
     ) {
+        val textStyle = MaterialTheme.typography.headlineSmall.copy(
+            fontFamily = FontFamily.Monospace,
+            color = MaterialTheme.colorScheme.onSurface,
+            textAlign = TextAlign.Center
+        )
+
         IconButton(
             onClick = { if (value > range.first) onValueChange(value - 1) },
             enabled = value > range.first
         ) {
-            Icon(Icons.Remove, contentDescription = "Decrease")
+            Icon(imageVector = Icons.Remove, contentDescription = "Decrease")
         }
 
         Box(
             modifier = Modifier
                 .width(48.dp)
+                .border(
+                    width = 1.dp,
+                    color = if (isEditing) MaterialTheme.colorScheme.primary else Color.Transparent,
+                    shape = MaterialTheme.shapes.extraSmall
+                )
                 .clickable {
                     isEditing = true
                     editValue = ""
@@ -98,11 +113,7 @@ fun HybridStepper(
                     keyboardActions = KeyboardActions(
                         onDone = { focusManager.clearFocus() }
                     ),
-                    textStyle = TextStyle(
-                        color = MaterialTheme.colorScheme.onSurface,
-                        fontSize = 20.sp,
-                        textAlign = TextAlign.Center
-                    ),
+                    textStyle = textStyle,
                     cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
                     singleLine = true
                 )
@@ -112,8 +123,7 @@ fun HybridStepper(
             } else {
                 Text(
                     text = value.toString(),
-                    style = MaterialTheme.typography.titleLarge,
-                    color = MaterialTheme.colorScheme.onSurface
+                    style = textStyle
                 )
             }
         }
@@ -122,7 +132,7 @@ fun HybridStepper(
             onClick = { if (value < range.last) onValueChange(value + 1) },
             enabled = value < range.last
         ) {
-            Icon(Icons.Add, contentDescription = "Increase")
+            Icon(imageVector = Icons.Add, contentDescription = "Increase")
         }
     }
 }
