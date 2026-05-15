@@ -6,19 +6,24 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -119,9 +124,9 @@ private fun SetupScreenContent(
                 Surface(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .statusBarsPadding(), // Ensures content doesn't go under the clock/icons
-                    color = MaterialTheme.colorScheme.surface,
-                    shadowElevation = 8.dp
+                        .statusBarsPadding() // Ensures content doesn't go under the clock/icons
+                        .padding(vertical = 16.dp),
+                    color = MaterialTheme.colorScheme.surface
                 ) {
                     // Mode Selection
                     SingleChoiceSegmentedButtonRow(
@@ -167,20 +172,34 @@ private fun SetupScreenContent(
                     }
                 }
              },
-            floatingActionButton = {
-                ExtendedFloatingActionButton(
-                    onClick = { onStartTimer(uiState) },
-                    icon = { Icon(imageVector = Icons.Play, contentDescription = null) },
-                    text = { Text("START") },
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary
-                )
+            bottomBar = {
+                Surface(modifier = Modifier.fillMaxWidth()) {
+                    Button(
+                        onClick = { onStartTimer(uiState) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .navigationBarsPadding() // Ensures it doesn't overlap system nav bar
+                            .padding(16.dp)
+                            .height(56.dp),
+                        shape = RoundedCornerShape(12.dp),
+
+                    ) {
+                        Icon(imageVector = Icons.Play, contentDescription = null)
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            text = "START",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
             }
         ) { padding ->
             LazyColumn(
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier
+                    .fillMaxSize()
                     .padding(padding)
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                    .padding(horizontal = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 // Sets
