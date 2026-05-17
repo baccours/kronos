@@ -36,7 +36,8 @@ fun TimeInput(
     durationSeconds: Int,
     onDurationChange: (Int) -> Unit,
     modifier: Modifier = Modifier,
-    showRedOnZero: Boolean = true
+    showRedOnZero: Boolean = true,
+    placeholder: String? = null
 ) {
     var isEditing by remember { mutableStateOf(false) }
     var editValue by remember { mutableStateOf("") }
@@ -47,7 +48,11 @@ fun TimeInput(
 
     val displayMinutes = durationSeconds / 60
     val displaySeconds = durationSeconds % 60
-    val displayString = "%02d:%02d".format(displayMinutes, displaySeconds)
+    val displayString = when {
+        durationSeconds > 0 -> "%02d:%02d".format(displayMinutes, displaySeconds)
+        placeholder != null -> placeholder
+        else -> "00:00"
+    }
 
     val textStyle = MaterialTheme.typography.headlineSmall.copy(
         fontFamily = FontFamily.Monospace,
@@ -115,6 +120,8 @@ fun TimeInput(
         } else {
             val color = if (showRedOnZero && durationSeconds == 0) {
                 MaterialTheme.colorScheme.error
+            } else if (durationSeconds == 0 && placeholder != null) {
+                MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
             } else {
                 MaterialTheme.colorScheme.onSurface
             }

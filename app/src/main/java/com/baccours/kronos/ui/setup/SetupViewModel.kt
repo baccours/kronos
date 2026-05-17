@@ -26,6 +26,10 @@ class SetupViewModel : ViewModel() {
         _uiState.update { it.copy(setRestSeconds = seconds) }
     }
 
+    fun updateTimeCap(seconds: Int) {
+        _uiState.update { it.copy(timeCap = seconds) }
+    }
+
     fun updateRounds(rounds: Int) {
         _uiState.update { it.copy(rounds = rounds) }
     }

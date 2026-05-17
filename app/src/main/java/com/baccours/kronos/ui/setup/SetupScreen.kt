@@ -6,7 +6,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -27,7 +26,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -47,9 +45,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -79,6 +80,7 @@ fun SetupScreen(
         updateMode = viewModel::updateMode,
         updateSets = viewModel::updateSets,
         updateSetRest = viewModel::updateSetRest,
+        updateTimeCap = viewModel::updateTimeCap,
         updateRounds = viewModel::updateRounds,
         addTask = viewModel::addTask,
         updateTaskDuration = viewModel::updateTaskDuration,
@@ -94,6 +96,7 @@ private fun SetupScreenContent(
     updateMode: (TimerMode) -> Unit,
     updateSets: (Int) -> Unit,
     updateSetRest: (Int) -> Unit,
+    updateTimeCap: (Int) -> Unit,
     updateRounds: (Int) -> Unit,
     addTask: () -> Unit,
     updateTaskDuration: (String, Int) -> Unit,
@@ -156,11 +159,21 @@ private fun SetupScreenContent(
                                 border = BorderStroke(0.dp, Color.Transparent),
                                 icon = {},
                                 label = {
+                                    val upperText = labelText.uppercase()
+                                    val baseFontSize = if (selected) 20.sp else 12.sp
+                                    val leadingFontSize = if (selected) 26.sp else 16.sp
+                                    val annotatedString = buildAnnotatedString {
+                                        withStyle(style = SpanStyle(fontSize = leadingFontSize)) {
+                                            append(upperText.take(1))
+                                        }
+                                        withStyle(style = SpanStyle(fontSize = baseFontSize)) {
+                                            append(upperText.drop(1))
+                                        }
+                                    }
                                     Text(
-                                        text = labelText,
+                                        text = annotatedString,
                                         maxLines = 1,
                                         style = MaterialTheme.typography.titleLarge.copy(
-                                            fontSize = if (selected) 24.sp else 14.sp,
                                             fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
                                         ),
                                         textAlign = TextAlign.Center,
@@ -243,81 +256,122 @@ private fun SetupScreenContent(
                     }
                 }
 
-                // Rounds
-                item {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.3f))
-                            .padding(horizontal = 16.dp, vertical = 8.dp)
-                    ) {
-                        Text(text = "Rounds", style = MaterialTheme.typography.titleLarge)
-                        HybridStepper(
-                            value = uiState.rounds,
-                            onValueChange = updateRounds,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    }
-                }
+                if (!isTimerMode) {
+                    // Time CAP
+                    item {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.3f))
+                                .padding(horizontal = 16.dp, vertical = 8.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "Time Cap",
+                                    style = MaterialTheme.typography.titleLarge
+                                )
+                                Text(
+                                    text = " (per set)",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+                                )
+                            }
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.Center
 
-                // Work/Rest Sequence Header
-                item {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            "Sequence",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold
-                        )
-                        IconButton(onClick = addTask) {
-                            Icon(imageVector = Icons.Add, contentDescription = "Add task")
+                            ) {
+                                TimeInput(
+                                    durationSeconds = uiState.timeCap,
+                                    onDurationChange = updateTimeCap,
+                                    showRedOnZero = false,
+                                    placeholder = "none"
+                                )
+                            }
                         }
                     }
                 }
-
-                // Work/Rest Sequence Tasks
-                itemsIndexed(uiState.tasks) { index, task ->
-                    TaskRow(
-                        index = index + 1,
-                        type = task.type,
-                        durationSeconds = task.durationSeconds,
-                        onDurationChange = { updateTaskDuration(task.id, it) },
-                        onDelete = { removeTask(task.id) }
-                    )
-                }
-
-                // Total Duration
-                item {
-                    Card(
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
+                else {
+                    // Rounds
+                    item {
                         Column(
-                            modifier = Modifier.padding(16.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.3f))
+                                .padding(horizontal = 16.dp, vertical = 8.dp)
                         ) {
-                            val totalSecs = uiState.totalDurationSeconds
-                            val h = totalSecs / 3600
-                            val m = (totalSecs % 3600) / 60
-                            val s = totalSecs % 60
-                            val timeStr =
-                                if (h > 0) "%02d:%02d:%02d".format(h, m, s)
-                                else "%02d:%02d".format(m, s)
+                            Text(text = "Rounds", style = MaterialTheme.typography.titleLarge)
+                            HybridStepper(
+                                value = uiState.rounds,
+                                onValueChange = updateRounds,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+                    }
 
+                    // Work/Rest Sequence Header
+                    item {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
                             Text(
-                                "Total Estimated Duration",
-                                style = MaterialTheme.typography.labelLarge
+                                "Sequence",
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold
                             )
-                            Text(
-                                text = timeStr,
-                                style = MaterialTheme.typography.displayMedium,
-                                fontWeight = FontWeight.Black,
-                                color = MaterialTheme.colorScheme.onTertiaryContainer
-                            )
+                            IconButton(onClick = addTask) {
+                                Icon(imageVector = Icons.Add, contentDescription = "Add task")
+                            }
+                        }
+                    }
+
+                    // Work/Rest Sequence Tasks
+                    itemsIndexed(uiState.tasks) { index, task ->
+                        TaskRow(
+                            index = index + 1,
+                            type = task.type,
+                            durationSeconds = task.durationSeconds,
+                            onDurationChange = { updateTaskDuration(task.id, it) },
+                            onDelete = { removeTask(task.id) }
+                        )
+                    }
+
+                    // Total Duration
+                    item {
+                        Card(
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(16.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                val totalSecs = uiState.totalDurationSeconds
+                                val h = totalSecs / 3600
+                                val m = (totalSecs % 3600) / 60
+                                val s = totalSecs % 60
+                                val timeStr =
+                                    if (h > 0) "%02d:%02d:%02d".format(h, m, s)
+                                    else "%02d:%02d".format(m, s)
+
+                                Text(
+                                    "Total Estimated Duration",
+                                    style = MaterialTheme.typography.labelLarge
+                                )
+                                Text(
+                                    text = timeStr,
+                                    style = MaterialTheme.typography.displayMedium,
+                                    fontWeight = FontWeight.Black,
+                                    color = MaterialTheme.colorScheme.onTertiaryContainer
+                                )
+                            }
                         }
                     }
                 }
@@ -333,6 +387,7 @@ fun SetupScreenPreview() {
         SetupScreenContent(
             uiState = TimerConfig(
                 mode = TimerMode.TIMER,
+                //mode = TimerMode.FOR_TIME,
                 sets = 2,
                 rounds = 3,
                 setRestSeconds = 60,
@@ -344,11 +399,12 @@ fun SetupScreenPreview() {
             onStartTimer = {},
             updateMode = {},
             updateSets = {},
+            updateSetRest = {},
+            updateTimeCap = {},
             updateRounds = {},
             addTask = {},
             updateTaskDuration = { _, _ -> },
-            removeTask = {},
-            updateSetRest = {}
+            removeTask = {}
         )
     }
 }
