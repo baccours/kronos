@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.baccours.kronos.model.TaskType
 import com.baccours.kronos.model.TimerMode
+import com.baccours.kronos.model.formatDuration
 import com.baccours.kronos.repository.TimerRepository
 import com.baccours.kronos.repository.TimerState
 import com.baccours.kronos.repository.TimerStatus
@@ -41,9 +42,9 @@ class RunningViewModel : ViewModel() {
                 currentRoundText = "${state.currentRound}/${config?.rounds ?: 1}",
                 taskName = getTaskName(state),
                 isWorkTask = isWorkTask(state),
-                displayTime = formatTime(getDisplaySeconds(state)),
+                displayTime = getDisplaySeconds(state).formatDuration(),
                 totalRemainingTime = if (config?.mode == TimerMode.TIMER && !state.isReadyCountdown) {
-                    formatTime(state.totalRemainingSeconds)
+                    state.totalRemainingSeconds.formatDuration()
                 } else null,
                 isReadyCountdown = state.isReadyCountdown,
                 isSetRest = state.isSetRest,
@@ -57,9 +58,9 @@ class RunningViewModel : ViewModel() {
                     } ?: "Task"
 
                     if (workTasks.size > 1) {
-                        "R$roundNum $label: ${formatTime(seconds)}"
+                        "R$roundNum $label: ${seconds.formatDuration()}"
                     } else {
-                        "$label: ${formatTime(seconds)}"
+                        "$label: ${seconds.formatDuration()}"
                     }
                 },
                 nextButtonText = getNextButtonText(state)
@@ -70,12 +71,6 @@ class RunningViewModel : ViewModel() {
             started = SharingStarted.WhileSubscribed(5000),
             initialValue = RunningUiState()
         )
-
-    private fun formatTime(seconds: Int): String {
-        val mins = seconds / 60
-        val secs = seconds % 60
-        return "%02d:%02d".format(mins, secs)
-    }
 
     private fun getTaskName(state: TimerState): String {
         return when {

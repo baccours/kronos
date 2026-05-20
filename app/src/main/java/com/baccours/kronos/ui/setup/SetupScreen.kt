@@ -72,10 +72,12 @@ fun SetupScreen(
     onStartTimer: (TimerConfig) -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val totalDuration by viewModel.totalDuration.collectAsState()
 
     // Stateful wrapper passing state and events down
     SetupScreenContent(
         uiState = uiState,
+        totalDuration = totalDuration,
         onStartTimer = onStartTimer,
         updateMode = viewModel::updateMode,
         updateSets = viewModel::updateSets,
@@ -92,6 +94,7 @@ fun SetupScreen(
 @Composable
 private fun SetupScreenContent(
     uiState: TimerConfig,
+    totalDuration: String,
     onStartTimer: (TimerConfig) -> Unit,
     updateMode: (TimerMode) -> Unit,
     updateSets: (Int) -> Unit,
@@ -128,7 +131,7 @@ private fun SetupScreenContent(
                     modifier = Modifier
                         .fillMaxWidth()
                         .statusBarsPadding() // Ensures content doesn't go under the clock/icons
-                        .padding(vertical = 16.dp),
+                        .padding(vertical = 8.dp),
                     color = MaterialTheme.colorScheme.surface
                 ) {
                     // Mode Selection
@@ -187,23 +190,37 @@ private fun SetupScreenContent(
              },
             bottomBar = {
                 Surface(modifier = Modifier.fillMaxWidth()) {
-                    Button(
-                        onClick = { onStartTimer(uiState) },
+                    Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .navigationBarsPadding() // Ensures it doesn't overlap system nav bar
-                            .padding(16.dp)
-                            .height(56.dp),
-                        shape = RoundedCornerShape(12.dp),
-
+                            .navigationBarsPadding()
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Icon(imageVector = Icons.Play, contentDescription = null)
-                        Spacer(Modifier.width(8.dp))
-                        Text(
-                            text = "START",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
-                        )
+                        if (isTimerMode) {
+                            Text(
+                                text = "Total duration: $totalDuration",
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Button(
+                            onClick = { onStartTimer(uiState) },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(56.dp),
+                            shape = RoundedCornerShape(12.dp),
+
+                            ) {
+                                Icon(imageVector = Icons.Play, contentDescription = null)
+                                Spacer(Modifier.width(8.dp))
+                                Text(
+                                    text = "START",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold
+                            )
+                        }
                     }
                 }
             }
@@ -342,38 +359,6 @@ private fun SetupScreenContent(
                             onDelete = { removeTask(task.id) }
                         )
                     }
-
-                    // Total Duration
-                    item {
-                        Card(
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Column(
-                                modifier = Modifier.padding(16.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally
-                            ) {
-                                val totalSecs = uiState.totalDurationSeconds
-                                val h = totalSecs / 3600
-                                val m = (totalSecs % 3600) / 60
-                                val s = totalSecs % 60
-                                val timeStr =
-                                    if (h > 0) "%02d:%02d:%02d".format(h, m, s)
-                                    else "%02d:%02d".format(m, s)
-
-                                Text(
-                                    "Total Estimated Duration",
-                                    style = MaterialTheme.typography.labelLarge
-                                )
-                                Text(
-                                    text = timeStr,
-                                    style = MaterialTheme.typography.displayMedium,
-                                    fontWeight = FontWeight.Black,
-                                    color = MaterialTheme.colorScheme.onTertiaryContainer
-                                )
-                            }
-                        }
-                    }
                 }
             }
         }
@@ -396,6 +381,7 @@ fun SetupScreenPreview() {
                     Task(type = TaskType.REST, durationSeconds = 10)
                 )
             ),
+            totalDuration = "12:00",
             onStartTimer = {},
             updateMode = {},
             updateSets = {},
