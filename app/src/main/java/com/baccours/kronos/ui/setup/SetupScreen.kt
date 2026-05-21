@@ -1,6 +1,8 @@
 package com.baccours.kronos.ui.setup
 
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -20,9 +22,10 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -35,11 +38,13 @@ import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -109,6 +114,8 @@ private fun SetupScreenContent(
     removeTask: (String) -> Unit
 ) {
     val focusManager = LocalFocusManager.current
+
+    val showZeroDurationError = remember { mutableStateOf(false) }
 
     val listState = rememberLazyListState()
     var previousTaskCount by remember { mutableIntStateOf(uiState.tasks.size) }
@@ -220,7 +227,13 @@ private fun SetupScreenContent(
                             )
                         }
                         Button(
-                            onClick = { onStartTimer(uiState) },
+                            onClick = {
+                                if (isTimerMode && uiState.totalDurationSeconds <= 0) {
+                                    showZeroDurationError.value = true
+                                } else {
+                                    onStartTimer(uiState)
+                                }
+                            },
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(56.dp),
@@ -347,17 +360,21 @@ private fun SetupScreenContent(
                     }
 
                     // Work/Rest Sequence Tasks
-                    itemsIndexed(
-                        items = uiState.tasks,
-                        key = { _, task -> task.id }
-                    ) { index, task ->
-                        Box(modifier = Modifier.animateItem()) {
+                    items(
+                        items = uiState.indexedTasks,
+                        key = { it.task.id }
+                    ) { indexedTask ->
+                        Box(modifier = Modifier.animateItem(
+                            fadeInSpec = spring(stiffness = Spring.StiffnessLow),
+                            placementSpec = null,
+                            fadeOutSpec = null
+                        )) {
                             TaskRow(
-                                index = index + 1,
-                                type = task.type,
-                                durationSeconds = task.durationSeconds,
-                                onDurationChange = { updateTaskDuration(task.id, it) },
-                                onDelete = { removeTask(task.id) }
+                                index = indexedTask.displayIndex,
+                                type = indexedTask.task.type,
+                                durationSeconds = indexedTask.task.durationSeconds,
+                                onDurationChange = { updateTaskDuration(indexedTask.task.id, it) },
+                                onDelete = { removeTask(indexedTask.task.id) }
                             )
                         }
                     }
@@ -376,7 +393,7 @@ private fun SetupScreenContent(
                                     .weight(1.0f)
                                     .height(56.dp),
                                 shape = RoundedCornerShape(16.dp),
-                                border = BorderStroke(4.dp, MaterialTheme.colorScheme.primary),
+                                border = BorderStroke(3.dp, MaterialTheme.colorScheme.primary),
                                 colors = ButtonDefaults.outlinedButtonColors(
                                     contentColor = MaterialTheme.colorScheme.primary
                                 )
@@ -393,7 +410,7 @@ private fun SetupScreenContent(
                                     .weight(1.0f)
                                     .height(56.dp),
                                 shape = RoundedCornerShape(16.dp),
-                                border = BorderStroke(4.dp, MaterialTheme.colorScheme.primary),
+                                border = BorderStroke(3.dp, MaterialTheme.colorScheme.primary),
                                 colors = ButtonDefaults.outlinedButtonColors(
                                     contentColor = MaterialTheme.colorScheme.primary
                                 )
@@ -410,6 +427,21 @@ private fun SetupScreenContent(
                 }
             }
         }
+    }
+
+    if (showZeroDurationError.value) {
+        AlertDialog(
+            onDismissRequest = { showZeroDurationError.value = false },
+            title = { Text(text = "Empty Timer") },
+            text = {
+                Text(text = "The total duration cannot be 0.\nPlease add some work time to start.")
+            },
+            confirmButton = {
+                TextButton(onClick = { showZeroDurationError.value = false }) {
+                    Text("OK")
+                }
+            }
+        )
     }
 }
 

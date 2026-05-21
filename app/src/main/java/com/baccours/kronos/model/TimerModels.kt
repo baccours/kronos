@@ -22,6 +22,12 @@ data class Task(
 ) : Parcelable
 
 @Parcelize
+data class IndexedTask(
+    val task: Task,
+    val displayIndex: Int
+) : Parcelable
+
+@Parcelize
 data class TimerConfig(
     val mode: TimerMode = TimerMode.TIMER,
     val sets: Int = 1,
@@ -30,6 +36,15 @@ data class TimerConfig(
     val rounds: Int = 1,
     val tasks: List<Task> = listOf(Task(type = TaskType.WORK), Task(type = TaskType.REST)),
 ) : Parcelable {
+    val indexedTasks: List<IndexedTask>
+        get() {
+            var workCount = 0
+            var restCount = 0
+            return tasks.map { task ->
+                val index = if (task.type == TaskType.WORK) ++workCount else ++restCount
+                IndexedTask(task, index)
+            }
+        }
     val totalDurationSeconds: Int
         get() {
             val tasksDuration = tasks.sumOf { it.durationSeconds }
