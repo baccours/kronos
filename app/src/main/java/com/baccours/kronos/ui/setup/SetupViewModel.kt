@@ -47,11 +47,9 @@ class SetupViewModel : ViewModel() {
         _uiState.update { it.copy(rounds = rounds) }
     }
 
-    fun addTask() {
+    fun addTask(type: TaskType = TaskType.WORK) {
         _uiState.update {
-            val lastType = it.tasks.lastOrNull()?.type ?: TaskType.REST
-            val nextType = if (lastType == TaskType.WORK) TaskType.REST else TaskType.WORK
-            it.copy(tasks = it.tasks + Task(type = nextType))
+            it.copy(tasks = it.tasks + Task(type = type))
         }
     }
 

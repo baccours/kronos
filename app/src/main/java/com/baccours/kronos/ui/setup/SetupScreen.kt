@@ -21,14 +21,14 @@ import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
@@ -36,8 +36,12 @@ import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -61,7 +65,6 @@ import com.baccours.kronos.model.TimerConfig
 import com.baccours.kronos.model.TimerMode
 import com.baccours.kronos.ui.components.HybridStepper
 import com.baccours.kronos.ui.components.TimeInput
-import com.baccours.kronos.ui.icons.Add
 import com.baccours.kronos.ui.icons.Icons
 import com.baccours.kronos.ui.icons.Play
 import com.baccours.kronos.ui.theme.KronosTheme
@@ -101,11 +104,22 @@ private fun SetupScreenContent(
     updateSetRest: (Int) -> Unit,
     updateTimeCap: (Int) -> Unit,
     updateRounds: (Int) -> Unit,
-    addTask: () -> Unit,
+    addTask: (TaskType) -> Unit,
     updateTaskDuration: (String, Int) -> Unit,
     removeTask: (String) -> Unit
 ) {
     val focusManager = LocalFocusManager.current
+
+    val listState = rememberLazyListState()
+    var previousTaskCount by remember { mutableIntStateOf(uiState.tasks.size) }
+    LaunchedEffect(uiState.tasks.size) {
+        if (uiState.tasks.size > previousTaskCount) {
+            // Scroll to the bottom (add buttons)
+            val buttonIndex = uiState.tasks.size + 2
+            listState.scrollToItem(buttonIndex)
+        }
+        previousTaskCount = uiState.tasks.size
+    }
 
     val isTimerMode = uiState.mode == TimerMode.TIMER
     val timerWgt by animateFloatAsState(targetValue = if (isTimerMode) 2f else 1f, label = "TW")
@@ -226,6 +240,7 @@ private fun SetupScreenContent(
             }
         ) { padding ->
             LazyColumn(
+                state = listState,
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(padding)
@@ -233,7 +248,7 @@ private fun SetupScreenContent(
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 // Sets
-                item {
+                item(key = "sets") {
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -275,7 +290,7 @@ private fun SetupScreenContent(
 
                 if (!isTimerMode) {
                     // Time CAP
-                    item {
+                    item(key = "time_cap") {
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -314,7 +329,7 @@ private fun SetupScreenContent(
                 }
                 else {
                     // Rounds
-                    item {
+                    item(key = "rounds") {
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -331,33 +346,66 @@ private fun SetupScreenContent(
                         }
                     }
 
-                    // Work/Rest Sequence Header
-                    item {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                "Sequence",
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.Bold
+                    // Work/Rest Sequence Tasks
+                    itemsIndexed(
+                        items = uiState.tasks,
+                        key = { _, task -> task.id }
+                    ) { index, task ->
+                        Box(modifier = Modifier.animateItem()) {
+                            TaskRow(
+                                index = index + 1,
+                                type = task.type,
+                                durationSeconds = task.durationSeconds,
+                                onDurationChange = { updateTaskDuration(task.id, it) },
+                                onDelete = { removeTask(task.id) }
                             )
-                            IconButton(onClick = addTask) {
-                                Icon(imageVector = Icons.Add, contentDescription = "Add task")
-                            }
                         }
                     }
 
-                    // Work/Rest Sequence Tasks
-                    itemsIndexed(uiState.tasks) { index, task ->
-                        TaskRow(
-                            index = index + 1,
-                            type = task.type,
-                            durationSeconds = task.durationSeconds,
-                            onDurationChange = { updateTaskDuration(task.id, it) },
-                            onDelete = { removeTask(task.id) }
-                        )
+                    item(key = "add_buttons") {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .animateItem(),
+                            horizontalArrangement = Arrangement.spacedBy(16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            OutlinedButton(
+                                onClick = { addTask(TaskType.WORK) },
+                                modifier = Modifier
+                                    .weight(1.0f)
+                                    .height(56.dp),
+                                shape = RoundedCornerShape(16.dp),
+                                border = BorderStroke(4.dp, MaterialTheme.colorScheme.primary),
+                                colors = ButtonDefaults.outlinedButtonColors(
+                                    contentColor = MaterialTheme.colorScheme.primary
+                                )
+                            ) {
+                                Text(
+                                    text = "ADD WORK",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                            OutlinedButton(
+                                onClick = { addTask(TaskType.REST) },
+                                modifier = Modifier
+                                    .weight(1.0f)
+                                    .height(56.dp),
+                                shape = RoundedCornerShape(16.dp),
+                                border = BorderStroke(4.dp, MaterialTheme.colorScheme.primary),
+                                colors = ButtonDefaults.outlinedButtonColors(
+                                    contentColor = MaterialTheme.colorScheme.primary
+                                )
+
+                            ) {
+                                Text(
+                                    text = "ADD REST",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -365,7 +413,12 @@ private fun SetupScreenContent(
     }
 }
 
-@Preview(showBackground = true)
+@Preview(name = "Light Mode", showBackground = true)
+@Preview(
+    name = "Dark Mode",
+    showBackground = true,
+    uiMode = android.content.res.Configuration.UI_MODE_NIGHT_YES
+)
 @Composable
 fun SetupScreenPreview() {
     KronosTheme {
