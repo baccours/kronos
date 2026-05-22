@@ -18,6 +18,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.baccours.kronos.model.TaskType
@@ -34,16 +35,19 @@ fun TaskRow(
     onDurationChange: (Int) -> Unit,
     onDelete: () -> Unit
 ) {
-    val backgroundColor = if (type == TaskType.WORK) {
-        MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
-    } else {
-        MaterialTheme.colorScheme.secondary.copy(alpha = 0.1f)
-    }
+    val isWork = type == TaskType.WORK
 
-    val accentColor = if (type == TaskType.WORK) {
-        MaterialTheme.colorScheme.primary
-    } else {
-        MaterialTheme.colorScheme.secondary
+    val (backgroundColor, accentColor, label) = when (type) {
+        TaskType.WORK -> Triple(
+            MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
+            MaterialTheme.colorScheme.primary,
+            "WORK"
+        )
+        TaskType.REST -> Triple(
+            MaterialTheme.colorScheme.secondary.copy(alpha = 0.1f),
+            Color.Transparent,
+            "REST"
+        )
     }
 
     Row(
@@ -61,19 +65,19 @@ fun TaskRow(
                 .background(accentColor),
             contentAlignment = Alignment.Center
         ) {
-            Text(
-                text = index.toString(),
-                color =
-                    if (type == TaskType.WORK) MaterialTheme.colorScheme.onPrimary
-                    else MaterialTheme.colorScheme.onSecondary,
-                fontWeight = FontWeight.Bold
-            )
+            if (isWork) {
+                Text(
+                    text = index.toString(),
+                    color = MaterialTheme.colorScheme.onPrimary,
+                    fontWeight = FontWeight.Bold
+                )
+            }
         }
 
         Spacer(modifier = Modifier.width(16.dp))
 
         Text(
-            text = if (type == TaskType.WORK) "WORK" else "REST",
+            text = label,
             style = MaterialTheme.typography.bodyLarge,
             fontWeight = FontWeight.Bold,
             modifier = Modifier.weight(1f)

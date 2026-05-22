@@ -5,7 +5,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
@@ -28,13 +29,11 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalFocusManager
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.baccours.kronos.ui.icons.Add
 import com.baccours.kronos.ui.icons.Icons
 import com.baccours.kronos.ui.icons.Remove
@@ -51,17 +50,17 @@ fun HybridStepper(
     val focusRequester = remember { FocusRequester() }
     val focusManager = LocalFocusManager.current
 
+    val textStyle = MaterialTheme.typography.headlineSmall.copy(
+        fontFamily = FontFamily.Monospace,
+        color = MaterialTheme.colorScheme.onSurface,
+        textAlign = TextAlign.Center
+    )
+
     Row(
         modifier = modifier,
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.Center
     ) {
-        val textStyle = MaterialTheme.typography.headlineSmall.copy(
-            fontFamily = FontFamily.Monospace,
-            color = MaterialTheme.colorScheme.onSurface,
-            textAlign = TextAlign.Center
-        )
-
         IconButton(
             onClick = { if (value > range.first) onValueChange(value - 1) },
             enabled = value > range.first
@@ -72,11 +71,13 @@ fun HybridStepper(
         Box(
             modifier = Modifier
                 .width(48.dp)
+                .height(48.dp)
                 .border(
                     width = 1.dp,
                     color = if (isEditing) MaterialTheme.colorScheme.primary else Color.Transparent,
                     shape = MaterialTheme.shapes.extraSmall
                 )
+                .padding(horizontal = 8.dp, vertical = 4.dp)
                 .clickable {
                     isEditing = true
                     editValue = ""

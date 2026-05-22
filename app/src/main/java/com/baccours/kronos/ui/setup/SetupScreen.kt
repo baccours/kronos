@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -25,10 +26,10 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -38,13 +39,11 @@ import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -115,8 +114,6 @@ private fun SetupScreenContent(
 ) {
     val focusManager = LocalFocusManager.current
 
-    val showZeroDurationError = remember { mutableStateOf(false) }
-
     val listState = rememberLazyListState()
     var previousTaskCount by remember { mutableIntStateOf(uiState.tasks.size) }
     LaunchedEffect(uiState.tasks.size) {
@@ -131,6 +128,8 @@ private fun SetupScreenContent(
     val isTimerMode = uiState.mode == TimerMode.TIMER
     val timerWgt by animateFloatAsState(targetValue = if (isTimerMode) 2f else 1f, label = "TW")
     val forTimeWgt by animateFloatAsState(targetValue = if (!isTimerMode) 2f else 1f, label = "FTW")
+
+    val isStartEnabled = if (isTimerMode) uiState.totalDurationSeconds > 0 else true
 
     Box(
         modifier = Modifier
@@ -175,9 +174,9 @@ private fun SetupScreenContent(
                                     .height(64.dp),
                                 shape = SegmentedButtonDefaults.itemShape(index = index, count = modes.size),
                                 colors = SegmentedButtonDefaults.colors(
-                                    activeContainerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
+                                    activeContainerColor = MaterialTheme.colorScheme.primaryContainer,
                                     inactiveContainerColor = MaterialTheme.colorScheme.surfaceVariant,
-                                    activeContentColor = MaterialTheme.colorScheme.primary,
+                                    activeContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
                                     inactiveContentColor = MaterialTheme.colorScheme.onSurfaceVariant
                                 ),
                                 border = BorderStroke(0.dp, Color.Transparent),
@@ -227,19 +226,19 @@ private fun SetupScreenContent(
                             )
                         }
                         Button(
-                            onClick = {
-                                if (isTimerMode && uiState.totalDurationSeconds <= 0) {
-                                    showZeroDurationError.value = true
-                                } else {
-                                    onStartTimer(uiState)
-                                }
-                            },
+                            onClick = { onStartTimer(uiState) },
+                            enabled = isStartEnabled,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(56.dp),
                             shape = RoundedCornerShape(12.dp),
-
-                            ) {
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.primary,
+                                contentColor = MaterialTheme.colorScheme.onPrimary,
+                                disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                                disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        ) {
                                 Icon(imageVector = Icons.Play, contentDescription = null)
                                 Spacer(Modifier.width(8.dp))
                                 Text(
@@ -267,12 +266,15 @@ private fun SetupScreenContent(
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(12.dp))
                             .background(MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.3f))
-                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                            .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 0.dp)
                     ) {
                         Text(text = "Sets", style = MaterialTheme.typography.titleLarge)
 
                         Row(
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .offset(y = (-8).dp)
+                                .height(44.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             HybridStepper(
@@ -348,13 +350,29 @@ private fun SetupScreenContent(
                                 .fillMaxWidth()
                                 .clip(RoundedCornerShape(12.dp))
                                 .background(MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.3f))
-                                .padding(horizontal = 16.dp, vertical = 8.dp)
+                                .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 0.dp)
                         ) {
                             Text(text = "Rounds", style = MaterialTheme.typography.titleLarge)
                             HybridStepper(
                                 value = uiState.rounds,
                                 onValueChange = updateRounds,
-                                modifier = Modifier.fillMaxWidth()
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .offset(y = (-8).dp)
+                                    .height(44.dp)
+                            )
+                        }
+                    }
+
+                    item {
+                        Box(
+                            modifier = Modifier.fillMaxWidth(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            HorizontalDivider(
+                                modifier = Modifier.fillMaxWidth(0.5f),
+                                thickness = 1.dp,
+                                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
                             )
                         }
                     }
@@ -364,11 +382,15 @@ private fun SetupScreenContent(
                         items = uiState.indexedTasks,
                         key = { it.task.id }
                     ) { indexedTask ->
-                        Box(modifier = Modifier.animateItem(
-                            fadeInSpec = spring(stiffness = Spring.StiffnessLow),
-                            placementSpec = null,
-                            fadeOutSpec = null
-                        )) {
+                        Box(
+                            modifier = Modifier
+                                //.padding(horizontal = 12.dp)
+                                .animateItem(
+                                    fadeInSpec = spring(stiffness = Spring.StiffnessLow),
+                                    placementSpec = null,
+                                    fadeOutSpec = null
+                                )
+                        ) {
                             TaskRow(
                                 index = indexedTask.displayIndex,
                                 type = indexedTask.task.type,
@@ -427,21 +449,6 @@ private fun SetupScreenContent(
                 }
             }
         }
-    }
-
-    if (showZeroDurationError.value) {
-        AlertDialog(
-            onDismissRequest = { showZeroDurationError.value = false },
-            title = { Text(text = "Empty Timer") },
-            text = {
-                Text(text = "The total duration cannot be 0.\nPlease add some work time to start.")
-            },
-            confirmButton = {
-                TextButton(onClick = { showZeroDurationError.value = false }) {
-                    Text("OK")
-                }
-            }
-        )
     }
 }
 

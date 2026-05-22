@@ -4,6 +4,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.BasicTextField
@@ -62,6 +63,7 @@ fun TimeInput(
     Box(
         modifier = modifier
             .width(96.dp)
+            .height(48.dp)
             .border(
                 width = 1.dp,
                 color = if (isEditing) MaterialTheme.colorScheme.primary else Color.Transparent,
