@@ -8,6 +8,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -151,7 +153,7 @@ private fun SetupScreenContent(
                     modifier = Modifier
                         .fillMaxWidth()
                         .statusBarsPadding() // Ensures content doesn't go under the clock/icons
-                        .padding(vertical = 8.dp),
+                        .padding(top = 8.dp, bottom = 16.dp),
                     color = MaterialTheme.colorScheme.surface
                 ) {
                     // Mode Selection
@@ -171,7 +173,7 @@ private fun SetupScreenContent(
                                 onClick = { updateMode(mode) },
                                 modifier = Modifier
                                     .weight(if (mode == TimerMode.TIMER) timerWgt else forTimeWgt)
-                                    .height(64.dp),
+                                    .height(56.dp),
                                 shape = SegmentedButtonDefaults.itemShape(index = index, count = modes.size),
                                 colors = SegmentedButtonDefaults.colors(
                                     activeContainerColor = MaterialTheme.colorScheme.primaryContainer,
@@ -259,109 +261,28 @@ private fun SetupScreenContent(
                     .padding(horizontal = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                // Sets
                 item(key = "sets") {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.3f))
-                            .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 0.dp)
-                    ) {
-                        Text(text = "Sets", style = MaterialTheme.typography.titleLarge)
-
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .offset(y = (-8).dp)
-                                .height(44.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            HybridStepper(
-                                value = uiState.sets,
-                                onValueChange = updateSets,
-                                modifier = Modifier.weight(1.2f)
-                            )
-
-                            Row(
-                                modifier = Modifier.weight(0.8f),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.Center
-                            ) {
-                                Text(
-                                    text = "rest:",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                TimeInput(
-                                    durationSeconds = uiState.setRestSeconds,
-                                    onDurationChange = updateSetRest,
-                                    showRedOnZero = false
-                                )
-                            }
-                        }
-                    }
+                    SetsSection(
+                        sets = uiState.sets,
+                        restSeconds = uiState.setRestSeconds,
+                        onSetsChange = updateSets,
+                        onRestChange = updateSetRest
+                    )
                 }
 
                 if (!isTimerMode) {
-                    // Time CAP
                     item(key = "time_cap") {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.3f))
-                                .padding(horizontal = 16.dp, vertical = 8.dp)
-                        ) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = "Time Cap",
-                                    style = MaterialTheme.typography.titleLarge
-                                )
-                                Text(
-                                    text = " (per set)",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
-                                )
-                            }
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.Center
-
-                            ) {
-                                TimeInput(
-                                    durationSeconds = uiState.timeCap,
-                                    onDurationChange = updateTimeCap,
-                                    showRedOnZero = false,
-                                    placeholder = "none"
-                                )
-                            }
-                        }
+                        TimeCapSection(
+                            timeCap = uiState.timeCap,
+                            onDurationChange = updateTimeCap
+                        )
                     }
-                }
-                else {
-                    // Rounds
+                } else {
                     item(key = "rounds") {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.3f))
-                                .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 0.dp)
-                        ) {
-                            Text(text = "Rounds", style = MaterialTheme.typography.titleLarge)
-                            HybridStepper(
-                                value = uiState.rounds,
-                                onValueChange = updateRounds,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .offset(y = (-8).dp)
-                                    .height(44.dp)
-                            )
-                        }
+                        RoundsSection(
+                            rounds = uiState.rounds,
+                            onRoundsChange = updateRounds
+                        )
                     }
 
                     item {
@@ -384,7 +305,6 @@ private fun SetupScreenContent(
                     ) { indexedTask ->
                         Box(
                             modifier = Modifier
-                                //.padding(horizontal = 12.dp)
                                 .animateItem(
                                     fadeInSpec = spring(stiffness = Spring.StiffnessLow),
                                     placementSpec = null,
@@ -403,52 +323,164 @@ private fun SetupScreenContent(
 
                     item(key = "add_buttons") {
                         Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .animateItem(),
+                            modifier = Modifier.fillMaxWidth().animateItem(),
                             horizontalArrangement = Arrangement.spacedBy(16.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            OutlinedButton(
+                            TaskActionButton(
+                                text = "ADD WORK",
                                 onClick = { addTask(TaskType.WORK) },
-                                modifier = Modifier
-                                    .weight(1.0f)
-                                    .height(56.dp),
-                                shape = RoundedCornerShape(16.dp),
-                                border = BorderStroke(3.dp, MaterialTheme.colorScheme.primary),
-                                colors = ButtonDefaults.outlinedButtonColors(
-                                    contentColor = MaterialTheme.colorScheme.primary
-                                )
-                            ) {
-                                Text(
-                                    text = "ADD WORK",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
-                            OutlinedButton(
+                                modifier = Modifier.weight(1.0f)
+                            )
+                            TaskActionButton(
+                                text = "ADD REST",
                                 onClick = { addTask(TaskType.REST) },
-                                modifier = Modifier
-                                    .weight(1.0f)
-                                    .height(56.dp),
-                                shape = RoundedCornerShape(16.dp),
-                                border = BorderStroke(3.dp, MaterialTheme.colorScheme.primary),
-                                colors = ButtonDefaults.outlinedButtonColors(
-                                    contentColor = MaterialTheme.colorScheme.primary
-                                )
-
-                            ) {
-                                Text(
-                                    text = "ADD REST",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
+                                modifier = Modifier.weight(1.0f)
+                            )
                         }
                     }
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun TaskActionButton(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    OutlinedButton(
+        onClick = onClick,
+        modifier = modifier.height(56.dp),
+        shape = RoundedCornerShape(16.dp),
+        border = BorderStroke(3.dp, MaterialTheme.colorScheme.primary),
+        colors = ButtonDefaults.outlinedButtonColors(
+            contentColor = MaterialTheme.colorScheme.primary
+        )
+    ) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold
+        )
+    }
+}
+
+@Composable
+private fun SetsSection(
+    sets: Int,
+    restSeconds: Int,
+    onSetsChange: (Int) -> Unit,
+    onRestChange: (Int) -> Unit
+) {
+    SetupSection(
+        title = "Sets",
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 0.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth()
+                .offset(y = (-8).dp)
+                .height(44.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            HybridStepper(
+                value = sets,
+                onValueChange = onSetsChange,
+                modifier = Modifier.weight(1.2f)
+            )
+            Row(
+                modifier = Modifier.weight(0.8f),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
+            ) {
+                Text(
+                    text = "rest:",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                TimeInput(
+                    durationSeconds = restSeconds,
+                    onDurationChange = onRestChange,
+                    showRedOnZero = false
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun TimeCapSection(
+    timeCap: Int,
+    onDurationChange: (Int) -> Unit
+) {
+    SetupSection(
+        title = "Time Cap",
+        titleSuffix = " (per set)",
+    ) {
+        TimeInput(
+            durationSeconds = timeCap,
+            onDurationChange = onDurationChange,
+            showRedOnZero = false,
+            placeholder = "none",
+            modifier = Modifier.align(Alignment.CenterHorizontally)
+        )
+    }
+}
+
+@Composable
+private fun RoundsSection(
+    rounds: Int,
+    onRoundsChange: (Int) -> Unit
+) {
+    SetupSection(
+        title = "Rounds",
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 0.dp)
+    ) {
+        HybridStepper(
+            value = rounds,
+            onValueChange = onRoundsChange,
+            modifier = Modifier.fillMaxWidth()
+                .offset(y = (-8).dp)
+                .height(44.dp)
+        )
+    }
+}
+
+@Composable
+private fun SetupSection(
+    title: String,
+    modifier: Modifier = Modifier,
+    titleSuffix: String? = null,
+    contentPadding: PaddingValues = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+    content: @Composable ColumnScope.() -> Unit
+) {
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.3f))
+            .padding(contentPadding)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleLarge
+            )
+            if (titleSuffix != null) {
+                Text(
+                    text = titleSuffix,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+                )
+            }
+
+        }
+        content()
     }
 }
 

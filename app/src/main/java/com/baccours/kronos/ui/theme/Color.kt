@@ -27,7 +27,7 @@ val md_theme_light_surfaceVariant = Color(0xFFDEE5E3)
 val md_theme_light_onSurfaceVariant = Color(0xFF3F4945)
 val md_theme_light_outline = Color(0xFF6F7975)
 
-// Dark Theme - Optimized for Gym Environments (High Contrast)
+// Dark Theme
 val md_theme_dark_primary = Color(0xFF5FE7D5)
 val md_theme_dark_onPrimary = Color(0xFF004743)
 val md_theme_dark_primaryContainer = Color(0xFF006B62)

@@ -55,7 +55,7 @@ fun TaskRow(
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
             .background(backgroundColor)
-            .padding(12.dp),
+            .padding(horizontal = 12.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Box(
@@ -78,7 +78,7 @@ fun TaskRow(
 
         Text(
             text = label,
-            style = MaterialTheme.typography.bodyLarge,
+            style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold,
             modifier = Modifier.weight(1f)
         )
@@ -87,6 +87,8 @@ fun TaskRow(
             durationSeconds = durationSeconds,
             onDurationChange = onDurationChange
         )
+
+        Spacer(modifier = Modifier.width(16.dp))
 
         IconButton(onClick = onDelete) {
             Icon(
