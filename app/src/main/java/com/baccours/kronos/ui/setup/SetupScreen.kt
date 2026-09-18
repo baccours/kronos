@@ -1,10 +1,11 @@
 package com.baccours.kronos.ui.setup
 
-import androidx.compose.animation.core.Spring
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -25,13 +26,13 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -45,6 +46,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -71,6 +73,7 @@ import com.baccours.kronos.model.TimerConfig
 import com.baccours.kronos.model.TimerMode
 import com.baccours.kronos.ui.components.HybridStepper
 import com.baccours.kronos.ui.components.TimeInput
+import com.baccours.kronos.ui.icons.Add
 import com.baccours.kronos.ui.icons.Icons
 import com.baccours.kronos.ui.icons.Play
 import com.baccours.kronos.ui.theme.KronosTheme
@@ -99,7 +102,7 @@ fun SetupScreen(
     )
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 private fun SetupScreenContent(
     uiState: TimerConfig,
@@ -117,12 +120,13 @@ private fun SetupScreenContent(
     val focusManager = LocalFocusManager.current
 
     val listState = rememberLazyListState()
+    val bringIntoViewRequester = remember { BringIntoViewRequester() }
     var previousTaskCount by remember { mutableIntStateOf(uiState.tasks.size) }
+
     LaunchedEffect(uiState.tasks.size) {
         if (uiState.tasks.size > previousTaskCount) {
             // Scroll to the bottom (add buttons)
-            val buttonIndex = uiState.tasks.size + 2
-            listState.scrollToItem(buttonIndex)
+            bringIntoViewRequester.bringIntoView()
         }
         previousTaskCount = uiState.tasks.size
     }
@@ -258,85 +262,65 @@ private fun SetupScreenContent(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(padding)
-                    .padding(horizontal = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                    .padding(horizontal = 12.dp),
+                contentPadding = PaddingValues(vertical = 8.dp)
             ) {
-                item(key = "sets") {
+                item(key = "hierarchy") {
                     SetsSection(
                         sets = uiState.sets,
                         restSeconds = uiState.setRestSeconds,
                         onSetsChange = updateSets,
                         onRestChange = updateSetRest
-                    )
-                }
-
-                if (!isTimerMode) {
-                    item(key = "time_cap") {
-                        TimeCapSection(
-                            timeCap = uiState.timeCap,
-                            onDurationChange = updateTimeCap
-                        )
-                    }
-                } else {
-                    item(key = "rounds") {
-                        RoundsSection(
-                            rounds = uiState.rounds,
-                            onRoundsChange = updateRounds
-                        )
-                    }
-
-                    item {
-                        Box(
-                            modifier = Modifier.fillMaxWidth(),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            HorizontalDivider(
-                                modifier = Modifier.fillMaxWidth(0.5f),
-                                thickness = 1.dp,
-                                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                    ) {
+                        if (!isTimerMode) {
+                            TimeCapSection(
+                                timeCap = uiState.timeCap,
+                                onDurationChange = updateTimeCap
                             )
-                        }
-                    }
+                        } else {
+                            RoundsSection(
+                                rounds = uiState.rounds,
+                                onRoundsChange = updateRounds
+                            ) {
+                                Column(
+                                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                                ) {
+                                    uiState.indexedTasks.forEach { indexedTask ->
+                                        key(indexedTask.task.id) {
+                                            Box(
+                                                modifier = Modifier.animateContentSize()
+                                            ) {
+                                                TaskRow(
+                                                    index = indexedTask.displayIndex,
+                                                    type = indexedTask.task.type,
+                                                    durationSeconds = indexedTask.task.durationSeconds,
+                                                    onDurationChange = { updateTaskDuration(indexedTask.task.id, it) },
+                                                    onDelete = { removeTask(indexedTask.task.id) }
+                                                )
+                                            }
+                                        }
+                                    }
 
-                    // Work/Rest Sequence Tasks
-                    items(
-                        items = uiState.indexedTasks,
-                        key = { it.task.id }
-                    ) { indexedTask ->
-                        Box(
-                            modifier = Modifier
-                                .animateItem(
-                                    fadeInSpec = spring(stiffness = Spring.StiffnessLow),
-                                    placementSpec = null,
-                                    fadeOutSpec = null
-                                )
-                        ) {
-                            TaskRow(
-                                index = indexedTask.displayIndex,
-                                type = indexedTask.task.type,
-                                durationSeconds = indexedTask.task.durationSeconds,
-                                onDurationChange = { updateTaskDuration(indexedTask.task.id, it) },
-                                onDelete = { removeTask(indexedTask.task.id) }
-                            )
-                        }
-                    }
-
-                    item(key = "add_buttons") {
-                        Row(
-                            modifier = Modifier.fillMaxWidth().animateItem(),
-                            horizontalArrangement = Arrangement.spacedBy(16.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            TaskActionButton(
-                                text = "ADD WORK",
-                                onClick = { addTask(TaskType.WORK) },
-                                modifier = Modifier.weight(1.0f)
-                            )
-                            TaskActionButton(
-                                text = "ADD REST",
-                                onClick = { addTask(TaskType.REST) },
-                                modifier = Modifier.weight(1.0f)
-                            )
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .bringIntoViewRequester(bringIntoViewRequester),
+                                        horizontalArrangement = Arrangement.spacedBy(16.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        TaskActionButton(
+                                            text = "WORK",
+                                            onClick = { addTask(TaskType.WORK) },
+                                            modifier = Modifier.weight(1.0f)
+                                        )
+                                        TaskActionButton(
+                                            text = "REST",
+                                            onClick = { addTask(TaskType.REST) },
+                                            modifier = Modifier.weight(1.0f)
+                                        )
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -360,6 +344,8 @@ private fun TaskActionButton(
             contentColor = MaterialTheme.colorScheme.primary
         )
     ) {
+        Icon(imageVector = Icons.Add, contentDescription = null)
+        Spacer(Modifier.width(2.dp))
         Text(
             text = text,
             style = MaterialTheme.typography.titleMedium,
@@ -373,15 +359,16 @@ private fun SetsSection(
     sets: Int,
     restSeconds: Int,
     onSetsChange: (Int) -> Unit,
-    onRestChange: (Int) -> Unit
+    onRestChange: (Int) -> Unit,
+    content: @Composable ColumnScope.() -> Unit = {}
 ) {
     SetupSection(
         title = "Sets",
-        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 0.dp)
+        contentPadding = PaddingValues(12.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.8f))
     ) {
         Row(
             modifier = Modifier.fillMaxWidth()
-                .offset(y = (-8).dp)
                 .height(44.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -407,6 +394,8 @@ private fun SetsSection(
                 )
             }
         }
+        Spacer(modifier = Modifier.height(12.dp))
+        content()
     }
 }
 
@@ -415,9 +404,9 @@ private fun TimeCapSection(
     timeCap: Int,
     onDurationChange: (Int) -> Unit
 ) {
-    SetupSection(
+    SetupParam(
         title = "Time Cap",
-        titleSuffix = " (per set)",
+        titleSuffix = " (per set)"
     ) {
         TimeInput(
             durationSeconds = timeCap,
@@ -432,24 +421,67 @@ private fun TimeCapSection(
 @Composable
 private fun RoundsSection(
     rounds: Int,
-    onRoundsChange: (Int) -> Unit
+    onRoundsChange: (Int) -> Unit,
+    content: @Composable ColumnScope.() -> Unit = {}
 ) {
     SetupSection(
         title = "Rounds",
-        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 0.dp)
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
     ) {
         HybridStepper(
             value = rounds,
             onValueChange = onRoundsChange,
             modifier = Modifier.fillMaxWidth()
-                .offset(y = (-8).dp)
+                .offset(y = (-2).dp)
                 .height(44.dp)
         )
+        Spacer(modifier = Modifier.height(4.dp))
+        content()
     }
 }
 
 @Composable
 private fun SetupSection(
+    title: String,
+    border: BorderStroke,
+    modifier: Modifier = Modifier,
+    contentPadding: PaddingValues = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+    content: @Composable ColumnScope.() -> Unit
+) {
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(top = 16.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.2f), RoundedCornerShape(16.dp))
+                .border(border, RoundedCornerShape(16.dp))
+                .padding(contentPadding)
+        ) {
+            content()
+        }
+        Row(
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .offset(x = 24.dp, y = (-16).dp)
+                .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(32.dp))
+                .border(border, RoundedCornerShape(32.dp))
+                .padding(horizontal = 12.dp, vertical = 2.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleLarge
+            )
+        }
+    }
+}
+
+@Composable
+private fun SetupParam(
     title: String,
     modifier: Modifier = Modifier,
     titleSuffix: String? = null,
@@ -460,7 +492,7 @@ private fun SetupSection(
         modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
-            .background(MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.3f))
+            .background(MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.2f))
             .padding(contentPadding)
     ) {
         Row(
@@ -478,7 +510,6 @@ private fun SetupSection(
                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
                 )
             }
-
         }
         content()
     }
