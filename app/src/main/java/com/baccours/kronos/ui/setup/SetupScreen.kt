@@ -6,6 +6,8 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -49,6 +51,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -56,6 +59,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -77,6 +81,7 @@ import com.baccours.kronos.ui.icons.Add
 import com.baccours.kronos.ui.icons.Icons
 import com.baccours.kronos.ui.icons.Play
 import com.baccours.kronos.ui.theme.KronosTheme
+import kotlin.math.abs
 
 @Composable
 fun SetupScreen(
@@ -118,10 +123,13 @@ private fun SetupScreenContent(
     removeTask: (String) -> Unit
 ) {
     val focusManager = LocalFocusManager.current
-
     val listState = rememberLazyListState()
     val bringIntoViewRequester = remember { BringIntoViewRequester() }
     var previousTaskCount by remember { mutableIntStateOf(uiState.tasks.size) }
+
+    // Keep the swipe gesture block (keyed on Unit) reading fresh values
+    val currentMode by rememberUpdatedState(uiState.mode)
+    val currentUpdateMode by rememberUpdatedState(updateMode)
 
     LaunchedEffect(uiState.tasks.size) {
         if (uiState.tasks.size > previousTaskCount) {
@@ -146,6 +154,45 @@ private fun SetupScreenContent(
                         awaitPointerEvent(pass = PointerEventPass.Initial)
                         focusManager.clearFocus()
                     }
+                }
+            }
+            // Global horizontal swipe to change TimerMode
+            .pointerInput(Unit) {
+                val threshold = 48.dp.toPx()
+                val slop = viewConfiguration.touchSlop
+                awaitEachGesture {
+                    val down = awaitFirstDown(requireUnconsumed = false)
+                    var dx = 0f
+                    var dy = 0f
+                    var claimed = false
+                    var done = false
+                    do {
+                        val event = awaitPointerEvent()
+                        val change = event.changes.firstOrNull { it.id == down.id } ?: break
+
+                        // Multi-touch or child took the gesture -> abort
+                        if (event.changes.size > 1 || (!claimed && change.isConsumed)) break
+
+                        val delta = change.positionChange()
+                        dx += delta.x
+                        dy += delta.y
+
+                        // Claim the gesture if it's clearly horizontal
+                        if (!claimed && abs(dx) > slop && abs(dx) > 2 * abs(dy)) {
+                            claimed = true
+                        }
+
+                        if (claimed) {
+                            change.consume() // Prevent buttons/scroll from triggering
+                            if (!done && abs(dx) > threshold) {
+                                done = true
+                                // Swipe Right (dx > 0) -> First Tab (TIMER)
+                                // Swipe Left (dx < 0) -> Second Tab (FOR_TIME)
+                                val target = if (dx > 0) TimerMode.TIMER else TimerMode.FOR_TIME
+                                if (target != currentMode) currentUpdateMode(target)
+                            }
+                        }
+                    } while (change.pressed)
                 }
             }
     ) {
