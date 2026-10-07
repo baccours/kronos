@@ -1,5 +1,10 @@
 package com.baccours.kronos.ui.components
 
+import java.util.Locale
+import com.baccours.kronos.R
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.draw.alpha
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -38,7 +43,8 @@ fun TimeInput(
     onDurationChange: (Int) -> Unit,
     modifier: Modifier = Modifier,
     showRedOnZero: Boolean = true,
-    placeholder: String? = null
+    placeholder: String? = null,
+    enabled: Boolean = true
 ) {
     var isEditing by remember { mutableStateOf(false) }
     var editValue by remember { mutableStateOf("") }
@@ -50,7 +56,7 @@ fun TimeInput(
     val displayMinutes = durationSeconds / 60
     val displaySeconds = durationSeconds % 60
     val displayString = when {
-        durationSeconds > 0 -> "%02d:%02d".format(displayMinutes, displaySeconds)
+        durationSeconds > 0 -> "%02d:%02d".format(Locale.ROOT, displayMinutes, displaySeconds)
         placeholder != null -> placeholder
         else -> "00:00"
     }
@@ -62,6 +68,7 @@ fun TimeInput(
 
     Box(
         modifier = modifier
+            .alpha(if (enabled) 1f else 0.38f)
             .width(96.dp)
             .height(48.dp)
             .border(
@@ -70,7 +77,11 @@ fun TimeInput(
                 shape = MaterialTheme.shapes.extraSmall
             )
             .padding(horizontal = 8.dp, vertical = 4.dp)
-            .clickable {
+            .clickable(
+                enabled = enabled,
+                onClickLabel = stringResource(R.string.edit_value),
+                role = Role.Button
+            ) {
                 isEditing = true
                 editValue = ""
             },

@@ -5,20 +5,26 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
+import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
-import android.os.Binder
 import android.os.Build
 import android.os.IBinder
+import android.os.PowerManager
 import android.os.SystemClock
 import androidx.core.app.NotificationCompat
 import com.baccours.kronos.MainActivity
+import com.baccours.kronos.R
+import com.baccours.kronos.engine.EngineResult
+import com.baccours.kronos.engine.TimerEngine
+import com.baccours.kronos.model.Phase
 import com.baccours.kronos.model.TimerConfig
-import com.baccours.kronos.model.TaskType
 import com.baccours.kronos.model.TimerMode
+import com.baccours.kronos.model.TimerState
+import com.baccours.kronos.model.TimerStatus
+import com.baccours.kronos.model.formatDuration
 import com.baccours.kronos.repository.TimerRepository
-import com.baccours.kronos.repository.TimerStatus
-import com.baccours.kronos.repository.TimerState
+import com.baccours.kronos.ui.phaseLabel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -28,28 +34,26 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
+/**
+ * Foreground service that owns the workout. All timing/state lives in [TimerEngine]; the
+ * service only feeds it the clock, plays the cues it returns and mirrors its state to the
+ * repository and the notification.
+ */
 class TimerService : Service() {
 
-    private val binder = LocalBinder()
-    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
-    private var timerJob: Job? = null
-    
-    private lateinit var audioManager: TimerAudioManager
-    private val channelId = "timer_channel"
-    private val notificationId = 1
+    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    private var tickerJob: Job? = null
+    private var finishJob: Job? = null
 
-    private var itemStartTimeMillis: Long = 0
-    private var pausedTimeAtMillis: Long = 0
+    private var engine: TimerEngine? = null
+    private var audio: TimerAudioManager? = null
+    private var wakeLock: PowerManager.WakeLock? = null
+    private var lastNotificationKey: Long = Long.MIN_VALUE
 
-    inner class LocalBinder : Binder() {
-        fun getService(): TimerService = this@TimerService
-    }
-
-    override fun onBind(intent: Intent?): IBinder = binder
+    override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onCreate() {
         super.onCreate()
-        audioManager = TimerAudioManager(this)
         createNotificationChannel()
     }
 
@@ -66,336 +70,287 @@ class TimerService : Service() {
             }
             ACTION_PAUSE -> pauseTimer()
             ACTION_RESUME -> resumeTimer()
+            ACTION_SKIP -> engine?.let { publish(it.skip(now())) }
+            ACTION_LAP -> engine?.let { publish(it.lap(now())) }
             ACTION_STOP -> stopTimer()
-            ACTION_SKIP -> moveToNext()
         }
         return START_NOT_STICKY
     }
 
-    private fun startTimer(config: TimerConfig?) {
-        if (config == null) return
-        
-        TimerRepository.reset()
-        
-        TimerRepository.updateState(TimerState(
-            status = TimerStatus.RUNNING,
-            config = config,
-            isReadyCountdown = true,
-            readyCountdownSeconds = 10,
-            remainingSeconds = 10,
-            elapsedSeconds = 0,
-            currentTaskIndex = 0,
-            currentRound = 1,
-            currentSet = 1
-        ))
-        
-        itemStartTimeMillis = SystemClock.elapsedRealtime()
+    // ------------------------------------------------------------------ commands
 
-        val notification = createNotification(TimerRepository.timerState.value)
+    private fun startTimer(config: TimerConfig?) {
+        val running = engine?.status
+        if (running == TimerStatus.RUNNING || running == TimerStatus.PAUSED) {
+            // Duplicate start request: still honour the startForegroundService() contract.
+            enterForeground(TimerRepository.timerState.value)
+            return
+        }
+        if (config == null) {
+            enterForeground(TimerState())
+            stopSelf()
+            return
+        }
+        finishJob?.cancel()
+        val newEngine = TimerEngine(config)
+        engine = newEngine
+        audio = audio ?: TimerAudioManager(this)
+
+        val result = newEngine.start(now())
+        TimerRepository.updateState(result.state)
+        lastNotificationKey = notificationKey(result.state)
+        enterForeground(result.state)
+
+        acquireWakeLock()
+        result.cues.forEach { audio?.play(it) }
+        startTicker()
+    }
+
+    private fun enterForeground(state: TimerState) {
+        val notification = createNotification(state)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             startForeground(
-                notificationId,
+                NOTIFICATION_ID,
                 notification,
                 ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
             )
         } else {
-            startForeground(notificationId, notification)
+            startForeground(NOTIFICATION_ID, notification)
         }
-
-        audioManager.speak("Get ready. 10 seconds.")
-        
-        startTimerTicker()
     }
 
     private fun pauseTimer() {
-        val currentState = TimerRepository.timerState.value
-        if (currentState.status == TimerStatus.RUNNING) {
-            timerJob?.cancel()
-            pausedTimeAtMillis = SystemClock.elapsedRealtime()
-            TimerRepository.updateState(currentState.copy(status = TimerStatus.PAUSED))
-            updateNotification(TimerRepository.timerState.value)
-        }
+        val e = engine ?: return
+        tickerJob?.cancel()
+        audio?.stopSpeaking()
+        releaseWakeLock()
+        publish(e.pause(now()))
     }
 
     private fun resumeTimer() {
-        val currentState = TimerRepository.timerState.value
-        if (currentState.status == TimerStatus.PAUSED) {
-            val pauseDuration = SystemClock.elapsedRealtime() - pausedTimeAtMillis
-            itemStartTimeMillis += pauseDuration
-            TimerRepository.updateState(currentState.copy(status = TimerStatus.RUNNING))
-            startTimerTicker()
-        }
+        val e = engine ?: return
+        if (e.status != TimerStatus.PAUSED) return
+        acquireWakeLock()
+        publish(e.resume(now()))
+        startTicker()
     }
 
     private fun stopTimer() {
-        timerJob?.cancel()
-        TimerRepository.updateState(TimerRepository.timerState.value.copy(status = TimerStatus.NOT_STARTED))
+        tickerJob?.cancel()
+        finishJob?.cancel()
+        engine = null
+        releaseWakeLock()
+        audio?.stopSpeaking()
+        TimerRepository.reset()
         stopForeground(STOP_FOREGROUND_REMOVE)
+        getSystemService(NotificationManager::class.java).cancel(NOTIFICATION_ID)
         stopSelf()
     }
 
-    private fun startTimerTicker() {
-        timerJob?.cancel()
-        timerJob = serviceScope.launch {
+    // ------------------------------------------------------------------ ticking
+
+    private fun startTicker() {
+        tickerJob?.cancel()
+        tickerJob = serviceScope.launch {
             while (isActive) {
-                delay(200)
-                updateTimerLogic()
+                val e = engine ?: break
+                // Sleep until just after the next second boundary instead of polling.
+                delay(e.millisUntilNextTick(now()))
+                val current = engine ?: break
+                val result = current.tick(now())
+                publish(result)
+                if (result.state.status != TimerStatus.RUNNING) break
             }
         }
     }
 
-    private fun updateTimerLogic() {
-        val currentState = TimerRepository.timerState.value
-        val config = currentState.config ?: return
-        if (currentState.status != TimerStatus.RUNNING) return
+    private fun publish(result: EngineResult) {
+        val state = result.state
+        TimerRepository.updateState(state)
+        result.cues.forEach { audio?.play(it) }
 
-        val now = SystemClock.elapsedRealtime()
-        val elapsedSinceItemStart = ((now - itemStartTimeMillis) / 1000).toInt()
-        
-        if (currentState.isReadyCountdown) {
-            val remaining = (10 - elapsedSinceItemStart).coerceAtLeast(0)
-            if (remaining != currentState.remainingSeconds) {
-                TimerRepository.updateState(currentState.copy(remainingSeconds = remaining))
-                checkReadyCountdownCues(remaining)
-                if (remaining == 0) {
-                    startFirstTask()
-                } else {
-                    updateNotification(TimerRepository.timerState.value)
-                }
-            }
+        if (state.status == TimerStatus.FINISHED) {
+            onFinished(state)
             return
         }
-
-        val totalSeconds = if (currentState.isSetRest) {
-            config.setRestSeconds
-        } else {
-            currentState.currentTask?.durationSeconds ?: 0
-        }
-        
-        if (config.mode == TimerMode.TIMER || currentState.isSetRest) {
-            val remaining = (totalSeconds - elapsedSinceItemStart).coerceAtLeast(0)
-            if (remaining != currentState.remainingSeconds) {
-                TimerRepository.updateState(currentState.copy(remainingSeconds = remaining))
-                checkAudioCues(remaining, totalSeconds)
-                
-                if (remaining == 0) {
-                    moveToNext()
-                } else {
-                    updateNotification(TimerRepository.timerState.value)
-                }
-            }
-        } else {
-            // For Time mode
-            if (elapsedSinceItemStart != currentState.elapsedSeconds) {
-                TimerRepository.updateState(currentState.copy(elapsedSeconds = elapsedSinceItemStart))
-                // For Time Cues
-                if (totalSeconds > 0 && elapsedSinceItemStart == totalSeconds / 2) {
-                    audioManager.speak("Halfway")
-                }
-                
-                updateNotification(TimerRepository.timerState.value)
-                // Note: For Time doesn't automatically move to next unless it's a "Rest" item with duration
-                if (currentState.currentTask?.type == TaskType.REST && elapsedSinceItemStart >= totalSeconds) {
-                    moveToNext()
-                }
-            }
+        // The notification shows a system-driven chronometer, so it only needs to be
+        // re-posted when something other than the passing seconds changes.
+        val key = notificationKey(state)
+        if (key != lastNotificationKey) {
+            lastNotificationKey = key
+            notify(state)
         }
     }
 
-    private fun startFirstTask() {
-        val currentState = TimerRepository.timerState.value
-        val config = currentState.config ?: return
-        val firstTask = config.tasks.first()
-        
-        TimerRepository.updateState(currentState.copy(
-            isReadyCountdown = false,
-            remainingSeconds = if (config.mode == TimerMode.TIMER) firstTask.durationSeconds else 0,
-            elapsedSeconds = 0
-        ))
-        itemStartTimeMillis = SystemClock.elapsedRealtime()
-        audioManager.playStartBuzzer()
-        audioManager.speak(firstTask.name.ifBlank { firstTask.type.toString() })
-    }
-
-    private fun checkReadyCountdownCues(remaining: Int) {
-        if (remaining in 1..3) {
-            audioManager.playBeep()
-            audioManager.speak(remaining.toString())
+    private fun onFinished(state: TimerState) {
+        tickerJob?.cancel()
+        releaseWakeLock()
+        // Leave the service-foreground state but keep a (dismissable) "finished" notification.
+        stopForeground(STOP_FOREGROUND_DETACH)
+        notify(state)
+        // Give the celebration sound and "Well done" time to play before the service goes away.
+        finishJob?.cancel()
+        finishJob = serviceScope.launch {
+            delay(FINISH_LINGER_MS)
+            stopSelf()
         }
     }
 
-    private fun moveToNext() {
-        val currentState = TimerRepository.timerState.value
-        val config = currentState.config ?: return
-        
-        if (config.mode == TimerMode.FOR_TIME && !currentState.isSetRest && currentState.currentTask?.type != TaskType.REST) {
-            val newRoundTimes = currentState.roundTimes + currentState.elapsedSeconds
-            TimerRepository.updateState(currentState.copy(roundTimes = newRoundTimes))
-        }
+    // ------------------------------------------------------------------ wake lock
 
-        if (currentState.isSetRest) {
-            // Finished rest between sets, start next set
-            val nextSet = currentState.currentSet + 1
-            val firstTask = config.tasks.first()
-            TimerRepository.updateState(currentState.copy(
-                isSetRest = false,
-                currentSet = nextSet,
-                currentRound = 1,
-                currentTaskIndex = 0,
-                remainingSeconds = if (config.mode == TimerMode.TIMER) firstTask.durationSeconds else 0,
-                elapsedSeconds = 0
-            ))
-            itemStartTimeMillis = SystemClock.elapsedRealtime()
-            audioManager.playStartBuzzer()
-            audioManager.speak("Set $nextSet started. ${firstTask.name.ifBlank { firstTask.type.name }}")
-            return
-        }
-
-        var nextTaskIndex = currentState.currentTaskIndex + 1
-        var nextRound = currentState.currentRound
-        val nextSet = currentState.currentSet
-        var triggerSetRest = false
-
-        if (nextTaskIndex >= config.tasks.size) {
-            nextTaskIndex = 0
-            nextRound++
-            if (nextRound > config.rounds) {
-                if (nextSet < config.sets) {
-                    triggerSetRest = true
-                } else {
-                    finishTimer()
-                    return
-                }
-            }
-        }
-
-        if (triggerSetRest) {
-            TimerRepository.updateState(currentState.copy(
-                isSetRest = true,
-                remainingSeconds = config.setRestSeconds,
-                elapsedSeconds = 0
-            ))
-            itemStartTimeMillis = SystemClock.elapsedRealtime()
-            audioManager.speak("Set complete. Rest between sets.")
-        } else {
-            val nextTask = config.tasks[nextTaskIndex]
-            TimerRepository.updateState(currentState.copy(
-                currentTaskIndex = nextTaskIndex,
-                currentRound = nextRound,
-                currentSet = nextSet,
-                remainingSeconds = if (config.mode == TimerMode.TIMER) nextTask.durationSeconds else 0,
-                elapsedSeconds = 0
-            ))
-            itemStartTimeMillis = SystemClock.elapsedRealtime()
-            audioManager.playStartBuzzer()
-            audioManager.speak(nextTask.name.ifBlank { nextTask.type.name })
-        }
+    private fun acquireWakeLock() {
+        val lock = wakeLock ?: (getSystemService(Context.POWER_SERVICE) as PowerManager)
+            .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "kronos:timer")
+            .apply { setReferenceCounted(false) }
+            .also { wakeLock = it }
+        // Safety net so a bug can never keep the CPU awake forever.
+        lock.acquire(WAKE_LOCK_TIMEOUT_MS)
     }
 
-    private fun finishTimer() {
-        timerJob?.cancel()
-        TimerRepository.updateState(TimerRepository.timerState.value.copy(status = TimerStatus.FINISHED))
-        audioManager.playCelebration()
-        audioManager.speak("Well done !")
-        updateNotification(TimerRepository.timerState.value)
+    private fun releaseWakeLock() {
+        wakeLock?.takeIf { it.isHeld }?.release()
     }
 
-    private fun checkAudioCues(remaining: Int, total: Int) {
-        when (remaining) {
-            10 -> if (total >= 30) audioManager.speak("10 seconds remaining")
-            3, 2, 1 -> {
-                audioManager.playBeep()
-            }
-            0 -> audioManager.playLongBeep()
-        }
-        
-        if (total >= 60 && remaining == total / 2) {
-            audioManager.speak("Halfway")
-        }
-    }
+    // ------------------------------------------------------------------ notification
 
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
-                channelId,
-                "Timer",
+                CHANNEL_ID,
+                getString(R.string.notification_channel_name),
                 NotificationManager.IMPORTANCE_LOW
             ).apply {
-                description = "Shows active timer"
+                description = getString(R.string.notification_channel_description)
                 setShowBadge(false)
             }
-            val manager = getSystemService(NotificationManager::class.java)
-            manager.createNotificationChannel(channel)
+            getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
         }
+    }
+
+    private fun notificationKey(state: TimerState): Long =
+        state.status.ordinal * 1_000_000L + state.segmentIndex * 1_000L + state.laps.size
+
+    private fun notify(state: TimerState) {
+        if (state.status == TimerStatus.NOT_STARTED) return
+        getSystemService(NotificationManager::class.java)
+            .notify(NOTIFICATION_ID, createNotification(state))
     }
 
     private fun createNotification(state: TimerState): Notification {
-        val intent = Intent(this, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP
-        }
-        val pendingIntent = PendingIntent.getActivity(this, 0, intent, PendingIntent.FLAG_IMMUTABLE)
+        val openApp = PendingIntent.getActivity(
+            this,
+            0,
+            Intent(this, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            },
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
 
-        val title = when {
-            state.status == TimerStatus.FINISHED -> "Finished"
-            state.isSetRest -> "Rest Between Sets"
-            else -> "${state.currentTask?.type ?: "Work"} - Set ${state.currentSet}/${state.config?.sets ?: 1}"
-        }
+        val cfg = state.config
+        val isForTime = cfg?.mode == TimerMode.FOR_TIME
+        val finished = state.status == TimerStatus.FINISHED
+        val paused = state.status == TimerStatus.PAUSED
+        val countsDown = state.segmentSeconds > 0 && !(isForTime && state.phase == Phase.WORK)
 
-        val time = if (state.config?.mode == TimerMode.TIMER || state.isSetRest) {
-            "%02d:%02d".format(state.remainingSeconds / 60, state.remainingSeconds % 60)
+        val title = if (finished) {
+            getString(R.string.notification_finished_title)
         } else {
-            "%02d:%02d".format(state.elapsedSeconds / 60, state.elapsedSeconds % 60)
+            phaseLabel(state.phase, state.workIndex)
         }
 
-        val content = if (state.status == TimerStatus.FINISHED) "Great job!" else {
-            "Round ${state.currentRound}/${state.config?.rounds ?: 1} | $time"
+        val sets = cfg?.sets ?: 1
+        val rounds = cfg?.rounds ?: 1
+        val progress = if (isForTime) {
+            getString(R.string.notification_progress_for_time, state.currentSet, sets, state.currentRound)
+        } else {
+            getString(R.string.notification_progress_timer, state.currentSet, sets, state.currentRound, rounds)
+        }
+        val shownSeconds = if (countsDown) state.remainingSeconds else state.elapsedSeconds
+        val text = when {
+            finished -> getString(R.string.notification_finished_text)
+            paused -> getString(R.string.notification_paused, shownSeconds.formatDuration())
+            else -> progress
         }
 
-        val builder = NotificationCompat.Builder(this, channelId)
+        val builder = NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle(title)
-            .setContentText(content)
-            .setSmallIcon(android.R.drawable.ic_media_play)
-            .setContentIntent(pendingIntent)
-            .setOngoing(state.status == TimerStatus.RUNNING || state.status == TimerStatus.PAUSED)
+            .setContentText(text)
+            .setSmallIcon(R.drawable.ic_stat_timer)
+            .setContentIntent(openApp)
+            .setOngoing(!finished)
+            .setAutoCancel(finished)
             .setOnlyAlertOnce(true)
-            .setCategory(NotificationCompat.CATEGORY_SERVICE)
+            .setCategory(NotificationCompat.CATEGORY_PROGRESS)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
 
         if (state.status == TimerStatus.RUNNING) {
-            builder.addAction(android.R.drawable.ic_media_pause, "Pause", getPendingIntent(ACTION_PAUSE))
-        } else if (state.status == TimerStatus.PAUSED) {
-            builder.addAction(android.R.drawable.ic_media_play, "Resume", getPendingIntent(ACTION_RESUME))
+            // Let the system render the ticking time: no per-second notification updates.
+            val nowWall = System.currentTimeMillis()
+            val whenMs = if (countsDown) {
+                nowWall + state.segmentSeconds * 1000L - state.segmentElapsedMs
+            } else {
+                nowWall - state.segmentElapsedMs
+            }
+            builder.setShowWhen(true)
+                .setWhen(whenMs)
+                .setUsesChronometer(true)
+                .setChronometerCountDown(countsDown)
+        } else {
+            builder.setShowWhen(false)
         }
-        
-        builder.addAction(android.R.drawable.ic_menu_close_clear_cancel, "Stop", getPendingIntent(ACTION_STOP))
 
+        when (state.status) {
+            TimerStatus.RUNNING -> {
+                if (isForTime && state.phase == Phase.WORK) {
+                    builder.addAction(0, getString(R.string.action_round), servicePendingIntent(ACTION_LAP))
+                }
+                builder.addAction(0, getString(R.string.action_pause), servicePendingIntent(ACTION_PAUSE))
+            }
+            TimerStatus.PAUSED ->
+                builder.addAction(0, getString(R.string.action_resume), servicePendingIntent(ACTION_RESUME))
+            else -> Unit
+        }
+        if (!finished) {
+            builder.addAction(0, getString(R.string.action_stop), servicePendingIntent(ACTION_STOP))
+        }
         return builder.build()
     }
 
-    private fun updateNotification(state: TimerState) {
-        if (state.status == TimerStatus.NOT_STARTED) return
-        val notification = createNotification(state)
-        val manager = getSystemService(NotificationManager::class.java)
-        manager.notify(notificationId, notification)
+    private fun servicePendingIntent(action: String): PendingIntent {
+        val intent = Intent(this, TimerService::class.java).apply { this.action = action }
+        return PendingIntent.getService(
+            this,
+            action.hashCode(),
+            intent,
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
     }
 
-    private fun getPendingIntent(action: String): PendingIntent {
-        val intent = Intent(this, TimerService::class.java).apply { this.action = action }
-        return PendingIntent.getService(this, 0, intent, PendingIntent.FLAG_IMMUTABLE)
-    }
+    private fun now(): Long = SystemClock.elapsedRealtime()
 
     override fun onDestroy() {
+        tickerJob?.cancel()
+        finishJob?.cancel()
         serviceScope.cancel()
-        audioManager.release()
+        releaseWakeLock()
+        audio?.release()
+        audio = null
         super.onDestroy()
     }
 
     companion object {
-        const val ACTION_START = "ACTION_START"
-        const val ACTION_PAUSE = "ACTION_PAUSE"
-        const val ACTION_RESUME = "ACTION_RESUME"
-        const val ACTION_STOP = "ACTION_STOP"
-        const val ACTION_SKIP = "ACTION_SKIP"
+        const val ACTION_START = "com.baccours.kronos.START"
+        const val ACTION_PAUSE = "com.baccours.kronos.PAUSE"
+        const val ACTION_RESUME = "com.baccours.kronos.RESUME"
+        const val ACTION_STOP = "com.baccours.kronos.STOP"
+        const val ACTION_SKIP = "com.baccours.kronos.SKIP"
+        const val ACTION_LAP = "com.baccours.kronos.LAP"
         const val EXTRA_CONFIG = "EXTRA_CONFIG"
+
+        private const val CHANNEL_ID = "timer_channel"
+        private const val NOTIFICATION_ID = 1
+        private const val FINISH_LINGER_MS = 8_000L
+        private const val WAKE_LOCK_TIMEOUT_MS = 6L * 60 * 60 * 1000
     }
 }

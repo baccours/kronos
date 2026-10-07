@@ -16,7 +16,6 @@ enum class TaskType : Parcelable {
 @Parcelize
 data class Task(
     val id: String = java.util.UUID.randomUUID().toString(),
-    val name: String = "",
     val type: TaskType = TaskType.WORK,
     val durationSeconds: Int = 30
 ) : Parcelable
@@ -36,6 +35,7 @@ data class TimerConfig(
     val rounds: Int = 1,
     val tasks: List<Task> = listOf(Task(type = TaskType.WORK), Task(type = TaskType.REST)),
 ) : Parcelable {
+    /** Tasks with independent numbering: WORK 1, WORK 2, ... and REST 1, REST 2, ... */
     val indexedTasks: List<IndexedTask>
         get() {
             var workCount = 0
@@ -45,6 +45,7 @@ data class TimerConfig(
                 IndexedTask(task, index)
             }
         }
+
     val totalDurationSeconds: Int
         get() {
             val tasksDuration = tasks.sumOf { it.durationSeconds }

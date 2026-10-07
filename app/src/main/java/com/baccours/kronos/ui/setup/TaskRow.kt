@@ -1,6 +1,8 @@
 package com.baccours.kronos.ui.setup
 
 
+import com.baccours.kronos.R
+import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -41,12 +43,12 @@ fun TaskRow(
         TaskType.WORK -> Triple(
             MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
             MaterialTheme.colorScheme.primary,
-            "WORK"
+            stringResource(R.string.task_work)
         )
         TaskType.REST -> Triple(
             MaterialTheme.colorScheme.secondary.copy(alpha = 0.1f),
             Color.Transparent,
-            "REST"
+            stringResource(R.string.task_rest)
         )
     }
 
@@ -93,7 +95,7 @@ fun TaskRow(
         IconButton(onClick = onDelete) {
             Icon(
                 imageVector = Icons.Delete,
-                contentDescription = "Delete",
+                contentDescription = stringResource(R.string.task_delete),
                 tint = MaterialTheme.colorScheme.error
             )
         }

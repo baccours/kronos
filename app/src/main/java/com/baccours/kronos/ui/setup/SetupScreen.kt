@@ -1,5 +1,7 @@
 package com.baccours.kronos.ui.setup
 
+import com.baccours.kronos.R
+import androidx.compose.ui.res.stringResource
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.BorderStroke
@@ -160,8 +162,12 @@ private fun SetupScreenContent(
             .pointerInput(Unit) {
                 val threshold = 48.dp.toPx()
                 val slop = viewConfiguration.touchSlop
+                val edge = 32.dp.toPx() // leave the system back-gesture zones alone
                 awaitEachGesture {
                     val down = awaitFirstDown(requireUnconsumed = false)
+                    if (down.position.x < edge || down.position.x > size.width - edge) {
+                        return@awaitEachGesture
+                    }
                     var dx = 0f
                     var dy = 0f
                     var claimed = false
@@ -213,8 +219,8 @@ private fun SetupScreenContent(
                         space = 2.dp
                     ) {
                         val modes = listOf(
-                            TimerMode.TIMER to "Beat the beep",
-                            TimerMode.FOR_TIME to "Stop the clock"
+                            TimerMode.TIMER to stringResource(R.string.mode_timer),
+                            TimerMode.FOR_TIME to stringResource(R.string.mode_for_time)
                         )
 
                         modes.forEachIndexed { index, (mode, labelText) ->
@@ -273,7 +279,7 @@ private fun SetupScreenContent(
                     ) {
                         if (isTimerMode) {
                             Text(
-                                text = "Total duration: $totalDuration",
+                                text = stringResource(R.string.setup_total_duration, totalDuration),
                                 style = MaterialTheme.typography.bodyLarge,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -295,7 +301,7 @@ private fun SetupScreenContent(
                                 Icon(imageVector = Icons.Play, contentDescription = null)
                                 Spacer(Modifier.width(8.dp))
                                 Text(
-                                    text = "START",
+                                    text = stringResource(R.string.setup_start),
                                     style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.Bold
                             )
@@ -356,12 +362,12 @@ private fun SetupScreenContent(
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
                                         TaskActionButton(
-                                            text = "WORK",
+                                            text = stringResource(R.string.setup_add_work),
                                             onClick = { addTask(TaskType.WORK) },
                                             modifier = Modifier.weight(1.0f)
                                         )
                                         TaskActionButton(
-                                            text = "REST",
+                                            text = stringResource(R.string.setup_add_rest),
                                             onClick = { addTask(TaskType.REST) },
                                             modifier = Modifier.weight(1.0f)
                                         )
@@ -410,7 +416,7 @@ private fun SetsSection(
     content: @Composable ColumnScope.() -> Unit = {}
 ) {
     SetupSection(
-        title = "Sets",
+        title = stringResource(R.string.setup_sets),
         contentPadding = PaddingValues(12.dp),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.8f))
     ) {
@@ -429,15 +435,20 @@ private fun SetsSection(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.Center
             ) {
+                // Rest between sets only makes sense with more than one set.
+                val restEnabled = sets > 1
                 Text(
-                    text = "rest:",
+                    text = stringResource(R.string.setup_rest_label),
                     style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(
+                        alpha = if (restEnabled) 1f else 0.38f
+                    )
                 )
                 TimeInput(
                     durationSeconds = restSeconds,
                     onDurationChange = onRestChange,
-                    showRedOnZero = false
+                    showRedOnZero = false,
+                    enabled = restEnabled
                 )
             }
         }
@@ -452,14 +463,14 @@ private fun TimeCapSection(
     onDurationChange: (Int) -> Unit
 ) {
     SetupParam(
-        title = "Time Cap",
-        titleSuffix = " (per set)"
+        title = stringResource(R.string.setup_time_cap),
+        titleSuffix = stringResource(R.string.setup_time_cap_suffix)
     ) {
         TimeInput(
             durationSeconds = timeCap,
             onDurationChange = onDurationChange,
             showRedOnZero = false,
-            placeholder = "none",
+            placeholder = stringResource(R.string.setup_time_cap_none),
             modifier = Modifier.align(Alignment.CenterHorizontally)
         )
     }
@@ -472,7 +483,7 @@ private fun RoundsSection(
     content: @Composable ColumnScope.() -> Unit = {}
 ) {
     SetupSection(
-        title = "Rounds",
+        title = stringResource(R.string.setup_rounds),
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
     ) {

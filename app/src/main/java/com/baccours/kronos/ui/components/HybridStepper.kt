@@ -1,5 +1,8 @@
 package com.baccours.kronos.ui.components
 
+import com.baccours.kronos.R
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -65,7 +68,7 @@ fun HybridStepper(
             onClick = { if (value > range.first) onValueChange(value - 1) },
             enabled = value > range.first
         ) {
-            Icon(imageVector = Icons.Remove, contentDescription = "Decrease")
+            Icon(imageVector = Icons.Remove, contentDescription = stringResource(R.string.stepper_decrease))
         }
 
         Box(
@@ -78,7 +81,10 @@ fun HybridStepper(
                     shape = MaterialTheme.shapes.extraSmall
                 )
                 .padding(horizontal = 8.dp, vertical = 4.dp)
-                .clickable {
+                .clickable(
+                    onClickLabel = stringResource(R.string.edit_value),
+                    role = Role.Button
+                ) {
                     isEditing = true
                     editValue = ""
                 },
@@ -133,7 +139,7 @@ fun HybridStepper(
             onClick = { if (value < range.last) onValueChange(value + 1) },
             enabled = value < range.last
         ) {
-            Icon(imageVector = Icons.Add, contentDescription = "Increase")
+            Icon(imageVector = Icons.Add, contentDescription = stringResource(R.string.stepper_increase))
         }
     }
 }

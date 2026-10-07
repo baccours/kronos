@@ -1,13 +1,10 @@
 package com.baccours.kronos
 
 import android.Manifest
-import android.content.ComponentName
 import android.content.Intent
-import android.content.ServiceConnection
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
-import android.os.IBinder
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
@@ -22,29 +19,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.baccours.kronos.repository.TimerStatus
+import com.baccours.kronos.model.TimerStatus
 import com.baccours.kronos.service.TimerService
 import com.baccours.kronos.ui.running.RunningScreen
 import com.baccours.kronos.ui.setup.SetupScreen
 import com.baccours.kronos.ui.theme.KronosTheme
 
 class MainActivity : ComponentActivity() {
-    private var timerService: TimerService? = null
-    private var isBound = false
     private val mainViewModel: MainViewModel by viewModels()
-
-    private val connection = object : ServiceConnection {
-        override fun onServiceConnected(className: ComponentName, service: IBinder) {
-            val binder = service as TimerService.LocalBinder
-            timerService = binder.getService()
-            isBound = true
-        }
-
-        override fun onServiceDisconnected(arg0: ComponentName) {
-            isBound = false
-            timerService = null
-        }
-    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -87,12 +69,7 @@ class MainActivity : ComponentActivity() {
                                 action = TimerService.ACTION_START
                                 putExtra(TimerService.EXTRA_CONFIG, config)
                             }
-                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                                context.startForegroundService(intent)
-                            } else {
-                                context.startService(intent)
-                            }
-                            bindToService()
+                            ContextCompat.startForegroundService(context, intent)
                         }
                     )
                 } else {
@@ -100,37 +77,12 @@ class MainActivity : ComponentActivity() {
                         onPause = { sendServiceAction(TimerService.ACTION_PAUSE) },
                         onResume = { sendServiceAction(TimerService.ACTION_RESUME) },
                         onStop = { sendServiceAction(TimerService.ACTION_STOP) },
-                        onSkip = { sendServiceAction(TimerService.ACTION_SKIP) }
+                        onSkip = { sendServiceAction(TimerService.ACTION_SKIP) },
+                        onLap = { sendServiceAction(TimerService.ACTION_LAP) }
                     )
                 }
             }
         }
-    }
-
-    private fun bindToService() {
-        Intent(this, TimerService::class.java).also { intent ->
-            bindService(intent, connection, BIND_AUTO_CREATE)
-        }
-    }
-
-    private fun unbindFromService() {
-        if (isBound) {
-            unbindService(connection)
-            isBound = false
-        }
-    }
-
-    override fun onStart() {
-        super.onStart()
-        // If timer is already running, bind to it
-        if (mainViewModel.uiState.value.timerStatus != TimerStatus.NOT_STARTED && !isBound) {
-            bindToService()
-        }
-    }
-
-    override fun onStop() {
-        super.onStop()
-        unbindFromService()
     }
 
     private fun sendServiceAction(action: String) {

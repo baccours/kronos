@@ -3,7 +3,7 @@ package com.baccours.kronos
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.baccours.kronos.repository.TimerRepository
-import com.baccours.kronos.repository.TimerStatus
+import com.baccours.kronos.model.TimerStatus
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
