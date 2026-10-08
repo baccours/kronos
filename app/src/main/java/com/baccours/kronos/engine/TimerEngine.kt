@@ -116,7 +116,7 @@ class TimerEngine(
             val elapsedSecond = (elapsedMs / 1000).toInt()
             if (d > 0) {
                 for (e in (lastElapsedSecond + 1)..elapsedSecond) {
-                    cues += countdownCues(seg, d - e)
+                    countdownCues(seg, d - e)?.let { cues += it }
                 }
             }
             lastElapsedSecond = maxOf(lastElapsedSecond, elapsedSecond)
@@ -293,17 +293,18 @@ class TimerEngine(
     private fun startCues(i: Int): List<Cue> {
         val seg = plan[i]
         val setPrefix = if (seg.set > 1 && isFirstOfSet(i)) "Set ${seg.set}. " else ""
+        val roundPrefix = if (seg.round > 1 && isFirstOfRound(i)) "Round ${seg.round}. " else ""
         return when (seg.phase) {
-            Phase.READY -> listOf(Cue.Speak("Get ready. ${seg.durationSeconds} seconds."))
+            Phase.READY -> listOf(Cue.Speak("Get ready"))
             Phase.WORK -> listOf(
                 Cue.StartBuzzer,
                 Cue.Speak(
                     if (isForTime) "${setPrefix}Go"
-                    else "$setPrefix${workSpeech(seg.workIndex)}"
+                    else "$setPrefix$roundPrefix${workSpeech(seg.workIndex)}"
                 )
             )
-            Phase.REST -> listOf(Cue.StartBuzzer, Cue.Speak("${setPrefix}Rest"))
-            Phase.SET_REST -> listOf(Cue.StartBuzzer, Cue.Speak("Set complete. Rest between sets."))
+            Phase.REST -> listOf(Cue.StartBuzzer, Cue.Speak("${setPrefix}${roundPrefix}Rest"))
+            Phase.SET_REST -> listOf(Cue.StartBuzzer, Cue.Speak("Rest between sets."))
         }
     }
 
@@ -315,21 +316,22 @@ class TimerEngine(
         return prev.set != seg.set || prev.phase == Phase.SET_REST || prev.phase == Phase.READY
     }
 
-    /** Cues played when `remaining` whole seconds are left in a countdown segment. */
-    private fun countdownCues(seg: Segment, remaining: Int): List<Cue> {
+    private fun isFirstOfRound(i: Int): Boolean {
+        val seg = plan[i]
+        val prev = plan.getOrNull(i - 1) ?: return true
+        return prev.round != seg.round || prev.phase == Phase.SET_REST || prev.phase == Phase.READY
+    }
+
+
+    /** Cue played when `remaining` whole seconds are left in a countdown segment. */
+    private fun countdownCues(seg: Segment, remaining: Int): Cue? {
         val d = seg.durationSeconds
-        val out = ArrayList<Cue>(2)
-        if (seg.phase == Phase.READY) {
-            if (remaining in 1..3) {
-                out += Cue.Beep
-                out += Cue.Speak(remaining.toString(), interrupt = true)
-            }
-            return out
+        return when {
+            remaining == 10 && d >= 30 -> Cue.Speak("10 seconds")
+            remaining in 1..3 -> Cue.Beep
+            d >= 60 && remaining == d / 2 -> Cue.Speak("Halfway")
+            else -> null
         }
-        if (remaining == 10 && d >= 30) out += Cue.Speak("10 seconds remaining")
-        if (remaining in 1..3) out += Cue.Beep
-        if (d >= 60 && remaining == d / 2) out += Cue.Speak("Halfway")
-        return out
     }
 
     companion object {

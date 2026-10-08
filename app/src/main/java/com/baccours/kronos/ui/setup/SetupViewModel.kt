@@ -48,8 +48,11 @@ class SetupViewModel : ViewModel() {
     }
 
     fun addTask(type: TaskType = TaskType.WORK) {
-        _uiState.update {
-            it.copy(tasks = it.tasks + Task(type = type))
+        _uiState.update { current ->
+            val duration = current.tasks.findLast { it.type == type }?.durationSeconds
+                ?: current.tasks.lastOrNull()?.durationSeconds
+                ?: 30
+            current.copy(tasks = current.tasks + Task(type = type, durationSeconds = duration))
         }
     }
 

@@ -7,7 +7,6 @@ import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -228,7 +227,6 @@ private fun PortraitContent(
             LapList(
                 laps = state.laps,
                 showSet = state.totalSets > 1,
-                showHint = state.canLap,
                 modifier = Modifier
                     .weight(0.9f)
                     .fillMaxWidth()
@@ -282,7 +280,6 @@ private fun LandscapeContent(
                 LapList(
                     laps = state.laps,
                     showSet = state.totalSets > 1,
-                    showHint = state.canLap,
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxWidth()
@@ -313,17 +310,15 @@ private fun HeaderRow(state: RunningUiState, onClose: () -> Unit) {
         ) {
             InfoColumn(
                 label = stringResource(R.string.running_set),
-                value = "${state.currentSet}/${state.totalSets}"
+                value = state.currentSet,
+                total = state.totalSets
             )
             // For Time has no fixed number of rounds: only show the lap counter during a set.
             if (!state.isForTime || state.phase == Phase.WORK) {
                 InfoColumn(
                     label = stringResource(R.string.running_round),
-                    value = if (state.isForTime) {
-                        state.currentRound.toString()
-                    } else {
-                        "${state.currentRound}/${state.totalRounds}"
-                    }
+                    value = state.currentRound,
+                    total = if (state.isForTime) null else state.totalRounds
                 )
             }
         }
@@ -333,18 +328,33 @@ private fun HeaderRow(state: RunningUiState, onClose: () -> Unit) {
 }
 
 @Composable
-private fun InfoColumn(label: String, value: String) {
+private fun InfoColumn(
+    label: String,
+    value: Int,
+    total: Int? = null
+) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Text(
             text = label,
-            style = MaterialTheme.typography.labelLarge,
+            style = MaterialTheme.typography.bodyLarge,
             color = LocalContentColor.current.copy(alpha = 0.75f)
         )
-        Text(
-            text = value,
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.Bold
-        )
+        Row {
+            Text(
+                text = value.toString(),
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.alignByBaseline()
+            )
+            if (total != null) {
+                Text(
+                    text = "/$total",
+                    style = MaterialTheme.typography.bodyLarge,
+                    //fontWeight = FontWeight.Bold,
+                    modifier = Modifier.alignByBaseline()
+                )
+            }
+        }
     }
 }
 
@@ -511,22 +521,8 @@ private fun TimeDetails(state: RunningUiState) {
 private fun LapList(
     laps: List<LapUi>,
     showSet: Boolean,
-    showHint: Boolean,
     modifier: Modifier = Modifier
 ) {
-    if (laps.isEmpty()) {
-        Box(modifier = modifier, contentAlignment = Alignment.Center) {
-            if (showHint) {
-                Text(
-                    text = stringResource(R.string.running_laps_empty),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = LocalContentColor.current.copy(alpha = 0.7f),
-                    textAlign = TextAlign.Center
-                )
-            }
-        }
-        return
-    }
     LazyColumn(
         modifier = modifier,
         verticalArrangement = Arrangement.spacedBy(6.dp),
@@ -716,13 +712,7 @@ private fun FinishedView(state: RunningUiState, landscape: Boolean, onExit: () -
                         fontWeight = FontWeight.Black,
                         textAlign = TextAlign.Center
                     )
-                    Spacer(Modifier.height(8.dp))
-                    Text(
-                        text = stringResource(R.string.finished_subtitle),
-                        style = MaterialTheme.typography.bodyLarge,
-                        textAlign = TextAlign.Center
-                    )
-                    Spacer(Modifier.height(8.dp))
+                    Spacer(Modifier.height(12.dp))
                     Text(
                         text = stringResource(R.string.finished_total_time, state.finishedTotal),
                         style = MaterialTheme.typography.titleLarge,

@@ -3,8 +3,9 @@ package com.baccours.kronos.service
 import android.content.Context
 import android.media.AudioAttributes
 import android.media.AudioFocusRequest
+import android.media.AudioFormat
 import android.media.AudioManager
-import android.media.ToneGenerator
+import android.media.AudioTrack
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
@@ -13,9 +14,12 @@ import android.speech.tts.UtteranceProgressListener
 import android.util.Log
 import com.baccours.kronos.engine.Cue
 import java.util.Locale
+import kotlin.math.PI
+import kotlin.math.sin
+import kotlin.math.sqrt
 
 /**
- * Plays beeps and spoken cues on the media stream (so they are not muted by the
+ * Plays beeps, buzzers, and spoken cues on the media stream (so they are not muted by the
  * notification volume) and briefly ducks other audio (music) while a cue plays.
  * Must be used from the main thread.
  */
@@ -30,11 +34,21 @@ class TimerAudioManager(context: Context) {
         .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
         .build()
 
-    private val toneGenerator: ToneGenerator? = try {
-        ToneGenerator(AudioManager.STREAM_MUSIC, 100)
-    } catch (e: RuntimeException) {
-        Log.e(TAG, "ToneGenerator unavailable", e)
-        null
+    // --- Static synthesized sounds
+    private val beep by lazy {
+        StaticSound(generatePcm(250, wave = square(880.0)))
+    }
+
+    private val startBuzzer by lazy {
+        // Square wave = harsh "buzzer" timbre. Keep amplitude lower to avoid clipping.
+        StaticSound(generatePcm(550, wave = square(440.0)))
+    }
+
+    private val celebration by lazy {
+        // C Major ascending arpeggio: C5 (523Hz), E5 (659Hz), G5 (784Hz), C6 (1046Hz)
+        StaticSound(
+            note(523.25, 150) + note(659.25, 150) + note(783.99, 150) + note(1046.5, 400)
+        )
     }
 
     // --- Text to speech
@@ -105,9 +119,9 @@ class TimerAudioManager(context: Context) {
     fun play(cue: Cue) {
         when (cue) {
             is Cue.Speak -> speak(cue.text, cue.interrupt)
-            Cue.Beep -> playBeep()
-            Cue.StartBuzzer -> playStartBuzzer()
-            Cue.Celebration -> playCelebration()
+            Cue.Beep -> beep.play()
+            Cue.StartBuzzer -> startBuzzer.play()
+            Cue.Celebration -> celebration.play()
         }
     }
 
@@ -129,17 +143,6 @@ class TimerAudioManager(context: Context) {
         }
     }
 
-    fun playBeep() = tone(ToneGenerator.TONE_PROP_BEEP, 300)
-
-    fun playStartBuzzer() = tone(ToneGenerator.TONE_CDMA_ALERT_CALL_GUARD, 500)
-
-    /** Three prompts; each one is scheduled so it doesn't cut the previous one off. */
-    fun playCelebration() {
-        tone(ToneGenerator.TONE_PROP_PROMPT, 200)
-        handler.postDelayed({ tone(ToneGenerator.TONE_PROP_PROMPT, 200) }, 300)
-        handler.postDelayed({ tone(ToneGenerator.TONE_PROP_PROMPT, 400) }, 600)
-    }
-
     fun stopSpeaking() {
         pending.clear()
         if (isTtsReady) tts?.stop()
@@ -154,16 +157,103 @@ class TimerAudioManager(context: Context) {
         tts?.shutdown()
         tts = null
         isTtsReady = false
-        toneGenerator?.release()
+        if (beep.isInitialized()) beep.release()
+        if (startBuzzer.isInitialized()) startBuzzer.release()
+        if (celebration.isInitialized()) celebration.release()
     }
 
     // ------------------------------------------------------------------ internals
 
-    private fun tone(type: Int, durationMs: Int) {
-        val generator = toneGenerator ?: return
-        requestFocus()
-        generator.startTone(type, durationMs)
-        scheduleAbandon(durationMs + FOCUS_TAIL_MS)
+    private inner class StaticSound(private val pcm: ByteArray) {
+        private var track: AudioTrack? = null
+        val durationMs: Int = (pcm.size / 2) * 1000 / SAMPLE_RATE
+
+        fun play() {
+            val t = ensureTrack() ?: return
+            requestFocus()
+            try {
+                t.stop()
+                t.reloadStaticData()
+                t.play()
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to play static sound", e)
+            }
+            scheduleAbandon(durationMs + FOCUS_TAIL_MS)
+        }
+
+        fun isInitialized(): Boolean = track != null
+
+        private fun ensureTrack(): AudioTrack? {
+            track?.let { return it }
+            return try {
+                AudioTrack.Builder()
+                    .setAudioAttributes(attributes)
+                    .setAudioFormat(
+                        AudioFormat.Builder()
+                            .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
+                            .setSampleRate(SAMPLE_RATE)
+                            .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
+                            .build()
+                    )
+                    .setBufferSizeInBytes(pcm.size)
+                    .setTransferMode(AudioTrack.MODE_STATIC)
+                    .build()
+                    .also {
+                        it.write(pcm, 0, pcm.size)
+                        track = it
+                    }
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to create AudioTrack", e)
+                null
+            }
+        }
+
+        fun release() {
+            track?.let {
+                try {
+                    if (it.playState == AudioTrack.PLAYSTATE_PLAYING) it.stop()
+                    it.release()
+                } catch (e: Exception) {
+                    Log.e(TAG, "Failed to release AudioTrack", e)
+                }
+            }
+            track = null
+        }
+    }
+
+    private fun square(freqHz: Double): (Double) -> Double =
+        { t -> if (sin(2 * PI * freqHz * t) >= 0) 1.0 else -1.0 }
+
+    private fun note(freqHz: Double, ms: Int) =
+        generatePcm(ms, wave = square(freqHz))
+
+    private fun generatePcm(
+        durationMs: Int,
+        targetRms: Double = 0.18,
+        fadeMs: Int = 10,
+        wave: (timeSec: Double) -> Double
+    ): ByteArray {
+        val total = SAMPLE_RATE * durationMs / 1000
+        val fade = (SAMPLE_RATE * fadeMs / 1000).coerceAtMost(total / 2)
+
+        val samples = DoubleArray(total) { i ->
+            var s = wave(i.toDouble() / SAMPLE_RATE)
+            if (i < fade) s *= i.toDouble() / fade
+            else if (i >= total - fade) s *= (total - i).toDouble() / fade
+            s
+        }
+
+        val rms = sqrt(samples.sumOf { it * it } / total)
+        val gain = if (rms > 0.0) targetRms / rms else 0.0
+
+        val pcm = ByteArray(total * 2)
+        for (i in 0 until total) {
+            val v = (samples[i] * gain * Short.MAX_VALUE).toInt()
+                .coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt())
+            pcm[i * 2] = (v and 0xFF).toByte()
+            pcm[i * 2 + 1] = ((v shr 8) and 0xFF).toByte()
+        }
+        return pcm
     }
 
     private fun requestFocus() {
@@ -206,6 +296,7 @@ class TimerAudioManager(context: Context) {
 
     private companion object {
         const val TAG = "TimerAudioManager"
-        const val FOCUS_TAIL_MS = 700L
+        const val FOCUS_TAIL_MS = 300L
+        const val SAMPLE_RATE = 44100
     }
 }

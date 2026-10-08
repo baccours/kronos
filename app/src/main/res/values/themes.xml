@@ -1,4 +1,10 @@
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <color name="splash_background">#0F1514</color>
 
-    <style name="Theme.Kronos" parent="Theme.Material3.DayNight.NoActionBar" />
+    <style name="Theme.Kronos" parent="android:Theme.Material.NoActionBar">
+        <!-- Android 12+ (API 31+) Splash Screen Background -->
+        <item name="android:windowSplashScreenBackground" tools:targetApi="s">@color/splash_background</item>
+        <!-- Pre-Android 12 Window Background -->
+        <item name="android:windowBackground">@color/splash_background</item>
+    </style>
 </resources>

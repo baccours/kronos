@@ -41,7 +41,6 @@
     <string name="running_total_elapsed">Total %1$s</string>
     <string name="running_time_cap">Cap %1$s</string>
     <string name="running_lap_in_progress">Round %1$d · %2$s</string>
-    <string name="running_laps_empty">Tap ROUND each time you complete a round.</string>
     <string name="action_round">ROUND</string>
     <string name="action_finish_set">FINISH SET</string>
     <string name="action_finish">FINISH</string>
@@ -61,7 +60,6 @@
 
     <!-- Finished -->
     <string name="finished_title">WORKOUT COMPLETE</string>
-    <string name="finished_subtitle">Great session!</string>
     <string name="finished_total_time">Total time %1$s</string>
     <string name="finished_set_header">Set %1$d</string>
     <string name="finished_exit">EXIT</string>
