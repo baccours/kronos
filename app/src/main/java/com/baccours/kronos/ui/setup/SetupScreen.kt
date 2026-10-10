@@ -1,7 +1,5 @@
 package com.baccours.kronos.ui.setup
 
-import com.baccours.kronos.R
-import androidx.compose.ui.res.stringResource
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.BorderStroke
@@ -47,6 +45,7 @@ import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -63,6 +62,7 @@ import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
@@ -73,12 +73,16 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.baccours.kronos.R
 import com.baccours.kronos.model.Task
 import com.baccours.kronos.model.TaskType
 import com.baccours.kronos.model.TimerConfig
 import com.baccours.kronos.model.TimerMode
 import com.baccours.kronos.ui.components.HybridStepper
+import com.baccours.kronos.ui.components.KeypadInsetState
+import com.baccours.kronos.ui.components.LocalKeypadInset
 import com.baccours.kronos.ui.components.TimeInput
+import com.baccours.kronos.ui.components.trackKeypadInset
 import com.baccours.kronos.ui.icons.Add
 import com.baccours.kronos.ui.icons.Icons
 import com.baccours.kronos.ui.icons.Play
@@ -133,6 +137,8 @@ private fun SetupScreenContent(
     val currentMode by rememberUpdatedState(uiState.mode)
     val currentUpdateMode by rememberUpdatedState(updateMode)
 
+    val keypadInset = remember { KeypadInsetState() }
+
     LaunchedEffect(uiState.tasks.size) {
         if (uiState.tasks.size > previousTaskCount) {
             // Scroll to the bottom (add buttons)
@@ -176,7 +182,7 @@ private fun SetupScreenContent(
                         val event = awaitPointerEvent()
                         val change = event.changes.firstOrNull { it.id == down.id } ?: break
 
-                        // Multi-touch or child took the gesture -> abort
+                        // Multitouch or child took the gesture -> abort
                         if (event.changes.size > 1 || (!claimed && change.isConsumed)) break
 
                         val delta = change.positionChange()
@@ -310,67 +316,75 @@ private fun SetupScreenContent(
                 }
             }
         ) { padding ->
-            LazyColumn(
-                state = listState,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding)
-                    .padding(horizontal = 12.dp),
-                contentPadding = PaddingValues(vertical = 8.dp)
-            ) {
-                item(key = "hierarchy") {
-                    SetsSection(
-                        sets = uiState.sets,
-                        restSeconds = uiState.setRestSeconds,
-                        onSetsChange = updateSets,
-                        onRestChange = updateSetRest
-                    ) {
-                        if (!isTimerMode) {
-                            TimeCapSection(
-                                timeCap = uiState.timeCap,
-                                onDurationChange = updateTimeCap
-                            )
-                        } else {
-                            RoundsSection(
-                                rounds = uiState.rounds,
-                                onRoundsChange = updateRounds
-                            ) {
-                                Column(
-                                    verticalArrangement = Arrangement.spacedBy(12.dp)
+            CompositionLocalProvider(LocalKeypadInset provides keypadInset) {
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(padding)
+                        .padding(horizontal = 12.dp)
+                        .trackKeypadInset(keypadInset),
+                    contentPadding = PaddingValues(top = 8.dp, bottom = 8.dp + keypadInset.bottomPadding())
+                ) {
+                    item(key = "hierarchy") {
+                        SetsSection(
+                            sets = uiState.sets,
+                            restSeconds = uiState.setRestSeconds,
+                            onSetsChange = updateSets,
+                            onRestChange = updateSetRest
+                        ) {
+                            if (!isTimerMode) {
+                                TimeCapSection(
+                                    timeCap = uiState.timeCap,
+                                    onDurationChange = updateTimeCap
+                                )
+                            } else {
+                                RoundsSection(
+                                    rounds = uiState.rounds,
+                                    onRoundsChange = updateRounds
                                 ) {
-                                    uiState.indexedTasks.forEach { indexedTask ->
-                                        key(indexedTask.task.id) {
-                                            Box(
-                                                modifier = Modifier.animateContentSize()
-                                            ) {
-                                                TaskRow(
-                                                    index = indexedTask.displayIndex,
-                                                    type = indexedTask.task.type,
-                                                    durationSeconds = indexedTask.task.durationSeconds,
-                                                    onDurationChange = { updateTaskDuration(indexedTask.task.id, it) },
-                                                    onDelete = { removeTask(indexedTask.task.id) }
-                                                )
+                                    Column(
+                                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                                    ) {
+                                        uiState.indexedTasks.forEach { indexedTask ->
+                                            key(indexedTask.task.id) {
+                                                Box(
+                                                    modifier = Modifier.animateContentSize()
+                                                ) {
+                                                    TaskRow(
+                                                        index = indexedTask.displayIndex,
+                                                        type = indexedTask.task.type,
+                                                        durationSeconds = indexedTask.task.durationSeconds,
+                                                        onDurationChange = {
+                                                            updateTaskDuration(
+                                                                indexedTask.task.id,
+                                                                it
+                                                            )
+                                                        },
+                                                        onDelete = { removeTask(indexedTask.task.id) }
+                                                    )
+                                                }
                                             }
                                         }
-                                    }
 
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .bringIntoViewRequester(bringIntoViewRequester),
-                                        horizontalArrangement = Arrangement.spacedBy(16.dp),
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        TaskActionButton(
-                                            text = stringResource(R.string.setup_add_work),
-                                            onClick = { addTask(TaskType.WORK) },
-                                            modifier = Modifier.weight(1.0f)
-                                        )
-                                        TaskActionButton(
-                                            text = stringResource(R.string.setup_add_rest),
-                                            onClick = { addTask(TaskType.REST) },
-                                            modifier = Modifier.weight(1.0f)
-                                        )
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .bringIntoViewRequester(bringIntoViewRequester),
+                                            horizontalArrangement = Arrangement.spacedBy(16.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            TaskActionButton(
+                                                text = stringResource(R.string.setup_add_work),
+                                                onClick = { addTask(TaskType.WORK) },
+                                                modifier = Modifier.weight(1.0f)
+                                            )
+                                            TaskActionButton(
+                                                text = stringResource(R.string.setup_add_rest),
+                                                onClick = { addTask(TaskType.REST) },
+                                                modifier = Modifier.weight(1.0f)
+                                            )
+                                        }
                                     }
                                 }
                             }

@@ -229,7 +229,7 @@ class TimerAudioManager(context: Context) {
 
     private fun generatePcm(
         durationMs: Int,
-        targetRms: Double = 0.18,
+        targetRms: Double = 0.30,
         fadeMs: Int = 10,
         wave: (timeSec: Double) -> Double
     ): ByteArray {

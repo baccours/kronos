@@ -253,7 +253,7 @@ private fun LandscapeContent(
     ) {
         Column(
             modifier = Modifier
-                .weight(1.25f)
+                .weight(2f)
                 .fillMaxHeight(),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {

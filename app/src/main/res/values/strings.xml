@@ -28,6 +28,11 @@
     <string name="stepper_decrease">Decrease</string>
     <string name="stepper_increase">Increase</string>
     <string name="edit_value">Edit value</string>
+    <string name="unit_min">min</string>
+    <string name="keypad_ok">OK</string>
+    <string name="keypad_delete">Delete</string>
+    <string name="keypad_clear">Clear</string>
+    <string name="duration_a11y">%1$d min %2$d sec</string>
 
     <!-- Running -->
     <string name="running_set">SET</string>
