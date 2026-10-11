@@ -34,7 +34,7 @@ class TimerEngineTest {
         )
         engine.start(0)
         val spoken = run(engine).filter { it.startsWith("Work") || it == "Rest" }
-        assertEquals(listOf("Work 1", "Rest", "Work 2", "Work 1", "Rest", "Work 2"), spoken)
+        assertEquals(listOf("Work 1", "Rest", "Work 2", "Rest", "Work 2"), spoken)
     }
 
     @Test

@@ -2,17 +2,21 @@ package com.baccours.kronos.model
 
 import android.os.Parcelable
 import kotlinx.parcelize.Parcelize
+import kotlinx.serialization.Serializable
 
+@Serializable
 @Parcelize
 enum class TimerMode : Parcelable {
     TIMER, FOR_TIME
 }
 
+@Serializable
 @Parcelize
 enum class TaskType : Parcelable {
     WORK, REST
 }
 
+@Serializable
 @Parcelize
 data class Task(
     val id: String = java.util.UUID.randomUUID().toString(),
@@ -20,12 +24,14 @@ data class Task(
     val durationSeconds: Int = 30
 ) : Parcelable
 
+@Serializable
 @Parcelize
 data class IndexedTask(
     val task: Task,
     val displayIndex: Int
 ) : Parcelable
 
+@Serializable
 @Parcelize
 data class TimerConfig(
     val mode: TimerMode = TimerMode.TIMER,

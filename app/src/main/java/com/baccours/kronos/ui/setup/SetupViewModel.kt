@@ -1,21 +1,33 @@
 package com.baccours.kronos.ui.setup
 
-import androidx.lifecycle.ViewModel
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.baccours.kronos.model.TimerConfig
 import com.baccours.kronos.model.Task
 import com.baccours.kronos.model.TaskType
+import com.baccours.kronos.model.TimerConfig
 import com.baccours.kronos.model.TimerMode
 import com.baccours.kronos.model.formatDuration
+import com.baccours.kronos.repository.TimerPreferencesRepository
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+import kotlin.time.Duration.Companion.milliseconds
 
-class SetupViewModel : ViewModel() {
+@OptIn(FlowPreview::class)
+class SetupViewModel @JvmOverloads constructor(
+    application: Application,
+    private val preferencesRepository: TimerPreferencesRepository = TimerPreferencesRepository(application)
+) : AndroidViewModel(application) {
+
     private val _uiState = MutableStateFlow(TimerConfig())
     val uiState: StateFlow<TimerConfig> = _uiState.asStateFlow()
 
@@ -26,6 +38,19 @@ class SetupViewModel : ViewModel() {
             started = SharingStarted.WhileSubscribed(5000),
             initialValue = "00:00"
         )
+
+    init {
+        viewModelScope.launch {
+            val savedConfig = preferencesRepository.timerConfigFlow.first()
+            _uiState.value = savedConfig
+
+            _uiState
+                .debounce(300.milliseconds)
+                .collect { config ->
+                    preferencesRepository.saveTimerConfig(config)
+                }
+        }
+    }
 
     fun updateMode(mode: TimerMode) {
         _uiState.update { it.copy(mode = mode) }
@@ -69,5 +94,4 @@ class SetupViewModel : ViewModel() {
             })
         }
     }
-
 }
