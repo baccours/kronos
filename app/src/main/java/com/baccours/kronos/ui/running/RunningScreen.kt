@@ -7,6 +7,7 @@ import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -31,7 +32,6 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilledIconButton
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -61,6 +61,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -79,8 +80,23 @@ import com.baccours.kronos.ui.icons.SkipNext
 import com.baccours.kronos.ui.icons.Trophy
 import com.baccours.kronos.ui.phaseLabel
 
-private val SegmentBarHeight = 14.dp
+/*
+ * Layout model (no boxes, no panels: grouping is done with spacing only)
+ *
+ *   top       close cross only
+ *   stats     Set / Round, big, only when there is more than one
+ *   NOW       phase name -> timer -> segment bar (-> lap time in For Time), centered in the free space
+ *   laps      For Time only
+ *   OVERALL   thin bar + elapsed / remaining, just above the controls (like a media player)
+ *   controls  icon buttons in the thumb zone
+ */
+
+private val SegmentBarHeight = 12.dp
+private val OverallBarHeight = 6.dp
 private val MaxTimeFontSize = 160.dp
+
+private const val TrackAlpha = 0.18f
+private const val SecondaryTextAlpha = 0.75f
 
 /** Advance width of a monospace digit, in em (with a small safety margin). */
 private const val GlyphWidthEm = 0.63f
@@ -206,35 +222,28 @@ private fun PortraitContent(
     onSkip: () -> Unit,
     onLap: () -> Unit
 ) {
-    Column(
-        modifier = Modifier.fillMaxSize(),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        HeaderRow(state, onClose)
-        OverallProgress(state)
-        Spacer(Modifier.height(12.dp))
-        PhaseHeader(state)
-        TimerReadout(
-            text = state.displayTime,
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth()
-        )
-        SegmentProgress(state)
-        Spacer(Modifier.height(12.dp))
-        TimeDetails(state)
-        if (state.isForTime) {
-            Spacer(Modifier.height(12.dp))
-            LapList(
-                laps = state.laps,
-                showSet = state.totalSets > 1,
-                modifier = Modifier
-                    .weight(0.9f)
-                    .fillMaxWidth()
-            )
+    Box(modifier = Modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier.fillMaxSize(),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            SetRoundStats(state, compact = false)
+            NowGroup(state, modifier = Modifier.weight(1f))
+            if (state.isForTime) {
+                Spacer(Modifier.height(12.dp))
+                LapSection(
+                    state = state,
+                    modifier = Modifier
+                        .weight(0.8f)
+                        .fillMaxWidth()
+                )
+            }
+            Spacer(Modifier.height(16.dp))
+            OverallProgress(state)
+            Spacer(Modifier.height(16.dp))
+            Controls(state, colors, compact = false, onPause, onResume, onSkip, onLap)
         }
-        Spacer(Modifier.height(16.dp))
-        Controls(state, colors, compact = false, onPause, onResume, onSkip, onLap)
+        CloseButton(onClose, Modifier.align(Alignment.TopStart))
     }
 }
 
@@ -248,135 +257,153 @@ private fun LandscapeContent(
     onSkip: () -> Unit,
     onLap: () -> Unit
 ) {
-    Row(
-        modifier = Modifier.fillMaxSize(),
-        horizontalArrangement = Arrangement.spacedBy(24.dp)
-    ) {
-        Column(
-            modifier = Modifier
-                .weight(2f)
-                .fillMaxHeight(),
-            horizontalAlignment = Alignment.CenterHorizontally
+    Box(modifier = Modifier.fillMaxSize()) {
+        Row(
+            modifier = Modifier.fillMaxSize(),
+            horizontalArrangement = Arrangement.spacedBy(24.dp)
         ) {
-            PhaseHeader(state)
-            TimerReadout(
-                text = state.displayTime,
+            // Left: what is happening now.
+            Column(
+                modifier = Modifier
+                    .weight(1.7f)
+                    .fillMaxHeight(),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                // The title keeps clear of the floating close button without eating a row.
+                NowGroup(state, modifier = Modifier.weight(1f), headerInset = 48.dp)
+                if (state.isForTime) {
+                    Spacer(Modifier.height(8.dp))
+                    OverallProgress(state)
+                }
+            }
+            // Right: context and actions.
+            Column(
                 modifier = Modifier
                     .weight(1f)
-                    .fillMaxWidth()
-            )
-            SegmentProgress(state)
-            Spacer(Modifier.height(8.dp))
-            TimeDetails(state)
-        }
-        Column(
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxHeight()
-        ) {
-            HeaderRow(state, onClose)
-            OverallProgress(state)
-            Spacer(Modifier.height(8.dp))
-            if (state.isForTime) {
-                LapList(
-                    laps = state.laps,
-                    showSet = state.totalSets > 1,
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxWidth()
-                )
-            } else {
-                Spacer(Modifier.weight(1f))
+                    .fillMaxHeight()
+            ) {
+                SetRoundStats(state, compact = true)
+                if (state.isForTime) {
+                    LapSection(
+                        state = state,
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth()
+                    )
+                } else {
+                    Spacer(Modifier.weight(1f))
+                    OverallProgress(state)
+                }
+                Spacer(Modifier.height(8.dp))
+                Controls(state, colors, compact = true, onPause, onResume, onSkip, onLap)
             }
-            Spacer(Modifier.height(8.dp))
-            Controls(state, colors, compact = true, onPause, onResume, onSkip, onLap)
         }
+        CloseButton(onClose, Modifier.align(Alignment.TopStart))
     }
 }
 
 // ---------------------------------------------------------------------------- pieces
 
 @Composable
-private fun HeaderRow(state: RunningUiState, onClose: () -> Unit) {
+private fun CloseButton(onClose: () -> Unit, modifier: Modifier = Modifier) {
+    IconButton(onClick = onClose, modifier = modifier) {
+        Icon(Icons.Close, contentDescription = stringResource(R.string.action_close))
+    }
+}
+
+/**
+ * Set and Round, large and readable. Hidden when there is only one set / one round.
+ * For Time has no fixed number of rounds, so it only shows the lap counter during a set.
+ */
+@Composable
+private fun SetRoundStats(state: RunningUiState, compact: Boolean) {
+    val showSet = state.totalSets > 1
+    val showRound = if (state.isForTime) state.phase == Phase.WORK else state.totalRounds > 1
+    if (!showSet && !showRound) return
+
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(20.dp, Alignment.CenterHorizontally),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        IconButton(onClick = onClose) {
-            Icon(Icons.Close, contentDescription = stringResource(R.string.action_close))
-        }
-        Row(
-            modifier = Modifier.weight(1f),
-            horizontalArrangement = Arrangement.SpaceEvenly
-        ) {
-            InfoColumn(
+        if (showSet) {
+            Stat(
                 label = stringResource(R.string.running_set),
-                value = state.currentSet,
-                total = state.totalSets
+                value = "${state.currentSet}/${state.totalSets}",
+                compact = compact
             )
-            // For Time has no fixed number of rounds: only show the lap counter during a set.
-            if (!state.isForTime || state.phase == Phase.WORK) {
-                InfoColumn(
-                    label = stringResource(R.string.running_round),
-                    value = state.currentRound,
-                    total = if (state.isForTime) null else state.totalRounds
-                )
-            }
         }
-        // Balances the close button so the info stays centered.
-        Spacer(Modifier.size(48.dp))
+        if (showSet && showRound) {
+            Text(
+                text = "·",
+                style = MaterialTheme.typography.headlineLarge,
+                color = LocalContentColor.current.copy(alpha = SecondaryTextAlpha),
+            )
+        }
+        if (showRound) {
+            Stat(
+                label = stringResource(R.string.running_round),
+                value = if (state.isForTime) {
+                    "${state.currentRound}"
+                } else {
+                    "${state.currentRound}/${state.totalRounds}"
+                },
+                compact = compact
+            )
+        }
     }
 }
 
 @Composable
-private fun InfoColumn(
-    label: String,
-    value: Int,
-    total: Int? = null
-) {
+private fun Stat(label: String, value: String, compact: Boolean) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Text(
             text = label,
-            style = MaterialTheme.typography.bodyLarge,
-            color = LocalContentColor.current.copy(alpha = 0.75f)
+            style = if (compact) MaterialTheme.typography.titleMedium else MaterialTheme.typography.titleLarge,
+            color = LocalContentColor.current.copy(alpha = SecondaryTextAlpha),
+            maxLines = 1
         )
-        Row {
-            Text(
-                text = value.toString(),
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.alignByBaseline()
-            )
-            if (total != null) {
-                Text(
-                    text = "/$total",
-                    style = MaterialTheme.typography.bodyLarge,
-                    //fontWeight = FontWeight.Bold,
-                    modifier = Modifier.alignByBaseline()
-                )
-            }
-        }
+        Text(
+            text = value,
+            style = if (compact) MaterialTheme.typography.displaySmall else MaterialTheme.typography.displayMedium,
+            fontWeight = FontWeight.Black,
+            maxLines = 1
+        )
+    }
+}
+
+/**
+ * Everything about "right now": phase name (full width, so long names like the rest
+ * between sets fit), the timer, and the bar of the current segment right under it.
+ */
+@Composable
+private fun NowGroup(
+    state: RunningUiState,
+    modifier: Modifier = Modifier,
+    headerInset: Dp = 0.dp
+) {
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        PhaseHeader(state, modifier = Modifier.padding(horizontal = headerInset))
+        Spacer(Modifier.height(8.dp))
+        TimerReadout(
+            text = state.displayTime,
+            modifier = Modifier
+                .weight(1f, fill = false)
+                .fillMaxWidth()
+        )
+        Spacer(Modifier.height(12.dp))
+        SegmentProgress(state)
     }
 }
 
 @Composable
-private fun OverallProgress(state: RunningUiState) {
-    val progress = state.overallProgress ?: return
-    LinearProgressIndicator(
-        progress = { progress },
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(6.dp)
-            .clip(RoundedCornerShape(3.dp)),
-        color = LocalContentColor.current,
-        trackColor = LocalContentColor.current.copy(alpha = 0.18f),
-        gapSize = 0.dp,
-        drawStopIndicator = {}
-    )
-}
-
-@Composable
-private fun PhaseHeader(state: RunningUiState) {
+private fun PhaseHeader(state: RunningUiState, modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val subtitle = if (state.isPaused) {
         stringResource(R.string.running_paused)
@@ -384,7 +411,7 @@ private fun PhaseHeader(state: RunningUiState) {
         nextText(state)
     }
     Column(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(
@@ -397,7 +424,7 @@ private fun PhaseHeader(state: RunningUiState) {
         Text(
             text = subtitle,
             style = MaterialTheme.typography.titleMedium,
-            color = LocalContentColor.current.copy(alpha = 0.8f),
+            color = LocalContentColor.current.copy(alpha = SecondaryTextAlpha),
             textAlign = TextAlign.Center,
             maxLines = 1
         )
@@ -468,60 +495,108 @@ private fun SegmentProgress(state: RunningUiState) {
         animated.snapTo(now)
         if (running) animated.animateTo(next, tween(1000, easing = LinearEasing))
     }
-    LinearProgressIndicator(
-        progress = { animated.value },
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(SegmentBarHeight)
-            .clip(RoundedCornerShape(SegmentBarHeight / 2)),
-        color = LocalContentColor.current,
-        trackColor = LocalContentColor.current.copy(alpha = 0.18f),
-        gapSize = 0.dp,
-        drawStopIndicator = {}
-    )
+
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        LinearProgressIndicator(
+            progress = { animated.value },
+            modifier = Modifier
+                .weight(1f)
+                .height(SegmentBarHeight)
+                .clip(RoundedCornerShape(SegmentBarHeight / 2)),
+            color = LocalContentColor.current,
+            trackColor = LocalContentColor.current.copy(alpha = TrackAlpha),
+            gapSize = 0.dp,
+            drawStopIndicator = {}
+        )
+        if (!state.timeCap.isNullOrEmpty()) {
+            Text(
+                text = state.timeCap,
+                style = MaterialTheme.typography.titleLarge,
+                fontFamily = FontFamily.Monospace,
+                color = LocalContentColor.current.copy(alpha = SecondaryTextAlpha)
+            )
+        }
+    }
 }
 
+/**
+ * Whole-workout progress: a thin bar with elapsed on the left and what is left on the right
+ */
 @Composable
-private fun TimeDetails(state: RunningUiState) {
-    Column(
+private fun OverallProgress(state: RunningUiState) {
+    val progress = state.overallProgress
+    val elapsed = if (state.phase != Phase.READY) state.totalElapsed else null
+    val end = state.totalRemaining?.let { "-$it" }
+    if (progress == null && elapsed == null && end == null) return
+
+    val textStyle = MaterialTheme.typography.titleMedium
+    val textColor = LocalContentColor.current.copy(alpha = SecondaryTextAlpha)
+
+    Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalAlignment = Alignment.CenterHorizontally
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
+
+        Text(
+            text = elapsed.orEmpty(),
+            style = textStyle,
+            fontFamily = FontFamily.Monospace,
+            color = textColor
+        )
+        if (progress != null) {
+            LinearProgressIndicator(
+                progress = { progress },
+                modifier = Modifier
+                    .weight(1f)
+                    .height(OverallBarHeight)
+                    .clip(RoundedCornerShape(OverallBarHeight / 2)),
+                color = LocalContentColor.current,
+                trackColor = LocalContentColor.current.copy(alpha = TrackAlpha),
+                gapSize = 0.dp,
+                drawStopIndicator = {}
+            )
+        }
+        Text(
+            text = end.orEmpty(),
+            style = textStyle,
+            fontFamily = FontFamily.Monospace,
+            color = textColor
+        )
+    }
+}
+
+// ---------------------------------------------------------------------------- laps
+/**
+ * Lap in progress pinned on top (it never scrolls away), finished laps scrolling below it.
+ * The active row only exists during a set.
+ */
+@Composable
+private fun LapSection(state: RunningUiState, modifier: Modifier = Modifier) {
+    Column(modifier = modifier) {
         state.lapTime?.let { lapTime ->
-            Text(
-                text = stringResource(R.string.running_lap_in_progress, state.currentRound, lapTime),
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold
+            LapRow(
+                number = state.currentRound,
+                time = lapTime,
+                active = true
             )
         }
-        state.totalRemaining?.let { remaining ->
-            Text(
-                text = stringResource(R.string.running_total_remaining, remaining),
-                style = MaterialTheme.typography.bodyLarge
-            )
-        }
-        val elapsed = state.totalElapsed
-        if (elapsed != null && state.phase != Phase.READY) {
-            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                Text(
-                    text = stringResource(R.string.running_total_elapsed, elapsed),
-                    style = MaterialTheme.typography.bodyLarge
-                )
-                state.timeCap?.let { cap ->
-                    Text(
-                        text = stringResource(R.string.running_time_cap, cap),
-                        style = MaterialTheme.typography.bodyLarge
-                    )
-                }
-            }
-        }
+        LapList(
+            laps = state.laps,
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth()
+        )
     }
 }
 
 @Composable
 private fun LapList(
     laps: List<LapUi>,
-    showSet: Boolean,
     modifier: Modifier = Modifier
 ) {
     val listState = rememberLazyListState()
@@ -534,22 +609,30 @@ private fun LapList(
     LazyColumn(
         state = listState,
         modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(6.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
         contentPadding = PaddingValues(vertical = 4.dp)
     ) {
         items(laps, key = { "${it.set}-${it.number}" }) { lap ->
-            LapRow(lap, showSet)
+            LapRow(
+                number = lap.number,
+                time = lap.time,
+                delta = lap.delta,
+                isFaster = lap.isFaster
+            )
         }
     }
 }
 
 @Composable
-private fun LapRow(lap: LapUi, showSet: Boolean, modifier: Modifier = Modifier) {
-    val label = if (showSet) {
-        stringResource(R.string.lap_label_set, lap.set, lap.number)
-    } else {
-        stringResource(R.string.lap_label, lap.number)
-    }
+private fun LapRow(
+    number: Int,
+    time: String,
+    modifier: Modifier = Modifier,
+    delta: String? = null,
+    isFaster: Boolean = true,
+    active: Boolean = false
+) {
+    val textStyle = if (active) MaterialTheme.typography.titleLarge else MaterialTheme.typography.titleMedium
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -559,28 +642,32 @@ private fun LapRow(lap: LapUi, showSet: Boolean, modifier: Modifier = Modifier) 
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
-            text = label,
-            style = MaterialTheme.typography.titleMedium,
+            text = stringResource(R.string.lap_label, number),
+            style = textStyle,
+            fontWeight = if (active) FontWeight.Bold else null,
             modifier = Modifier.weight(1f)
         )
-        lap.delta?.let { delta ->
+        delta?.let { d ->
             Text(
-                text = delta,
+                text = d,
                 style = MaterialTheme.typography.bodyMedium,
                 fontFamily = FontFamily.Monospace,
-                color = if (lap.isFaster) LocalContentColor.current else MaterialTheme.colorScheme.error,
+                color = if (isFaster) LocalContentColor.current else MaterialTheme.colorScheme.error,
                 modifier = Modifier.padding(end = 12.dp)
             )
         }
         Text(
-            text = lap.time,
-            style = MaterialTheme.typography.titleMedium,
+            text = time,
+            style = textStyle,
             fontFamily = FontFamily.Monospace,
             fontWeight = FontWeight.Bold
         )
     }
 }
 
+// ---------------------------------------------------------------------------- controls
+
+/** Controls for For Time: big lap button, then pause + finish. Otherwise: pause + skip. */
 @Composable
 private fun Controls(
     state: RunningUiState,
@@ -593,6 +680,14 @@ private fun Controls(
 ) {
     val bigSize = if (compact) 64.dp else 80.dp
     val smallSize = if (compact) 56.dp else 64.dp
+    val finishSet = state.isForTime && state.phase == Phase.WORK
+    val skipDescription = stringResource(
+        when {
+            !finishSet -> R.string.action_skip
+            state.isLastSet -> R.string.action_finish
+            else -> R.string.action_finish_set
+        }
+    )
     Column(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -604,7 +699,7 @@ private fun Controls(
                 enabled = !state.isPaused,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(bigSize),
+                    .height(smallSize),
                 shape = RoundedCornerShape(20.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = colors.content,
@@ -644,43 +739,19 @@ private fun Controls(
                     modifier = Modifier.size(40.dp)
                 )
             }
-
-            if (state.isForTime && state.phase == Phase.WORK) {
-                FilledTonalButton(
-                    onClick = onSkip,
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(smallSize),
-                    shape = RoundedCornerShape(20.dp),
-                    colors = ButtonDefaults.filledTonalButtonColors(
-                        containerColor = colors.content.copy(alpha = 0.15f),
-                        contentColor = colors.content
-                    )
-                ) {
-                    Icon(Icons.Done, contentDescription = null)
-                    Spacer(Modifier.width(8.dp))
-                    Text(
-                        text = stringResource(
-                            if (state.isLastSet) R.string.action_finish else R.string.action_finish_set
-                        ),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-            } else {
-                FilledTonalIconButton(
-                    onClick = onSkip,
-                    modifier = Modifier.size(smallSize),
-                    colors = IconButtonDefaults.filledTonalIconButtonColors(
-                        containerColor = colors.content.copy(alpha = 0.15f),
-                        contentColor = colors.content
-                    )
-                ) {
-                    Icon(
-                        imageVector = Icons.SkipNext,
-                        contentDescription = stringResource(R.string.action_skip)
-                    )
-                }
+            FilledTonalIconButton(
+                onClick = onSkip,
+                modifier = Modifier.size(smallSize),
+                colors = IconButtonDefaults.filledTonalIconButtonColors(
+                    containerColor = colors.content.copy(alpha = 0.15f),
+                    contentColor = colors.content
+                )
+            ) {
+                Icon(
+                    imageVector = if (finishSet) Icons.Done else Icons.SkipNext,
+                    contentDescription = skipDescription,
+                    modifier = Modifier.size(32.dp)
+                )
             }
         }
     }
@@ -699,7 +770,7 @@ private fun FinishedView(state: RunningUiState, landscape: Boolean, onExit: () -
                 .weight(1f)
                 .fillMaxWidth(),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterVertically),
+            verticalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterVertically),
             contentPadding = PaddingValues(vertical = 16.dp)
         ) {
             item(key = "summary") {
@@ -736,7 +807,7 @@ private fun FinishedView(state: RunningUiState, landscape: Boolean, onExit: () -
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(top = 8.dp, start = 4.dp, end = 4.dp),
+                                .padding(top = 12.dp, start = 4.dp, end = 4.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
@@ -755,7 +826,12 @@ private fun FinishedView(state: RunningUiState, landscape: Boolean, onExit: () -
                     }
                 }
                 items(summary.laps, key = { "lap-${it.set}-${it.number}" }) { lap ->
-                    LapRow(lap = lap, showSet = false)
+                    LapRow(
+                        number = lap.number,
+                        time = lap.time,
+                        delta = lap.delta,
+                        isFaster = lap.isFaster
+                    )
                 }
             }
         }

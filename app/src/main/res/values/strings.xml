@@ -42,10 +42,6 @@
     <string name="running_next_with_time">Next: %1$s · %2$s</string>
     <string name="running_next_set">Next: SET %1$d</string>
     <string name="running_next_finish">Next: FINISH</string>
-    <string name="running_total_remaining">Total remaining %1$s</string>
-    <string name="running_total_elapsed">Total %1$s</string>
-    <string name="running_time_cap">Cap %1$s</string>
-    <string name="running_lap_in_progress">Round %1$d · %2$s</string>
     <string name="action_round">ROUND</string>
     <string name="action_finish_set">FINISH SET</string>
     <string name="action_finish">FINISH</string>
@@ -61,7 +57,6 @@
 
     <!-- Lap rows -->
     <string name="lap_label">Round %1$d</string>
-    <string name="lap_label_set">Set %1$d · Round %2$d</string>
 
     <!-- Finished -->
     <string name="finished_title">WORKOUT COMPLETE</string>
