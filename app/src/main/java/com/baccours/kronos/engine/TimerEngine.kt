@@ -31,7 +31,9 @@ data class EngineResult(
  * TIMER mode: every segment counts down. Segments chain from their *planned* boundary, so
  * no drift accumulates.
  * FOR_TIME mode: every set is one open-ended count-up segment (optionally limited by the
- * time cap) in which laps can be logged; sets are separated by a countdown rest.
+ * per-set time cap) in which laps can be logged; sets are separated by a countdown rest.
+ * An optional total time cap ends the whole workout once that much time has elapsed
+ * (sets and rests included, "get ready" excluded).
  *
  * All methods take `now` in milliseconds from any monotonic clock.
  */
@@ -60,6 +62,9 @@ class TimerEngine(
     }
 
     private val isForTime = config.mode == TimerMode.FOR_TIME
+
+    /** Total workout cap in milliseconds, 0 = none. */
+    private val totalCapMs = config.activeTotalTimeCap * 1000L
 
     var status: TimerStatus = TimerStatus.NOT_STARTED
         private set
@@ -97,6 +102,14 @@ class TimerEngine(
             val seg = plan[index]
             val d = seg.durationSeconds
             val elapsedMs = now - segmentStartMs
+            val capLeftMs = totalCapLeftMs(seg)
+            if (capLeftMs != null && elapsedMs >= capLeftMs) {
+                // The total cap ends the workout, even in the middle of a set or a rest.
+                val boundary = segmentStartMs + capLeftMs
+                if (boundary > segmentStartMs) completeSegment(boundary)
+                finish(cues)
+                break
+            }
             if (d > 0 && elapsedMs >= d * 1000L) {
                 // Natural end of the segment: chain from the planned boundary.
                 val boundary = segmentStartMs + d * 1000L
@@ -114,9 +127,11 @@ class TimerEngine(
                 continue
             }
             val elapsedSecond = (elapsedMs / 1000).toInt()
-            if (d > 0) {
+            if (d > 0 || capLeftMs != null) {
                 for (e in (lastElapsedSecond + 1)..elapsedSecond) {
-                    countdownCues(seg, d - e)?.let { cues += it }
+                    val cue = (if (d > 0) countdownCues(seg, d - e) else null)
+                        ?: capLeftMs?.let { totalCapCue(it - e * 1000L) }
+                    cue?.let { cues += it }
                 }
             }
             lastElapsedSecond = maxOf(lastElapsedSecond, elapsedSecond)
@@ -181,7 +196,11 @@ class TimerEngine(
     fun millisUntilNextTick(now: Long): Long {
         if (status != TimerStatus.RUNNING) return IDLE_TICK_MS
         val elapsed = (now - segmentStartMs).coerceAtLeast(0)
-        return (1000 - (elapsed % 1000)) + TICK_SLACK_MS
+        val toNextSecond = (1000 - (elapsed % 1000)) + TICK_SLACK_MS
+        // The total cap is not aligned with the segment's seconds: wake up right when it hits.
+        val capLeft = plan.getOrNull(index)?.let { totalCapLeftMs(it) } ?: return toNextSecond
+        val toCap = capLeft - elapsed
+        return if (toCap > 0) minOf(toNextSecond, toCap + TICK_SLACK_MS) else TICK_SLACK_MS
     }
 
     fun snapshot(now: Long): TimerState {
@@ -215,9 +234,12 @@ class TimerEngine(
                 ((t - lapStartMs).coerceAtLeast(0) / 1000).toInt()
             } else 0,
             totalElapsedSeconds = (totalElapsedMs / 1000).toInt(),
-            totalRemainingSeconds = if (isForTime) null else {
-                if (finished) 0
-                else (if (seg.phase == Phase.READY) 0 else remaining) + suffixSeconds[index]
+            totalRemainingSeconds = when {
+                finished -> if (isForTime && totalCapMs <= 0) null else 0
+                totalCapMs > 0 -> (config.activeTotalTimeCap - (totalElapsedMs / 1000).toInt())
+                    .coerceAtLeast(0)
+                isForTime -> null
+                else -> (if (seg.phase == Phase.READY) 0 else remaining) + suffixSeconds[index]
             },
             next = if (finished) null else plan.getOrNull(index + 1)?.let {
                 UpNext(it.phase, it.workIndex, it.set, it.durationSeconds)
@@ -231,6 +253,23 @@ class TimerEngine(
     /** While paused, time is frozen at the moment of the pause. */
     private fun reference(now: Long): Long =
         if (status == TimerStatus.PAUSED) pausedAtMs else now
+
+    /** Milliseconds of the total cap left when the given segment starts, null without a cap. */
+    private fun totalCapLeftMs(seg: Segment): Long? =
+        if (totalCapMs > 0 && seg.phase != Phase.READY) {
+            (totalCapMs - completedMs).coerceAtLeast(0)
+        } else null
+
+    /** Cue for the last seconds of the total cap, given the milliseconds still left. */
+    private fun totalCapCue(leftMs: Long): Cue? {
+        if (leftMs <= 0) return null
+        val remaining = ((leftMs + 999) / 1000).toInt()
+        return when {
+            remaining == 10 && totalCapMs >= 30_000L -> Cue.Speak("10 seconds")
+            remaining in 1..3 -> Cue.Beep
+            else -> null
+        }
+    }
 
     private fun isLapSegment(seg: Segment) = isForTime && seg.phase == Phase.WORK
 

@@ -54,6 +54,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.PointerEventPass
@@ -104,6 +105,7 @@ fun SetupScreen(
         updateSets = viewModel::updateSets,
         updateSetRest = viewModel::updateSetRest,
         updateTimeCap = viewModel::updateTimeCap,
+        updateTotalTimeCap = viewModel::updateTotalTimeCap,
         updateRounds = viewModel::updateRounds,
         addTask = viewModel::addTask,
         updateTaskDuration = viewModel::updateTaskDuration,
@@ -120,6 +122,7 @@ private fun SetupScreenContent(
     updateSets: (Int) -> Unit,
     updateSetRest: (Int) -> Unit,
     updateTimeCap: (Int) -> Unit,
+    updateTotalTimeCap: (Int) -> Unit,
     updateRounds: (Int) -> Unit,
     addTask: (TaskType) -> Unit,
     updateTaskDuration: (String, Int) -> Unit,
@@ -332,6 +335,8 @@ private fun SetupScreenContent(
                         ) {
                             if (!isTimerMode) {
                                 TimeCapSection(
+                                    title = stringResource(R.string.setup_time_cap),
+                                    suffix = stringResource(R.string.setup_time_cap_suffix),
                                     timeCap = uiState.timeCap,
                                     onDurationChange = updateTimeCap
                                 )
@@ -385,6 +390,17 @@ private fun SetupScreenContent(
                                     }
                                 }
                             }
+                        }
+                    }
+                    if (!isTimerMode) {
+                        item(key = "total_cap") {
+                            Spacer(modifier = Modifier.height(16.dp))
+                            TimeCapSection(
+                                title = stringResource(R.string.setup_total_time_cap),
+                                timeCap = uiState.totalTimeCap,
+                                onDurationChange = updateTotalTimeCap,
+                                enabled = uiState.sets > 1
+                            )
                         }
                     }
                 }
@@ -470,18 +486,23 @@ private fun SetsSection(
 
 @Composable
 private fun TimeCapSection(
+    title: String,
+    suffix: String? = null,
     timeCap: Int,
-    onDurationChange: (Int) -> Unit
+    onDurationChange: (Int) -> Unit,
+    enabled: Boolean = true
 ) {
     SetupParam(
-        title = stringResource(R.string.setup_time_cap),
-        titleSuffix = stringResource(R.string.setup_time_cap_suffix)
+        title = title,
+        titleSuffix = suffix,
+        titleAlpha = if (enabled) 1f else 0.38f
     ) {
         TimeInput(
             durationSeconds = timeCap,
             onDurationChange = onDurationChange,
             showRedOnZero = false,
             placeholder = stringResource(R.string.setup_time_cap_none),
+            enabled = enabled,
             modifier = Modifier.align(Alignment.CenterHorizontally)
         )
     }
@@ -554,6 +575,7 @@ private fun SetupParam(
     title: String,
     modifier: Modifier = Modifier,
     titleSuffix: String? = null,
+    titleAlpha: Float = 1f,
     contentPadding: PaddingValues = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
     content: @Composable ColumnScope.() -> Unit
 ) {
@@ -565,7 +587,9 @@ private fun SetupParam(
             .padding(contentPadding)
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .alpha(titleAlpha),
             horizontalArrangement = Arrangement.spacedBy(4.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -612,6 +636,7 @@ fun SetupScreenPreview() {
             updateSets = {},
             updateSetRest = {},
             updateTimeCap = {},
+            updateTotalTimeCap = {},
             updateRounds = {},
             addTask = {},
             updateTaskDuration = { _, _ -> },

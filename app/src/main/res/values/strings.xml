@@ -20,6 +20,8 @@
     <string name="setup_time_cap">Time Cap</string>
     <string name="setup_time_cap_suffix">(per set)</string>
     <string name="setup_time_cap_none">none</string>
+    <string name="setup_total_time_cap">Total Time Cap</string>
+    <string name="setup_total_time_cap_suffix">(all sets)</string>
     <string name="setup_add_work">WORK</string>
     <string name="setup_add_rest">REST</string>
     <string name="task_work">WORK</string>

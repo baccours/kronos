@@ -68,6 +68,10 @@ class SetupViewModel @JvmOverloads constructor(
         _uiState.update { it.copy(timeCap = seconds) }
     }
 
+    fun updateTotalTimeCap(seconds: Int) {
+        _uiState.update { it.copy(totalTimeCap = seconds) }
+    }
+
     fun updateRounds(rounds: Int) {
         _uiState.update { it.copy(rounds = rounds) }
     }

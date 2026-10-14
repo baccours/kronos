@@ -37,7 +37,10 @@ data class TimerConfig(
     val mode: TimerMode = TimerMode.TIMER,
     val sets: Int = 1,
     val setRestSeconds: Int = 0,
+    /** For Time: cap per set in seconds, 0 = none. */
     val timeCap: Int = 0,
+    /** For Time: cap on the whole workout (all sets and rests) in seconds, 0 = none. */
+    val totalTimeCap: Int = 0,
     val rounds: Int = 1,
     val tasks: List<Task> = listOf(Task(type = TaskType.WORK), Task(type = TaskType.REST)),
 ) : Parcelable {
@@ -51,6 +54,8 @@ data class TimerConfig(
                 IndexedTask(task, index)
             }
         }
+    val activeTotalTimeCap: Int
+        get() = if (mode == TimerMode.FOR_TIME && sets > 1) totalTimeCap.coerceAtLeast(0) else 0
 
     val totalDurationSeconds: Int
         get() {
