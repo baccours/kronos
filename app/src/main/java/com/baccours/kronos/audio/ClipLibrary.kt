@@ -1,0 +1,98 @@
+package com.baccours.kronos.audio
+
+import android.content.Context
+import android.util.Log
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.FutureTask
+import java.util.concurrent.LinkedBlockingQueue
+import java.util.concurrent.ThreadPoolExecutor
+import java.util.concurrent.TimeUnit
+
+/**
+ * Decoded voice clips, kept for the life of the app process so that a clip is decoded at most once,
+ * however many workouts (and [ClipAnnouncer]s) use it. Each clip is mono 16-bit PCM at
+ * [SAMPLE_RATE]. Decoding is slow (about 250 ms per clip on some devices), hence [preload].
+ *
+ * Thread-safe. [pcm] blocks while a clip is being decoded: call it off the main thread.
+ */
+class ClipLibrary private constructor(context: Context) {
+
+    private val assets = context.applicationContext.assets
+
+    /** File names (with extension) found in assets/audio. */
+    private val available: Set<String> = try {
+        assets.list(ClipCatalog.DIR)?.toSet() ?: emptySet()
+    } catch (e: Exception) {
+        Log.e(TAG, "Cannot list voice clips", e)
+        emptySet()
+    }
+
+    /** One task per clip: different clips decode in parallel, a clip wanted twice is decoded once. */
+    private val decoded = ConcurrentHashMap<String, FutureTask<ShortArray?>>()
+
+    /** Single background thread for [preload]; it exits when idle. */
+    private val preloader = ThreadPoolExecutor(
+        1, 1, 30, TimeUnit.SECONDS, LinkedBlockingQueue()
+    ) { r -> Thread(r, "clip-preloader").apply { isDaemon = true } }
+        .apply { allowCoreThreadTimeOut(true) }
+
+    init {
+        val missing = ClipCatalog.allClips.filter { !has(it) }
+        if (missing.isNotEmpty()) {
+            Log.w(TAG, "${missing.size} of ${ClipCatalog.allClips.size} voice clips missing, " +
+                "e.g. ${missing.take(5).joinToString()}")
+        }
+    }
+
+    /** True when the asset file for the clip [name] (no extension) exists. */
+    fun has(name: String): Boolean = name + ClipCatalog.EXTENSION in available
+
+    /** Decoded PCM of clip [name], decoding it on first use; null when missing or undecodable. */
+    fun pcm(name: String): ShortArray? {
+        if (!has(name)) return null
+        var owned: FutureTask<ShortArray?>? = null
+        val task = decoded.computeIfAbsent(name) { FutureTask { decode(name) }.also { owned = it } }
+        owned?.run() // we created the task, so we decode (outside any lock); others just wait on it
+        return try {
+            task.get()
+        } catch (e: InterruptedException) {
+            Thread.currentThread().interrupt()
+            null
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    /** Decodes [names] in the background, in this order, skipping clips already requested. */
+    fun preload(names: Collection<String>) {
+        val todo = names.filter { has(it) && !decoded.containsKey(it) }
+        if (todo.isEmpty()) return
+        preloader.execute { for (name in todo) pcm(name) }
+    }
+
+    private fun decode(name: String): ShortArray? = try {
+        assets.openFd("${ClipCatalog.DIR}/$name${ClipCatalog.EXTENSION}").use { afd ->
+            ClipDecoder.decode(afd, name)
+        }?.let {
+            PcmUtil.resample(PcmUtil.toMono(it.samples, it.channels), it.sampleRate, SAMPLE_RATE)
+        }
+    } catch (e: Exception) {
+        Log.e(TAG, "Cannot load $name", e)
+        null
+    }
+
+    companion object {
+        private const val TAG = "ClipLibrary"
+
+        /** Everything is played as mono at this rate (the usual native output rate). */
+        const val SAMPLE_RATE = 48_000
+
+        @Volatile
+        private var instance: ClipLibrary? = null
+
+        fun get(context: Context): ClipLibrary =
+            instance ?: synchronized(this) {
+                instance ?: ClipLibrary(context.applicationContext).also { instance = it }
+            }
+    }
+}

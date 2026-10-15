@@ -120,4 +120,77 @@ class TimerEngineTest {
         engine.start(0)
         assertTrue(engine.lap(1_000).state.laps.isEmpty())
     }
+
+    @Test
+    fun announcementsAreStructured() {
+        val engine = TimerEngine(
+            TimerConfig(sets = 2, rounds = 2, setRestSeconds = 3, tasks = listOf(work(5), rest(3)))
+        )
+        val parts = ArrayList<List<Speech>>()
+        var t = 0L
+        parts += engine.start(t).cues.filterIsInstance<Cue.Speak>().map { it.parts }
+        while (engine.status == TimerStatus.RUNNING) {
+            parts += engine.tick(t).cues.filterIsInstance<Cue.Speak>().map { it.parts }
+            t += 10
+        }
+        val all = parts.filter { it.isNotEmpty() }.map { it.toList() }
+        assertEquals(listOf(Speech.GetReady), all.first())
+        assertTrue(listOf<Speech>(Speech.Work(1)) in all)
+        assertTrue(listOf<Speech>(Speech.RoundNumber(2), Speech.Work(1)) in all)
+        assertTrue(listOf<Speech>(Speech.RestBetweenSets) in all)
+        assertTrue(listOf<Speech>(Speech.SetNumber(2), Speech.Work(1)) in all)
+        assertEquals(listOf<Speech>(Speech.WellDone), all.last())
+    }
+
+    @Test
+    fun speakTextIsReadableEnglish() {
+        val cue = Cue.Speak(Speech.SetNumber(2), Speech.RoundNumber(3), Speech.Work(4))
+        assertEquals("Set 2. Round 3. Work 4", cue.text)
+    }
+
+    @Test
+    fun speechNeededListsWhatTheWorkoutSaysInOrder() {
+        val engine = TimerEngine(
+            TimerConfig(sets = 2, rounds = 2, setRestSeconds = 3, tasks = listOf(work(5), work(5), rest(3)))
+        )
+        val needed = engine.speechNeeded()
+        assertEquals(
+            listOf<Speech>(
+                Speech.GetReady, Speech.Work(1), Speech.Work(2), Speech.Rest,
+                Speech.RoundNumber(2), Speech.RestBetweenSets, Speech.SetNumber(2), Speech.WellDone
+            ),
+            needed
+        )
+    }
+
+    @Test
+    fun speechNeededCoversTheCountdownAnnouncements() {
+        val short = TimerEngine(TimerConfig(tasks = listOf(work(20), rest(5)))).speechNeeded()
+        assertTrue(Speech.TenSeconds !in short && Speech.Halfway !in short)
+
+        val medium = TimerEngine(TimerConfig(tasks = listOf(work(30), rest(5)))).speechNeeded()
+        assertTrue(Speech.TenSeconds in medium && Speech.Halfway !in medium)
+
+        val long = TimerEngine(TimerConfig(tasks = listOf(work(60), rest(5)))).speechNeeded()
+        assertTrue(Speech.TenSeconds in long && Speech.Halfway in long)
+    }
+
+    @Test
+    fun speechNeededIsEverythingTheWorkoutActuallySays() {
+        val engine = TimerEngine(
+            TimerConfig(sets = 2, rounds = 2, setRestSeconds = 15, tasks = listOf(work(40), rest(10), work(65)))
+        )
+        val needed = engine.speechNeeded().toSet()
+        val spoken = HashSet<Speech>()
+        val runner = TimerEngine(
+            TimerConfig(sets = 2, rounds = 2, setRestSeconds = 15, tasks = listOf(work(40), rest(10), work(65)))
+        )
+        var t = 0L
+        spoken += runner.start(t).cues.filterIsInstance<Cue.Speak>().flatMap { it.parts }
+        while (runner.status == TimerStatus.RUNNING) {
+            spoken += runner.tick(t).cues.filterIsInstance<Cue.Speak>().flatMap { it.parts }
+            t += 250
+        }
+        assertEquals(emptySet<Speech>(), spoken - needed)
+    }
 }

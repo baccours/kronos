@@ -95,6 +95,9 @@ class TimerService : Service() {
         val newEngine = TimerEngine(config)
         engine = newEngine
         audio = audio ?: TimerAudioManager(this)
+        // Get this workout's voice clips ready, in the order they will be needed. The "get ready"
+        // countdown gives the decoder a head start; clips decoded earlier are kept in memory.
+        audio?.prepare(newEngine.speechNeeded())
 
         val result = newEngine.start(now())
         TimerRepository.updateState(result.state)

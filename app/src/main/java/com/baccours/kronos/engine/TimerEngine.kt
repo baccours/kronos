@@ -9,9 +9,15 @@ import com.baccours.kronos.model.TimerState
 import com.baccours.kronos.model.TimerStatus
 import com.baccours.kronos.model.UpNext
 
-/** Something the audio layer should do. Spoken text is always English (US). */
+/** Something the audio layer should do. */
 sealed interface Cue {
-    data class Speak(val text: String, val interrupt: Boolean = false) : Cue
+    /** Announce [parts] one after the other, e.g. "Set 2", "Round 3", "Work 4". */
+    data class Speak(val parts: List<Speech>, val interrupt: Boolean = false) : Cue {
+        constructor(vararg parts: Speech, interrupt: Boolean = false) : this(parts.toList(), interrupt)
+
+        /** English text of the whole announcement, e.g. "Set 2. Round 3. Work 4". */
+        val text: String get() = parts.joinToString(". ") { it.english }
+    }
     data object Beep : Cue
     data object StartBuzzer : Cue
     data object Celebration : Cue
@@ -248,6 +254,29 @@ class TimerEngine(
         )
     }
 
+    /**
+     * Everything this workout may say, in the order it first says it, without repeats. Lets the
+     * announcer get its voice clips ready before they are needed.
+     */
+    fun speechNeeded(): List<Speech> {
+        val out = LinkedHashSet<Speech>()
+        fun add(cue: Cue?) {
+            if (cue is Cue.Speak) out += cue.parts
+        }
+        for (i in plan.indices) {
+            startCues(i).forEach(::add)
+            val seconds = plan[i].durationSeconds
+            if (seconds > 0) {
+                // The countdown announcements ("10 seconds" and "halfway") fire at these two moments.
+                add(countdownCues(plan[i], 10))
+                add(countdownCues(plan[i], seconds / 2))
+            }
+        }
+        add(totalCapCue(10_000L))
+        out += Speech.WellDone
+        return out.toList()
+    }
+
     // ---------------------------------------------------------------- internals
 
     /** While paused, time is frozen at the moment of the pause. */
@@ -264,9 +293,9 @@ class TimerEngine(
     private fun totalCapCue(leftMs: Long): Cue? {
         if (leftMs <= 0) return null
         val remaining = ((leftMs + 999) / 1000).toInt()
-        return when {
-            remaining == 10 && totalCapMs >= 30_000L -> Cue.Speak("10 seconds")
-            remaining in 1..3 -> Cue.Beep
+        return when (remaining) {
+            10 if totalCapMs >= 30_000L -> Cue.Speak(Speech.TenSeconds)
+            in 1..3 -> Cue.Beep
             else -> null
         }
     }
@@ -296,7 +325,7 @@ class TimerEngine(
         status = TimerStatus.FINISHED
         cues.clear()
         cues += Cue.Celebration
-        cues += Cue.Speak("Well done")
+        cues += Cue.Speak(Speech.WellDone)
     }
 
     private fun buildPlan(): List<Segment> {
@@ -331,23 +360,23 @@ class TimerEngine(
 
     private fun startCues(i: Int): List<Cue> {
         val seg = plan[i]
-        val setPrefix = if (seg.set > 1 && isFirstOfSet(i)) "Set ${seg.set}. " else ""
-        val roundPrefix = if (seg.round > 1 && isFirstOfRound(i)) "Round ${seg.round}. " else ""
+        val setIntro: List<Speech> =
+            if (seg.set > 1 && isFirstOfSet(i)) listOf(Speech.SetNumber(seg.set)) else emptyList()
+        val roundIntro: List<Speech> =
+            if (seg.round > 1 && isFirstOfRound(i)) listOf(Speech.RoundNumber(seg.round)) else emptyList()
         return when (seg.phase) {
-            Phase.READY -> listOf(Cue.Speak("Get ready"))
+            Phase.READY -> listOf(Cue.Speak(Speech.GetReady))
             Phase.WORK -> listOf(
                 Cue.StartBuzzer,
                 Cue.Speak(
-                    if (isForTime) "${setPrefix}Go"
-                    else "$setPrefix$roundPrefix${workSpeech(seg.workIndex)}"
+                    if (isForTime) setIntro + Speech.Go
+                    else setIntro + roundIntro + Speech.Work(seg.workIndex)
                 )
             )
-            Phase.REST -> listOf(Cue.StartBuzzer, Cue.Speak("${setPrefix}${roundPrefix}Rest"))
-            Phase.SET_REST -> listOf(Cue.StartBuzzer, Cue.Speak("Rest between sets."))
+            Phase.REST -> listOf(Cue.StartBuzzer, Cue.Speak(setIntro + roundIntro + Speech.Rest))
+            Phase.SET_REST -> listOf(Cue.StartBuzzer, Cue.Speak(Speech.RestBetweenSets))
         }
     }
-
-    private fun workSpeech(workIndex: Int) = if (workIndex > 0) "Work $workIndex" else "Work"
 
     private fun isFirstOfSet(i: Int): Boolean {
         val seg = plan[i]
@@ -366,9 +395,9 @@ class TimerEngine(
     private fun countdownCues(seg: Segment, remaining: Int): Cue? {
         val d = seg.durationSeconds
         return when {
-            remaining == 10 && d >= 30 -> Cue.Speak("10 seconds")
+            remaining == 10 && d >= 30 -> Cue.Speak(Speech.TenSeconds)
             remaining in 1..3 -> Cue.Beep
-            d >= 60 && remaining == d / 2 -> Cue.Speak("Halfway")
+            d >= 60 && remaining == d / 2 -> Cue.Speak(Speech.Halfway)
             else -> null
         }
     }
