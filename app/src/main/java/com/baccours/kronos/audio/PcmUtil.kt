@@ -5,6 +5,9 @@ import kotlin.math.roundToInt
 /** Small PCM helpers for 16-bit samples. Pure Kotlin (no Android). */
 object PcmUtil {
 
+    /** All PCM in the app (voice clips and tones) is mono, 16-bit, at this rate. */
+    const val SAMPLE_RATE = 48_000
+
     /** Mixes interleaved [channels] down to mono by averaging them. */
     fun toMono(samples: ShortArray, channels: Int): ShortArray {
         if (channels <= 1) return samples

@@ -2,7 +2,6 @@ package com.baccours.kronos.audio
 
 import android.content.Context
 import android.media.AudioAttributes
-import android.media.AudioFormat
 import android.media.AudioTrack
 import android.os.Handler
 import android.os.Looper
@@ -145,7 +144,7 @@ class ClipAnnouncer(
 
             override fun onPeriodicNotification(t: AudioTrack?) = Unit
         }, handler)
-        track.setNotificationMarkerPosition(playing.frames)
+        track.notificationMarkerPosition = playing.frames
         focus.request()
         try {
             track.play()
@@ -180,46 +179,20 @@ class ClipAnnouncer(
     }
 
     /** Creates a static AudioTrack holding [pcm]. Called on the worker thread. */
-    private fun buildTrack(pcm: ShortArray): Prepared? = try {
-        val track = AudioTrack.Builder()
-            .setAudioAttributes(attributes)
-            .setAudioFormat(
-                AudioFormat.Builder()
-                    .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
-                    .setSampleRate(SAMPLE_RATE)
-                    .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
-                    .build()
-            )
-            .setBufferSizeInBytes(pcm.size * 2)
-            .setTransferMode(AudioTrack.MODE_STATIC)
-            .build()
-        if (track.write(pcm, 0, pcm.size) == pcm.size) {
-            Prepared(track, pcm.size)
-        } else {
-            Log.e(TAG, "Cannot write PCM to the AudioTrack")
-            track.release()
-            null
-        }
-    } catch (e: Exception) {
-        Log.e(TAG, "Cannot create AudioTrack", e)
-        null
-    }
+    private fun buildTrack(pcm: ShortArray): Prepared? =
+        createStaticTrack(pcm, attributes)?.let { Prepared(it, pcm.size) }
 
     private fun releaseTrack(track: AudioTrack) {
         try {
-            track.stop()
             track.release()
         } catch (e: Exception) {
             Log.e(TAG, "Cannot release AudioTrack", e)
         }
     }
 
-    private fun daemonExecutor(name: String): ExecutorService =
-        Executors.newSingleThreadExecutor { r -> Thread(r, name).apply { isDaemon = true } }
-
     private companion object {
         const val TAG = "ClipAnnouncer"
-        const val FOCUS_TAIL_MS = 300L
+        const val FOCUS_TAIL_MS = AudioFocusController.TAIL_MS
         const val OUTPUT_TAIL_MS = 60L
         const val FALLBACK_MS = 500L
 

@@ -64,7 +64,7 @@ private val DarkColors = darkColorScheme(
 
 @Composable
 fun KronosTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
+    darkTheme: Boolean = isSystemInDarkTheme() || Build.VERSION.SDK_INT < Build.VERSION_CODES.Q,
     dynamicColor: Boolean = false,
     content: @Composable () -> Unit
 ) {

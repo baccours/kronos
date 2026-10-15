@@ -32,9 +32,9 @@ object ClipCatalog {
     private val UNITS = listOf(
         "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten",
         "eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen", "seventeen",
-        "eighteen", "nineteen", "twenty"
+        "eighteen", "nineteen"
     )
-    private val TENS = listOf("thirty", "forty", "fifty", "sixty", "seventy", "eighty", "ninety")
+    private val TENS = listOf("twenty", "thirty", "forty", "fifty", "sixty", "seventy", "eighty", "ninety")
     private const val HUNDRED = "hundred"
 
     /** Announcements that do not depend on the workout's configuration. */
@@ -88,11 +88,8 @@ object ClipCatalog {
 
     private fun below100(n: Int): List<String> = when (n) {
         0 -> emptyList()
-        in 1..20 -> listOf(UNITS[n - 1])
-        else -> {
-            val tens = if (n / 10 == 2) "twenty" else TENS[n / 10 - 3]
-            listOfNotNull(tens, UNITS.getOrNull(n % 10 - 1)) // no units word for 30, 40, ...
-        }
+        in 1..19 -> listOf(UNITS[n - 1])
+        else -> listOfNotNull(TENS[n / 10 - 2], UNITS.getOrNull(n % 10 - 1))
     }
 
     /** Every clip name (no extension) the app may ever ask for, sorted. */

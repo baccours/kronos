@@ -55,10 +55,10 @@ class ClipLibrary private constructor(context: Context) {
         owned?.run() // we created the task, so we decode (outside any lock); others just wait on it
         return try {
             task.get()
-        } catch (e: InterruptedException) {
+        } catch (_: InterruptedException) {
             Thread.currentThread().interrupt()
             null
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             null
         }
     }
@@ -85,7 +85,7 @@ class ClipLibrary private constructor(context: Context) {
         private const val TAG = "ClipLibrary"
 
         /** Everything is played as mono at this rate (the usual native output rate). */
-        const val SAMPLE_RATE = 48_000
+        const val SAMPLE_RATE = PcmUtil.SAMPLE_RATE
 
         @Volatile
         private var instance: ClipLibrary? = null

@@ -5,7 +5,6 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
-import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.Build
@@ -33,6 +32,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlin.time.Duration.Companion.milliseconds
 
 /**
  * Foreground service that owns the workout. All timing/state lives in [TimerEngine]; the
@@ -158,7 +158,7 @@ class TimerService : Service() {
             while (isActive) {
                 val e = engine ?: break
                 // Sleep until just after the next second boundary instead of polling.
-                delay(e.millisUntilNextTick(now()))
+                delay(e.millisUntilNextTick(now()).milliseconds)
                 val current = engine ?: break
                 val result = current.tick(now())
                 publish(result)
@@ -194,7 +194,7 @@ class TimerService : Service() {
         // Give the celebration sound and "Well done" time to play before the service goes away.
         finishJob?.cancel()
         finishJob = serviceScope.launch {
-            delay(FINISH_LINGER_MS)
+            delay(FINISH_LINGER_MS.milliseconds)
             stopSelf()
         }
     }
@@ -202,7 +202,7 @@ class TimerService : Service() {
     // ------------------------------------------------------------------ wake lock
 
     private fun acquireWakeLock() {
-        val lock = wakeLock ?: (getSystemService(Context.POWER_SERVICE) as PowerManager)
+        val lock = wakeLock ?: (getSystemService(POWER_SERVICE) as PowerManager)
             .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "kronos:timer")
             .apply { setReferenceCounted(false) }
             .also { wakeLock = it }

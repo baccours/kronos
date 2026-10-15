@@ -59,7 +59,10 @@ object ClipDecoder {
                 if (!inputDone) {
                     val inIndex = decoder.dequeueInputBuffer(TIMEOUT_US)
                     if (inIndex >= 0) {
-                        val buffer = decoder.getInputBuffer(inIndex)!!
+                        val buffer = decoder.getInputBuffer(inIndex) ?: run {
+                            Log.e(TAG, "$name: no input buffer for index $inIndex")
+                            return null
+                        }
                         val read = extractor.readSampleData(buffer, 0)
                         if (read < 0) {
                             decoder.queueInputBuffer(inIndex, 0, 0, 0, MediaCodec.BUFFER_FLAG_END_OF_STREAM)

@@ -28,6 +28,11 @@ class AudioFocusController(
     private val focusListener = AudioManager.OnAudioFocusChangeListener { }
     private val abandonRunnable = Runnable { if (!isBusy()) abandon() }
 
+    companion object {
+        /** How long to keep the focus after a sound ends. */
+        const val TAIL_MS = 300L
+    }
+
     fun request() {
         handler.removeCallbacks(abandonRunnable)
         if (hasFocus) return
