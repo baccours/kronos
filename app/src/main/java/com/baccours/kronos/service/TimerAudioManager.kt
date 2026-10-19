@@ -10,6 +10,7 @@ import com.baccours.kronos.audio.ClipAnnouncer
 import com.baccours.kronos.audio.StaticTrack
 import com.baccours.kronos.audio.ToneSynth
 import com.baccours.kronos.engine.Cue
+import com.baccours.kronos.engine.CuePlayer
 import com.baccours.kronos.engine.Speech
 
 /**
@@ -25,7 +26,7 @@ class TimerAudioManager(
     announcerFactory: (AudioFocusController) -> Announcer = {
         ClipAnnouncer(context.applicationContext, it)
     }
-) {
+) : CuePlayer {
 
     private val handler = Handler(Looper.getMainLooper())
 
@@ -47,7 +48,7 @@ class TimerAudioManager(
         focus.isBusy = { announcer.isSpeaking }
     }
 
-    fun play(cue: Cue) {
+    override fun play(cue: Cue) {
         when (cue) {
             is Cue.Speak -> announcer.say(cue)
             Cue.Beep -> beep.play()
@@ -60,15 +61,15 @@ class TimerAudioManager(
      * Gets what is needed ready before it is: lets the announcer prepare [speeches] (e.g. decode
      * clips) and creates the tone tracks, so that the first beep is not delayed.
      */
-    fun prepare(speeches: List<Speech>) {
+    override fun prepare(speeches: List<Speech>) {
         announcer.prepare(speeches)
         // Posted, so that the cues of the starting workout are not delayed by it.
         handler.post { tones.forEach { it.prepare() } }
     }
 
-    fun stopSpeaking() = announcer.stop()
+    override fun stopSpeaking() = announcer.stop()
 
-    fun release() {
+    override fun release() {
         handler.removeCallbacksAndMessages(null)
         announcer.release()
         focus.release()

@@ -5,12 +5,10 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -23,19 +21,10 @@ import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.FilledIconButton
-import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
@@ -67,17 +56,12 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.baccours.kronos.R
+import com.baccours.kronos.WorkoutViewModel
 import com.baccours.kronos.model.Phase
 import com.baccours.kronos.model.TimerStatus
 import com.baccours.kronos.model.formatDuration
-import com.baccours.kronos.ui.icons.Add
 import com.baccours.kronos.ui.icons.Close
-import com.baccours.kronos.ui.icons.Done
 import com.baccours.kronos.ui.icons.Icons
-import com.baccours.kronos.ui.icons.Pause
-import com.baccours.kronos.ui.icons.Play
-import com.baccours.kronos.ui.icons.SkipNext
-import com.baccours.kronos.ui.icons.Trophy
 import com.baccours.kronos.ui.phaseLabel
 
 /*
@@ -96,13 +80,14 @@ private val OverallBarHeight = 6.dp
 private val MaxTimeFontSize = 160.dp
 
 private const val TrackAlpha = 0.18f
-private const val SecondaryTextAlpha = 0.75f
+/** 0.85 keeps secondary text at 4.5:1 or more on every phase colour in both themes. */
+private const val SecondaryTextAlpha = 0.85f
 
 /** Advance width of a monospace digit, in em (with a small safety margin). */
 private const val GlyphWidthEm = 0.63f
 private const val LineHeightEm = 1.25f
 
-private data class PhaseColors(val container: Color, val content: Color)
+internal data class PhaseColors(val container: Color, val content: Color)
 
 @Composable
 private fun phaseColors(state: RunningUiState): PhaseColors {
@@ -122,7 +107,7 @@ fun RunningScreen(
     onStop: () -> Unit,
     onSkip: () -> Unit = {},
     onLap: () -> Unit = {},
-    viewModel: RunningViewModel = viewModel()
+    viewModel: WorkoutViewModel = viewModel()
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
 
@@ -567,286 +552,5 @@ private fun OverallProgress(state: RunningUiState) {
             fontFamily = FontFamily.Monospace,
             color = textColor
         )
-    }
-}
-
-// ---------------------------------------------------------------------------- laps
-/**
- * Lap in progress pinned on top (it never scrolls away), finished laps scrolling below it.
- * The active row only exists during a set.
- */
-@Composable
-private fun LapSection(state: RunningUiState, modifier: Modifier = Modifier) {
-    Column(modifier = modifier) {
-        state.lapTime?.let { lapTime ->
-            LapRow(
-                number = state.currentRound,
-                time = lapTime,
-                active = true
-            )
-        }
-        LapList(
-            laps = state.laps,
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth()
-        )
-    }
-}
-
-@Composable
-private fun LapList(
-    laps: List<LapUi>,
-    modifier: Modifier = Modifier
-) {
-    val listState = rememberLazyListState()
-    LaunchedEffect(laps.size) {
-        if (laps.isNotEmpty()) {
-            listState.animateScrollToItem(0)
-        }
-    }
-
-    LazyColumn(
-        state = listState,
-        modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(4.dp),
-        contentPadding = PaddingValues(vertical = 4.dp)
-    ) {
-        items(laps, key = { "${it.set}-${it.number}" }) { lap ->
-            LapRow(
-                number = lap.number,
-                time = lap.time,
-                delta = lap.delta,
-                isFaster = lap.isFaster
-            )
-        }
-    }
-}
-
-@Composable
-private fun LapRow(
-    number: Int,
-    time: String,
-    modifier: Modifier = Modifier,
-    delta: String? = null,
-    isFaster: Boolean = true,
-    active: Boolean = false
-) {
-    val textStyle = if (active) MaterialTheme.typography.titleLarge else MaterialTheme.typography.titleMedium
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .background(LocalContentColor.current.copy(alpha = 0.10f))
-            .padding(horizontal = 14.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(
-            text = stringResource(R.string.lap_label, number),
-            style = textStyle,
-            fontWeight = if (active) FontWeight.Bold else null,
-            modifier = Modifier.weight(1f)
-        )
-        delta?.let { d ->
-            Text(
-                text = d,
-                style = MaterialTheme.typography.bodyMedium,
-                fontFamily = FontFamily.Monospace,
-                color = if (isFaster) LocalContentColor.current else MaterialTheme.colorScheme.error,
-                modifier = Modifier.padding(end = 12.dp)
-            )
-        }
-        Text(
-            text = time,
-            style = textStyle,
-            fontFamily = FontFamily.Monospace,
-            fontWeight = FontWeight.Bold
-        )
-    }
-}
-
-// ---------------------------------------------------------------------------- controls
-
-/** Controls for For Time: big lap button, then pause + finish. Otherwise: pause + skip. */
-@Composable
-private fun Controls(
-    state: RunningUiState,
-    colors: PhaseColors,
-    compact: Boolean,
-    onPause: () -> Unit,
-    onResume: () -> Unit,
-    onSkip: () -> Unit,
-    onLap: () -> Unit
-) {
-    val bigSize = if (compact) 64.dp else 80.dp
-    val smallSize = if (compact) 56.dp else 64.dp
-    val finishSet = state.isForTime && state.phase == Phase.WORK
-    val skipDescription = stringResource(
-        when {
-            !finishSet -> R.string.action_skip
-            state.isLastSet -> R.string.action_finish
-            else -> R.string.action_finish_set
-        }
-    )
-    Column(
-        modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        if (state.canLap) {
-            Button(
-                onClick = onLap,
-                enabled = !state.isPaused,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(smallSize),
-                shape = RoundedCornerShape(20.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = colors.content,
-                    contentColor = colors.container,
-                    disabledContainerColor = colors.content.copy(alpha = 0.2f),
-                    disabledContentColor = colors.content.copy(alpha = 0.5f)
-                )
-            ) {
-                Icon(Icons.Add, contentDescription = null, modifier = Modifier.size(32.dp))
-                Spacer(Modifier.width(8.dp))
-                Text(
-                    text = stringResource(R.string.action_round),
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Black
-                )
-            }
-        }
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterHorizontally),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            FilledIconButton(
-                onClick = if (state.isPaused) onResume else onPause,
-                modifier = Modifier.size(bigSize),
-                shape = CircleShape,
-                colors = IconButtonDefaults.filledIconButtonColors(
-                    containerColor = colors.content,
-                    contentColor = colors.container
-                )
-            ) {
-                Icon(
-                    imageVector = if (state.isPaused) Icons.Play else Icons.Pause,
-                    contentDescription = stringResource(
-                        if (state.isPaused) R.string.action_resume else R.string.action_pause
-                    ),
-                    modifier = Modifier.size(40.dp)
-                )
-            }
-            FilledTonalIconButton(
-                onClick = onSkip,
-                modifier = Modifier.size(smallSize),
-                colors = IconButtonDefaults.filledTonalIconButtonColors(
-                    containerColor = colors.content.copy(alpha = 0.15f),
-                    contentColor = colors.content
-                )
-            ) {
-                Icon(
-                    imageVector = if (finishSet) Icons.Done else Icons.SkipNext,
-                    contentDescription = skipDescription,
-                    modifier = Modifier.size(32.dp)
-                )
-            }
-        }
-    }
-}
-
-// ---------------------------------------------------------------------------- finished
-
-@Composable
-private fun FinishedView(state: RunningUiState, landscape: Boolean, onExit: () -> Unit) {
-    Column(
-        modifier = Modifier.fillMaxSize(),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        LazyColumn(
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth(),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterVertically),
-            contentPadding = PaddingValues(vertical = 16.dp)
-        ) {
-            item(key = "summary") {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(
-                        Icons.Trophy,
-                        contentDescription = null,
-                        modifier = Modifier.size(if (landscape) 64.dp else 112.dp),
-                        tint = MaterialTheme.colorScheme.primary
-                    )
-                    Spacer(Modifier.height(if (landscape) 8.dp else 24.dp))
-                    Text(
-                        text = stringResource(R.string.finished_title),
-                        style = if (landscape) {
-                            MaterialTheme.typography.headlineMedium
-                        } else {
-                            MaterialTheme.typography.headlineLarge
-                        },
-                        fontWeight = FontWeight.Black,
-                        textAlign = TextAlign.Center
-                    )
-                    Spacer(Modifier.height(12.dp))
-                    Text(
-                        text = stringResource(R.string.finished_total_time, state.finishedTotal),
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Spacer(Modifier.height(12.dp))
-                }
-            }
-            state.summaries.forEach { summary ->
-                if (state.summaries.size > 1) {
-                    item(key = "set-${summary.set}") {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(top = 12.dp, start = 4.dp, end = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = stringResource(R.string.finished_set_header, summary.set),
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.weight(1f)
-                            )
-                            Text(
-                                text = summary.total,
-                                style = MaterialTheme.typography.titleMedium,
-                                fontFamily = FontFamily.Monospace,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                    }
-                }
-                items(summary.laps, key = { "lap-${it.set}-${it.number}" }) { lap ->
-                    LapRow(
-                        number = lap.number,
-                        time = lap.time,
-                        delta = lap.delta,
-                        isFaster = lap.isFaster
-                    )
-                }
-            }
-        }
-        Button(
-            onClick = onExit,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(56.dp),
-            shape = RoundedCornerShape(12.dp)
-        ) {
-            Text(
-                text = stringResource(R.string.finished_exit),
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
-            )
-        }
     }
 }

@@ -31,6 +31,9 @@ class SetupViewModel @JvmOverloads constructor(
     private val _uiState = MutableStateFlow(TimerConfig())
     val uiState: StateFlow<TimerConfig> = _uiState.asStateFlow()
 
+    /** Set by the first edit; a saved setup that arrives later must not overwrite what the user did. */
+    private var edited = false
+
     val totalDuration: StateFlow<String> = _uiState
         .map { it.totalDurationSeconds.formatDuration() }
         .stateIn(
@@ -41,43 +44,46 @@ class SetupViewModel @JvmOverloads constructor(
 
     init {
         viewModelScope.launch {
-            val savedConfig = preferencesRepository.timerConfigFlow.first()
-            _uiState.value = savedConfig
+            val saved = preferencesRepository.timerConfigFlow.first()
+            if (!edited) _uiState.value = saved
 
+            // Only write what differs from what is on disk (a StateFlow replays its current value
+            // to a new collector, which would otherwise rewrite the setup that was just loaded).
+            var lastSaved = saved
             _uiState
                 .debounce(300.milliseconds)
                 .collect { config ->
-                    preferencesRepository.saveTimerConfig(config)
+                    if (config != lastSaved && preferencesRepository.saveTimerConfig(config)) {
+                        lastSaved = config
+                    }
                 }
         }
     }
 
-    fun updateMode(mode: TimerMode) {
-        _uiState.update { it.copy(mode = mode) }
+    private fun edit(transform: (TimerConfig) -> TimerConfig) {
+        edited = true
+        _uiState.update(transform)
     }
 
-    fun updateSets(sets: Int) {
-        _uiState.update { it.copy(sets = sets) }
-    }
+    fun updateMode(mode: TimerMode) = edit { it.copy(mode = mode) }
 
-    fun updateSetRest(seconds: Int) {
-        _uiState.update { it.copy(setRestSeconds = seconds) }
-    }
+    fun updateSets(sets: Int) = edit { it.copy(sets = sets.coerceIn(1, TimerConfig.MAX_SETS)) }
 
-    fun updateTimeCap(seconds: Int) {
-        _uiState.update { it.copy(timeCap = seconds) }
-    }
+    fun updateSetRest(seconds: Int) =
+        edit { it.copy(setRestSeconds = seconds.coerceIn(0, TimerConfig.MAX_DURATION_SECONDS)) }
 
-    fun updateTotalTimeCap(seconds: Int) {
-        _uiState.update { it.copy(totalTimeCap = seconds) }
-    }
+    fun updateTimeCap(seconds: Int) =
+        edit { it.copy(timeCap = seconds.coerceIn(0, TimerConfig.MAX_DURATION_SECONDS)) }
 
-    fun updateRounds(rounds: Int) {
-        _uiState.update { it.copy(rounds = rounds) }
-    }
+    fun updateTotalTimeCap(seconds: Int) =
+        edit { it.copy(totalTimeCap = seconds.coerceIn(0, TimerConfig.MAX_DURATION_SECONDS)) }
 
-    fun addTask(type: TaskType = TaskType.WORK) {
-        _uiState.update { current ->
+    fun updateRounds(rounds: Int) = edit { it.copy(rounds = rounds.coerceIn(1, TimerConfig.MAX_ROUNDS)) }
+
+    fun addTask(type: TaskType = TaskType.WORK) = edit { current ->
+        if (current.tasks.size >= TimerConfig.MAX_TASKS) {
+            current
+        } else {
             val duration = current.tasks.findLast { it.type == type }?.durationSeconds
                 ?: current.tasks.lastOrNull()?.durationSeconds
                 ?: 30
@@ -85,17 +91,15 @@ class SetupViewModel @JvmOverloads constructor(
         }
     }
 
-    fun removeTask(id: String) {
-        _uiState.update {
-            it.copy(tasks = it.tasks.filter { task -> task.id != id })
-        }
+    fun removeTask(id: String) = edit {
+        it.copy(tasks = it.tasks.filter { task -> task.id != id })
     }
 
-    fun updateTaskDuration(id: String, durationSeconds: Int) {
-        _uiState.update {
-            it.copy(tasks = it.tasks.map { task ->
-                if (task.id == id) task.copy(durationSeconds = durationSeconds) else task
-            })
-        }
+    fun updateTaskDuration(id: String, durationSeconds: Int) = edit {
+        it.copy(tasks = it.tasks.map { task ->
+            if (task.id == id) {
+                task.copy(durationSeconds = durationSeconds.coerceIn(0, TimerConfig.MAX_DURATION_SECONDS))
+            } else task
+        })
     }
 }

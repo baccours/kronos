@@ -1,40 +1,32 @@
 package com.baccours.kronos.ui.components
 
-import android.view.View
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.foundation.relocation.bringIntoViewRequester
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.saveable.listSaver
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.runtime.withFrameNanos
@@ -43,12 +35,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.layout.LayoutCoordinates
-import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
@@ -64,101 +52,72 @@ import com.baccours.kronos.ui.icons.Icons
 private const val COMPACT_HEIGHT_DP = 480
 
 private val KeyHeight = 56.dp
-private val CompactKeyHeight = 48.dp
+private val CompactKeyHeight = 40.dp
 private val KeyGap = 8.dp
+private val MaxKeypadWidth = 400.dp
+
+/** Room kept around a field that is scrolled into view, so it does not sit flush against an edge. */
+private val RevealMargin = 16.dp
 
 // ---------------------------------------------------------------------------------------
-// Keypad inset: lets a list make room for the keypad sheet (like imePadding() for the
-// keyboard). Usage, in the screen that contains the list:
+// The docked keypad. Usage, in the screen that has the editable fields:
 //
-//     val keypadInset = remember { KeypadInsetState() }
-//     CompositionLocalProvider(LocalKeypadInset provides keypadInset) {
-//         LazyColumn(
-//             modifier = Modifier.trackKeypadInset(keypadInset),
-//             contentPadding = PaddingValues(bottom = keypadInset.bottomPadding())
-//         ) { ... }
+//     val keypad = rememberKeypadState()
+//     BackHandler(enabled = keypad.isOpen) { keypad.commitAndClose() }
+//     Scaffold(bottomBar = { if (keypad.isOpen) DockedKeypad(keypad) else MyBottomBar() }) {
+//         CompositionLocalProvider(LocalKeypad provides keypad) { ...TimeInput / HybridStepper... }
 //     }
+//
+// The keypad takes the place of the bottom bar, so the list simply gets less room (through the
+// Scaffold's content padding) and the field being edited is scrolled into view; no window
+// coordinates are involved. Tapping another field commits the current one and moves on.
 // ---------------------------------------------------------------------------------------
 
-@Stable
-class KeypadInsetState {
-    /** Top edge of the keypad sheet on screen, in px. NaN while no keypad is open. */
-    internal var sheetTopPx by mutableFloatStateOf(Float.NaN)
+/** The keypad the fields in this part of the UI edit with; null = fields are read-only (e.g. previews). */
+val LocalKeypad = staticCompositionLocalOf<KeypadState?> { null }
 
-    /** Bottom edge of the list on screen, in px. NaN until the list has been measured. */
-    internal var listBottomPx by mutableFloatStateOf(Float.NaN)
+/** Only the active field's id and the typed digits survive a rotation; fields re-attach themselves. */
+private val KeypadStateSaver = listSaver<KeypadState, String>(
+    save = { listOf(it.activeId.orEmpty(), it.digits) },
+    restore = { KeypadState(activeId = it[0].ifEmpty { null }, digits = it[1]) }
+)
 
-    /** Part of the list currently hidden by the keypad, in px (0 when closed). */
-    val overlapPx: Float
-        get() = if (sheetTopPx.isNaN() || listBottomPx.isNaN()) {
-            0f
-        } else {
-            (listBottomPx - sheetTopPx).coerceAtLeast(0f)
-        }
-
-    /** [overlapPx] as Dp: use it as the bottom content padding of the list. */
-    @Composable
-    fun bottomPadding(): Dp = with(LocalDensity.current) { overlapPx.toDp() }
-}
-
-val LocalKeypadInset = staticCompositionLocalOf<KeypadInsetState?> { null }
-
-/** Apply to the list: tells the state where the list ends on screen. */
 @Composable
-fun Modifier.trackKeypadInset(state: KeypadInsetState): Modifier {
-    val view = LocalView.current
-    return this.onGloballyPositioned { coordinates ->
-        state.listBottomPx = coordinates.screenTop(view) + coordinates.size.height
-    }
-}
+fun rememberKeypadState(): KeypadState {
+    val keypad = rememberSaveable(saver = KeypadStateSaver) { KeypadState() }
 
-/** Y position on the physical screen (the sheet lives in another window than the list). */
-private fun LayoutCoordinates.screenTop(view: View): Float {
-    val location = IntArray(2)
-    view.getLocationOnScreen(location)
-    return location[1] + positionInRoot().y
-}
-
-/** Suspends until the sheet has stopped moving (end of its slide-in animation). */
-private suspend fun KeypadInsetState.awaitSettled() {
-    var last = Float.NaN
-    var stableFrames = 0
-    repeat(120) { // safety net: ~2 seconds
-        withFrameNanos { }
-        val current = sheetTopPx
-        if (!current.isNaN() && current == last) {
-            stableFrames++
-            if (stableFrames >= 2) return
-        } else {
-            stableFrames = 0
+    // After a rotation the active field is restored by id only. If it is not composed any more
+    // (e.g. it is scrolled out of the list) nothing can receive the digits: close instead of
+    // leaving a keypad that edits nothing. Fields attach during the first frames.
+    LaunchedEffect(keypad.activeId) {
+        if (keypad.activeId != null) {
+            repeat(3) { withFrameNanos { } }
+            if (keypad.activeField == null) keypad.cancel()
         }
-        last = current
     }
+    return keypad
 }
 
 /**
- * Apply to the field that opens a keypad sheet. Once the sheet has stopped moving, asks the
- * enclosing list to reveal the field plus the part of the list covered by the sheet: the
- * field ends up right above the keypad.
- * (The list gets its extra bottom padding from [KeypadInsetState], so it can scroll that far.)
+ * Apply to an editable field: when it becomes the active one, scrolls it into view (the list has
+ * just lost the space the docked keypad takes).
  */
 @Composable
-internal fun Modifier.revealAboveKeypad(sheetOpen: Boolean): Modifier {
-    val keypadInset = LocalKeypadInset.current
+internal fun Modifier.revealWhenActive(active: Boolean): Modifier {
     // Not saved: re-measured after a rotation.
     val requester = remember { BringIntoViewRequester() }
     var fieldSize by remember { mutableStateOf(IntSize.Zero) }
+    val marginPx = with(LocalDensity.current) { RevealMargin.toPx() }
 
-    LaunchedEffect(sheetOpen) {
-        if (sheetOpen) {
-            keypadInset?.awaitSettled()
-            withFrameNanos { } // let the list apply its final bottom padding
+    LaunchedEffect(active) {
+        if (active) {
+            withFrameNanos { } // let the list adopt the space left by the keypad first
             requester.bringIntoView(
                 Rect(
                     left = 0f,
-                    top = 0f,
+                    top = -marginPx,
                     right = fieldSize.width.toFloat(),
-                    bottom = fieldSize.height + (keypadInset?.overlapPx ?: 0f)
+                    bottom = fieldSize.height + marginPx
                 )
             )
         }
@@ -169,113 +128,74 @@ internal fun Modifier.revealAboveKeypad(sheetOpen: Boolean): Modifier {
         .onSizeChanged { fieldSize = it }
 }
 
-/**
- * Bottom sheet with a digit pad. Stateless: the caller owns [digits] (typically
- * rememberSaveable) so it can show them live in its field AND commit them on dismissal.
- *
- * @param onSubmit called with the final digits when [maxDigits] digits have been typed.
- * @param onDismiss called when the user dismisses the sheet (scrim, swipe, back), NOT when
- *   the caller closes it itself. This is the "focus lost" moment: commit the digits here.
- * @param actions right-hand column. Use [KeypadAction] to fill it; the receiver gives the
- *   height of one key so actions can span a given number of rows.
- */
-@OptIn(ExperimentalMaterial3Api::class)
+/** The digit pad with its action keys, shown instead of the screen's bottom bar while a field is edited. */
 @Composable
-internal fun KeypadSheet(
-    digits: String,
-    onDigitsChange: (String) -> Unit,
-    maxDigits: Int,
-    onSubmit: (String) -> Unit,
-    onDismiss: () -> Unit,
-    actions: @Composable ColumnScope.(keyHeight: Dp) -> Unit
-) {
-    val view = LocalView.current
-    val keypadInset = LocalKeypadInset.current
-
-    // The sheet may invoke its callback from a long-lived gesture/animation scope:
-    // always call the latest lambda so it sees the latest digits.
-    val currentOnDismiss by rememberUpdatedState(onDismiss)
-
-    // Lives exactly as long as the sheet: whatever closes it (OK, min, swipe, scrim,
-    // or the field leaving the composition), the list's padding goes back to 0.
-    // NOTE: never commit anything here, this also runs on rotation / navigation.
-    DisposableEffect(Unit) {
-        onDispose { keypadInset?.sheetTopPx = Float.NaN }
-    }
-
-    ModalBottomSheet(
-        onDismissRequest = { currentOnDismiss() },
-        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        sheetMaxWidth = 400.dp,
-        // Lighter scrim so the field being edited stays readable
-        scrimColor = Color.Black.copy(alpha = 0.12f),
-        dragHandle = {
-            // The drag handle is the very first thing in the sheet: its top is the sheet's top
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .onGloballyPositioned { keypadInset?.sheetTopPx = it.screenTop(view) }
-                    .padding(top = 8.dp, bottom = 12.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Surface(
-                    modifier = Modifier.size(width = 32.dp, height = 4.dp),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
-                    shape = MaterialTheme.shapes.extraLarge
-                ) {}
-            }
-        }
-    ) {
-        Keypad(
-            digits = digits,
-            onDigitsChange = onDigitsChange,
-            maxDigits = maxDigits,
-            onSubmit = onSubmit,
-            actions = actions,
-            modifier = Modifier
-                .padding(horizontal = 16.dp)
-                .padding(bottom = 16.dp)
-        )
-    }
-}
-
-@Composable
-private fun Keypad(
-    digits: String,
-    onDigitsChange: (String) -> Unit,
-    maxDigits: Int,
-    onSubmit: (String) -> Unit,
-    actions: @Composable ColumnScope.(keyHeight: Dp) -> Unit,
+fun DockedKeypad(
+    state: KeypadState,
     modifier: Modifier = Modifier
 ) {
+    val kind = state.activeField?.kind ?: KeypadKind.TIME
     val screenHeightDp = LocalWindowInfo.current.containerDpSize.height
     val keyHeight = if (screenHeightDp < COMPACT_HEIGHT_DP.dp) CompactKeyHeight else KeyHeight
 
-    fun appendDigit(c: Char) {
-        if (digits.length >= maxDigits) return
-        val newDigits = digits + c
-        onDigitsChange(newDigits)
-        // Complete entry: validate and dismiss
-        if (newDigits.length == maxDigits) onSubmit(newDigits)
-    }
-
-    // Scrollable as a safety net on very small screens
-    Row(
-        modifier = modifier.verticalScroll(rememberScrollState()),
-        horizontalArrangement = Arrangement.spacedBy(KeyGap)
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        tonalElevation = 3.dp,
+        shadowElevation = 8.dp
     ) {
-        DigitPad(
-            keyHeight = keyHeight,
-            onDigit = { appendDigit(it) },
-            onDelete = { onDigitsChange(digits.dropLast(1)) },
-            onClear = { onDigitsChange("") },
-            modifier = Modifier.weight(3f)
-        )
-        Column(
-            modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(KeyGap)
+        Box(
+            modifier = Modifier
+                .navigationBarsPadding()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            contentAlignment = Alignment.Center
         ) {
-            actions(this, keyHeight)
+            Row(
+                modifier = Modifier
+                    .widthIn(max = MaxKeypadWidth)
+                    .fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(KeyGap)
+            ) {
+                DigitPad(
+                    keyHeight = keyHeight,
+                    onDigit = state::type,
+                    onDelete = state::delete,
+                    onClear = state::clear,
+                    modifier = Modifier.weight(3f)
+                )
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(KeyGap)
+                ) {
+                    when (kind) {
+                        KeypadKind.TIME -> {
+                            // "min": digits are plain minutes. OK: digits are mmss (or just close).
+                            KeypadAction(
+                                label = stringResource(R.string.unit_min),
+                                onClick = state::commitAsMinutesAndClose,
+                                keyHeight = keyHeight,
+                                enabled = state.digits.isNotEmpty()
+                            )
+                            KeypadAction(
+                                label = stringResource(R.string.keypad_ok),
+                                onClick = state::commitAndClose,
+                                keyHeight = keyHeight,
+                                primary = true
+                            )
+                        }
+                        KeypadKind.NUMBER -> {
+                            // No "min" key here: leave its place empty so OK stays on the 2 bottom rows
+                            KeypadActionSpacer(keyHeight)
+                            KeypadAction(
+                                label = stringResource(R.string.keypad_ok),
+                                onClick = state::commitAndClose,
+                                keyHeight = keyHeight,
+                                enabled = state.canSubmit,
+                                primary = true
+                            )
+                        }
+                    }
+                }
+            }
         }
     }
 }
@@ -285,7 +205,7 @@ private fun Keypad(
  * [primary] = filled button (OK), otherwise tonal (e.g. "min").
  */
 @Composable
-internal fun KeypadAction(
+private fun KeypadAction(
     label: String,
     onClick: () -> Unit,
     keyHeight: Dp,
@@ -324,7 +244,7 @@ internal fun KeypadAction(
  * [KeypadActionSpacer] + [KeypadAction] = an action in the 2 bottom rows.
  */
 @Composable
-internal fun KeypadActionSpacer(keyHeight: Dp, rows: Int = 2) {
+private fun KeypadActionSpacer(keyHeight: Dp, rows: Int = 2) {
     Spacer(modifier = Modifier.height(keyHeight * rows + KeyGap * (rows - 1)))
 }
 

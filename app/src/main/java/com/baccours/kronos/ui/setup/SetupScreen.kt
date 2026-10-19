@@ -1,16 +1,15 @@
 package com.baccours.kronos.ui.setup
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -20,12 +19,13 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.relocation.BringIntoViewRequester
@@ -35,7 +35,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
@@ -44,8 +43,8 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
@@ -54,13 +53,9 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChange
-import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -71,73 +66,84 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.baccours.kronos.R
 import com.baccours.kronos.model.Task
 import com.baccours.kronos.model.TaskType
 import com.baccours.kronos.model.TimerConfig
 import com.baccours.kronos.model.TimerMode
-import com.baccours.kronos.ui.components.HybridStepper
-import com.baccours.kronos.ui.components.KeypadInsetState
-import com.baccours.kronos.ui.components.LocalKeypadInset
-import com.baccours.kronos.ui.components.TimeInput
-import com.baccours.kronos.ui.components.trackKeypadInset
-import com.baccours.kronos.ui.icons.Add
+import com.baccours.kronos.ui.components.DockedKeypad
+import com.baccours.kronos.ui.components.LocalKeypad
+import com.baccours.kronos.ui.components.rememberKeypadState
 import com.baccours.kronos.ui.icons.Icons
 import com.baccours.kronos.ui.icons.Play
 import com.baccours.kronos.ui.theme.KronosTheme
 import kotlin.math.abs
+
+/** Everything the setup screen can ask for: one object instead of a dozen lambda parameters. */
+@Immutable
+class SetupActions(
+    val onStartTimer: (TimerConfig) -> Unit = {},
+    val updateMode: (TimerMode) -> Unit = {},
+    val updateSets: (Int) -> Unit = {},
+    val updateSetRest: (Int) -> Unit = {},
+    val updateTimeCap: (Int) -> Unit = {},
+    val updateTotalTimeCap: (Int) -> Unit = {},
+    val updateRounds: (Int) -> Unit = {},
+    val addTask: (TaskType) -> Unit = {},
+    val updateTaskDuration: (String, Int) -> Unit = { _, _ -> },
+    val removeTask: (String) -> Unit = {}
+)
 
 @Composable
 fun SetupScreen(
     viewModel: SetupViewModel = viewModel(),
     onStartTimer: (TimerConfig) -> Unit = {}
 ) {
-    val uiState by viewModel.uiState.collectAsState()
-    val totalDuration by viewModel.totalDuration.collectAsState()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val totalDuration by viewModel.totalDuration.collectAsStateWithLifecycle()
 
-    // Stateful wrapper passing state and events down
-    SetupScreenContent(
-        uiState = uiState,
-        totalDuration = totalDuration,
-        onStartTimer = onStartTimer,
-        updateMode = viewModel::updateMode,
-        updateSets = viewModel::updateSets,
-        updateSetRest = viewModel::updateSetRest,
-        updateTimeCap = viewModel::updateTimeCap,
-        updateTotalTimeCap = viewModel::updateTotalTimeCap,
-        updateRounds = viewModel::updateRounds,
-        addTask = viewModel::addTask,
-        updateTaskDuration = viewModel::updateTaskDuration,
-        removeTask = viewModel::removeTask
-    )
+    val actions = remember(viewModel, onStartTimer) {
+        SetupActions(
+            onStartTimer = onStartTimer,
+            updateMode = viewModel::updateMode,
+            updateSets = viewModel::updateSets,
+            updateSetRest = viewModel::updateSetRest,
+            updateTimeCap = viewModel::updateTimeCap,
+            updateTotalTimeCap = viewModel::updateTotalTimeCap,
+            updateRounds = viewModel::updateRounds,
+            addTask = viewModel::addTask,
+            updateTaskDuration = viewModel::updateTaskDuration,
+            removeTask = viewModel::removeTask
+        )
+    }
+
+    SetupScreenContent(uiState = uiState, totalDuration = totalDuration, actions = actions)
 }
 
 @Composable
-private fun SetupScreenContent(
+internal fun SetupScreenContent(
     uiState: TimerConfig,
     totalDuration: String,
-    onStartTimer: (TimerConfig) -> Unit,
-    updateMode: (TimerMode) -> Unit,
-    updateSets: (Int) -> Unit,
-    updateSetRest: (Int) -> Unit,
-    updateTimeCap: (Int) -> Unit,
-    updateTotalTimeCap: (Int) -> Unit,
-    updateRounds: (Int) -> Unit,
-    addTask: (TaskType) -> Unit,
-    updateTaskDuration: (String, Int) -> Unit,
-    removeTask: (String) -> Unit
+    actions: SetupActions
 ) {
-    val focusManager = LocalFocusManager.current
     val listState = rememberLazyListState()
     val bringIntoViewRequester = remember { BringIntoViewRequester() }
     var previousTaskCount by remember { mutableIntStateOf(uiState.tasks.size) }
 
     // Keep the swipe gesture block (keyed on Unit) reading fresh values
     val currentMode by rememberUpdatedState(uiState.mode)
-    val currentUpdateMode by rememberUpdatedState(updateMode)
 
-    val keypadInset = remember { KeypadInsetState() }
+    // The one keypad of this screen, docked in the bottom bar while a field is edited.
+    val keypad = rememberKeypadState()
+    // Leaving the tab (click or swipe) hides some fields: commit what was typed first.
+    val currentUpdateMode by rememberUpdatedState({ mode: TimerMode ->
+        keypad.commitAndClose()
+        actions.updateMode(mode)
+    })
+    // Back closes the keypad (keeping what was typed) before it leaves the screen.
+    BackHandler(enabled = keypad.isOpen) { keypad.commitAndClose() }
 
     LaunchedEffect(uiState.tasks.size) {
         if (uiState.tasks.size > previousTaskCount) {
@@ -156,14 +162,8 @@ private fun SetupScreenContent(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .pointerInput(Unit) {
-                awaitPointerEventScope {
-                    while (true) {
-                        awaitPointerEvent(pass = PointerEventPass.Initial)
-                        focusManager.clearFocus()
-                    }
-                }
-            }
+            // Keep clear of side system bars and cutouts (landscape with 3-button navigation).
+            .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal))
             // Global horizontal swipe to change TimerMode
             .pointerInput(Unit) {
                 val threshold = 48.dp.toPx()
@@ -233,7 +233,7 @@ private fun SetupScreenContent(
                             val selected = uiState.mode == mode
                             SegmentedButton(
                                 selected = selected,
-                                onClick = { updateMode(mode) },
+                                onClick = { currentUpdateMode(mode) },
                                 modifier = Modifier
                                     .weight(if (mode == TimerMode.TIMER) timerWgt else forTimeWgt)
                                     .height(56.dp),
@@ -274,76 +274,46 @@ private fun SetupScreenContent(
                 }
              },
             bottomBar = {
-                Surface(modifier = Modifier.fillMaxWidth()) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .navigationBarsPadding()
-                            .padding(horizontal = 16.dp, vertical = 8.dp),
-                        verticalArrangement = Arrangement.spacedBy(6.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        if (isTimerMode) {
-                            Text(
-                                text = stringResource(R.string.setup_total_duration, totalDuration),
-                                style = MaterialTheme.typography.bodyLarge,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                        Button(
-                            onClick = { onStartTimer(uiState) },
-                            enabled = isStartEnabled,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(56.dp),
-                            shape = RoundedCornerShape(12.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.primary,
-                                contentColor = MaterialTheme.colorScheme.onPrimary,
-                                disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant,
-                                disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        ) {
-                                Icon(imageVector = Icons.Play, contentDescription = null)
-                                Spacer(Modifier.width(8.dp))
-                                Text(
-                                    text = stringResource(R.string.setup_start),
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Bold
-                            )
-                        }
-                    }
+                if (keypad.isOpen) {
+                    DockedKeypad(keypad)
+                } else {
+                    StartBar(
+                        showTotal = isTimerMode,
+                        totalDuration = totalDuration,
+                        enabled = isStartEnabled,
+                        onStart = { actions.onStartTimer(uiState) }
+                    )
                 }
             }
         ) { padding ->
-            CompositionLocalProvider(LocalKeypadInset provides keypadInset) {
+            CompositionLocalProvider(LocalKeypad provides keypad) {
                 LazyColumn(
                     state = listState,
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(padding)
-                        .padding(horizontal = 12.dp)
-                        .trackKeypadInset(keypadInset),
-                    contentPadding = PaddingValues(top = 8.dp, bottom = 8.dp + keypadInset.bottomPadding())
+                        .padding(horizontal = 12.dp),
+                    contentPadding = PaddingValues(vertical = 8.dp)
                 ) {
                     item(key = "hierarchy") {
                         SetsSection(
                             sets = uiState.sets,
                             restSeconds = uiState.setRestSeconds,
-                            onSetsChange = updateSets,
-                            onRestChange = updateSetRest
+                            onSetsChange = actions.updateSets,
+                            onRestChange = actions.updateSetRest
                         ) {
                             if (!isTimerMode) {
                                 TimeCapSection(
+                                    fieldId = "time_cap",
                                     title = stringResource(R.string.setup_time_cap),
                                     suffix = stringResource(R.string.setup_time_cap_suffix),
                                     timeCap = uiState.timeCap,
-                                    onDurationChange = updateTimeCap
+                                    onDurationChange = actions.updateTimeCap
                                 )
                             } else {
                                 RoundsSection(
                                     rounds = uiState.rounds,
-                                    onRoundsChange = updateRounds
+                                    onRoundsChange = actions.updateRounds
                                 ) {
                                     Column(
                                         verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -353,17 +323,22 @@ private fun SetupScreenContent(
                                                 Box(
                                                     modifier = Modifier.animateContentSize()
                                                 ) {
+                                                    val taskFieldId = "task_" + indexedTask.task.id
                                                     TaskRow(
+                                                        fieldId = taskFieldId,
                                                         index = indexedTask.displayIndex,
                                                         type = indexedTask.task.type,
                                                         durationSeconds = indexedTask.task.durationSeconds,
                                                         onDurationChange = {
-                                                            updateTaskDuration(
+                                                            actions.updateTaskDuration(
                                                                 indexedTask.task.id,
                                                                 it
                                                             )
                                                         },
-                                                        onDelete = { removeTask(indexedTask.task.id) }
+                                                        onDelete = {
+                                                            keypad.cancelIf(taskFieldId) // its field is going away
+                                                            actions.removeTask(indexedTask.task.id)
+                                                        }
                                                     )
                                                 }
                                             }
@@ -376,15 +351,18 @@ private fun SetupScreenContent(
                                             horizontalArrangement = Arrangement.spacedBy(16.dp),
                                             verticalAlignment = Alignment.CenterVertically
                                         ) {
+                                            val canAddTask = uiState.tasks.size < TimerConfig.MAX_TASKS
                                             TaskActionButton(
                                                 text = stringResource(R.string.setup_add_work),
-                                                onClick = { addTask(TaskType.WORK) },
-                                                modifier = Modifier.weight(1.0f)
+                                                onClick = { actions.addTask(TaskType.WORK) },
+                                                modifier = Modifier.weight(1.0f),
+                                                enabled = canAddTask
                                             )
                                             TaskActionButton(
                                                 text = stringResource(R.string.setup_add_rest),
-                                                onClick = { addTask(TaskType.REST) },
-                                                modifier = Modifier.weight(1.0f)
+                                                onClick = { actions.addTask(TaskType.REST) },
+                                                modifier = Modifier.weight(1.0f),
+                                                enabled = canAddTask
                                             )
                                         }
                                     }
@@ -396,9 +374,10 @@ private fun SetupScreenContent(
                         item(key = "total_cap") {
                             Spacer(modifier = Modifier.height(16.dp))
                             TimeCapSection(
+                                fieldId = "total_time_cap",
                                 title = stringResource(R.string.setup_total_time_cap),
                                 timeCap = uiState.totalTimeCap,
-                                onDurationChange = updateTotalTimeCap,
+                                onDurationChange = actions.updateTotalTimeCap,
                                 enabled = uiState.sets > 1
                             )
                         }
@@ -409,205 +388,56 @@ private fun SetupScreenContent(
     }
 }
 
+/** The total time and the Start button: the screen's bottom bar while no field is being edited. */
 @Composable
-private fun TaskActionButton(
-    text: String,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
+private fun StartBar(
+    showTotal: Boolean,
+    totalDuration: String,
+    enabled: Boolean,
+    onStart: () -> Unit
 ) {
-    OutlinedButton(
-        onClick = onClick,
-        modifier = modifier.height(56.dp),
-        shape = RoundedCornerShape(16.dp),
-        border = BorderStroke(3.dp, MaterialTheme.colorScheme.primary),
-        colors = ButtonDefaults.outlinedButtonColors(
-            contentColor = MaterialTheme.colorScheme.primary
-        )
-    ) {
-        Icon(imageVector = Icons.Add, contentDescription = null)
-        Spacer(Modifier.width(2.dp))
-        Text(
-            text = text,
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold
-        )
-    }
-}
-
-@Composable
-private fun SetsSection(
-    sets: Int,
-    restSeconds: Int,
-    onSetsChange: (Int) -> Unit,
-    onRestChange: (Int) -> Unit,
-    content: @Composable ColumnScope.() -> Unit = {}
-) {
-    SetupSection(
-        title = stringResource(R.string.setup_sets),
-        contentPadding = PaddingValues(12.dp),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.8f))
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth()
-                .height(44.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            HybridStepper(
-                value = sets,
-                onValueChange = onSetsChange,
-                modifier = Modifier.weight(1.2f)
-            )
-            Row(
-                modifier = Modifier.weight(0.8f),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.Center
-            ) {
-                // Rest between sets only makes sense with more than one set.
-                val restEnabled = sets > 1
-                Text(
-                    text = stringResource(R.string.setup_rest_label),
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(
-                        alpha = if (restEnabled) 1f else 0.38f
-                    )
-                )
-                TimeInput(
-                    durationSeconds = restSeconds,
-                    onDurationChange = onRestChange,
-                    showRedOnZero = false,
-                    enabled = restEnabled
-                )
-            }
-        }
-        Spacer(modifier = Modifier.height(12.dp))
-        content()
-    }
-}
-
-@Composable
-private fun TimeCapSection(
-    title: String,
-    suffix: String? = null,
-    timeCap: Int,
-    onDurationChange: (Int) -> Unit,
-    enabled: Boolean = true
-) {
-    SetupParam(
-        title = title,
-        titleSuffix = suffix,
-        titleAlpha = if (enabled) 1f else 0.38f
-    ) {
-        TimeInput(
-            durationSeconds = timeCap,
-            onDurationChange = onDurationChange,
-            showRedOnZero = false,
-            placeholder = stringResource(R.string.setup_time_cap_none),
-            enabled = enabled,
-            modifier = Modifier.align(Alignment.CenterHorizontally)
-        )
-    }
-}
-
-@Composable
-private fun RoundsSection(
-    rounds: Int,
-    onRoundsChange: (Int) -> Unit,
-    content: @Composable ColumnScope.() -> Unit = {}
-) {
-    SetupSection(
-        title = stringResource(R.string.setup_rounds),
-        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
-    ) {
-        HybridStepper(
-            value = rounds,
-            onValueChange = onRoundsChange,
-            modifier = Modifier.fillMaxWidth()
-                .offset(y = (-2).dp)
-                .height(44.dp)
-        )
-        Spacer(modifier = Modifier.height(4.dp))
-        content()
-    }
-}
-
-@Composable
-private fun SetupSection(
-    title: String,
-    border: BorderStroke,
-    modifier: Modifier = Modifier,
-    contentPadding: PaddingValues = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-    content: @Composable ColumnScope.() -> Unit
-) {
-    Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(top = 16.dp)
-    ) {
+    Surface(modifier = Modifier.fillMaxWidth()) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.2f), RoundedCornerShape(16.dp))
-                .border(border, RoundedCornerShape(16.dp))
-                .padding(contentPadding)
+                .navigationBarsPadding()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            content()
-        }
-        Row(
-            modifier = Modifier
-                .align(Alignment.TopStart)
-                .offset(x = 24.dp, y = (-16).dp)
-                .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(32.dp))
-                .border(border, RoundedCornerShape(32.dp))
-                .padding(horizontal = 12.dp, vertical = 2.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleLarge
-            )
+            if (showTotal) {
+                Text(
+                    text = stringResource(R.string.setup_total_duration, totalDuration),
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Button(
+                onClick = onStart,
+                enabled = enabled,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp),
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary,
+                    disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                    disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            ) {
+                Icon(imageVector = Icons.Play, contentDescription = null)
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = stringResource(R.string.setup_start),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+            }
         }
     }
 }
 
-@Composable
-private fun SetupParam(
-    title: String,
-    modifier: Modifier = Modifier,
-    titleSuffix: String? = null,
-    titleAlpha: Float = 1f,
-    contentPadding: PaddingValues = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-    content: @Composable ColumnScope.() -> Unit
-) {
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .background(MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.2f))
-            .padding(contentPadding)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .alpha(titleAlpha),
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleLarge
-            )
-            if (titleSuffix != null) {
-                Text(
-                    text = titleSuffix,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
-                )
-            }
-        }
-        content()
-    }
-}
 
 @Preview(name = "Light Mode", showBackground = true)
 @Preview(
@@ -631,16 +461,7 @@ fun SetupScreenPreview() {
                 )
             ),
             totalDuration = "12:00",
-            onStartTimer = {},
-            updateMode = {},
-            updateSets = {},
-            updateSetRest = {},
-            updateTimeCap = {},
-            updateTotalTimeCap = {},
-            updateRounds = {},
-            addTask = {},
-            updateTaskDuration = { _, _ -> },
-            removeTask = {}
+            actions = SetupActions()
         )
     }
 }

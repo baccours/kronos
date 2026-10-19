@@ -1,6 +1,7 @@
 package com.baccours.kronos.audio
 
 import android.content.Context
+import android.os.SystemClock
 import android.util.Log
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.FutureTask
@@ -36,36 +37,51 @@ class ClipLibrary private constructor(context: Context) {
     ) { r -> Thread(r, "clip-preloader").apply { isDaemon = true } }
         .apply { allowCoreThreadTimeOut(true) }
 
-    init {
-        val missing = ClipCatalog.allClips.filter { !has(it) }
-        if (missing.isNotEmpty()) {
-            Log.w(TAG, "${missing.size} of ${ClipCatalog.allClips.size} voice clips missing, " +
-                "e.g. ${missing.take(5).joinToString()}")
-        }
-    }
+    /** When (elapsedRealtime) a clip last failed to decode. A failed clip is retried after [RETRY_AFTER_MS]. */
+    private val failedAt = ConcurrentHashMap<String, Long>()
+
+    // (Whether every clip the app can say exists is checked by ClipAssetsTest, not at every launch.)
 
     /** True when the asset file for the clip [name] (no extension) exists. */
     fun has(name: String): Boolean = name + ClipCatalog.EXTENSION in available
 
+    /** True when [name] exists and did not fail to decode recently, i.e. it can be expected to play. */
+    fun isUsable(name: String): Boolean = has(name) && !recentlyFailed(name)
+
+    private fun recentlyFailed(name: String): Boolean {
+        val failed = failedAt[name] ?: return false
+        if (SystemClock.elapsedRealtime() - failed >= RETRY_AFTER_MS) {
+            failedAt.remove(name, failed)
+            return false
+        }
+        return true
+    }
+
     /** Decoded PCM of clip [name], decoding it on first use; null when missing or undecodable. */
     fun pcm(name: String): ShortArray? {
-        if (!has(name)) return null
+        if (!isUsable(name)) return null
         var owned: FutureTask<ShortArray?>? = null
         val task = decoded.computeIfAbsent(name) { FutureTask { decode(name) }.also { owned = it } }
         owned?.run() // we created the task, so we decode (outside any lock); others just wait on it
-        return try {
+        val result = try {
             task.get()
         } catch (_: InterruptedException) {
             Thread.currentThread().interrupt()
-            null
+            return null
         } catch (_: Exception) {
             null
         }
+        if (result == null) {
+            // Do not cache the failure for the life of the process: forget it, and retry later.
+            decoded.remove(name, task)
+            failedAt[name] = SystemClock.elapsedRealtime()
+        }
+        return result
     }
 
     /** Decodes [names] in the background, in this order, skipping clips already requested. */
     fun preload(names: Collection<String>) {
-        val todo = names.filter { has(it) && !decoded.containsKey(it) }
+        val todo = names.filter { isUsable(it) && !decoded.containsKey(it) }
         if (todo.isEmpty()) return
         preloader.execute { for (name in todo) pcm(name) }
     }
@@ -83,6 +99,7 @@ class ClipLibrary private constructor(context: Context) {
 
     companion object {
         private const val TAG = "ClipLibrary"
+        private const val RETRY_AFTER_MS = 30_000L
 
         /** Everything is played as mono at this rate (the usual native output rate). */
         const val SAMPLE_RATE = PcmUtil.SAMPLE_RATE

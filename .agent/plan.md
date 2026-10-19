@@ -7,7 +7,7 @@ Features:
 - Setup Screen: Configure sets, rounds, and a sequence of Work/Rest items. Dynamic list with independent numbering. Total workout duration calculation.
 - Running Timer Screen: Countdown/Count-up displays, total remaining time, round counter for For Time mode.
 - Foreground Service: Maintains timer accuracy in background, persistent notification.
-- Audio Cues: Beeps, buzzers, and Text-to-Speech announcements for starts, 10s remaining, halfway point, and item changes.
+- Audio Cues: Beeps, buzzers, and recorded voice-clip announcements for starts, 10s remaining, halfway point, and item changes.
 - Material 3 Design: Full Edge-to-Edge, vibrant/energetic colors.
 - Robust state management: Survives rotation, handles foreground/background transitions correctly.
 - Permissions: Handles Notification permission for Android 13+.
@@ -21,7 +21,7 @@ Features:
 2. **Dynamic Workout Builder**: An interactive setup screen for configuring sets, rounds, and sequences of Work/Rest intervals with real-time total duration calculation.
 3. **High-Visibility Timer Interface**: A running screen optimized for gym environments featuring large readouts, round counters, and clear progress indicators.
 4. **Persistent Foreground Service**: A dedicated background service that ensures timing accuracy and provides workout controls via a persistent notification when the app is not in focus.
-5. **Intelligent Audio Cues**: Automated audio feedback using beeps and Text-to-Speech (TTS) announcements for interval transitions, halfway points, and countdowns.
+5. **Intelligent Audio Cues**: Automated audio feedback using beeps and recorded voice-clip announcements for interval transitions, halfway points, and countdowns.
 
 
 ## High-Level Technical Stack
@@ -30,7 +30,7 @@ Features:
 - **Concurrency**: Kotlin Coroutines and Flow for precise timing and state management.
 - **Background Execution**: Android Foreground Service for workout continuity and notification integration.
 - **Code Generation**: KSP (Kotlin Symbol Processing).
-- **Audio**: Android Text-to-Speech (TTS) and MediaPlayer APIs.
+- **Audio**: Pre-recorded voice clips (decoded with MediaCodec) and synthesized beeps, played with AudioTrack.
 
 ## Implementation Steps
 **Total Duration:** 53m 49s
@@ -55,12 +55,12 @@ Features:
   - App does not crash during service lifecycle transitions.
 - **Duration:** 10m 10s
 
-### Task_3_ActiveWorkoutUIAndAudio: Build the Running Timer screen with high-visibility readouts for time and rounds. Integrate the Audio Cues system using Text-to-Speech (TTS) and beeps for transitions and interval milestones.
+### Task_3_ActiveWorkoutUIAndAudio: Build the Running Timer screen with high-visibility readouts for time and rounds. Integrate the Audio Cues system using recorded voice clips and beeps for transitions and interval milestones.
 - **Status:** COMPLETED
 - **Updates:** Built the Running Timer screen with high-visibility large readouts (100.sp) and clear progress indicators for sets and rounds.
 - **Acceptance Criteria:**
   - Running screen displays large, readable timer and progress indicators.
-  - TTS announcements play for item changes and halfway points.
+  - Voice-clip announcements play for item changes and halfway points.
   - Audio beeps occur during countdowns and starts.
   - Screen orientation changes do not interrupt the timer state.
 - **Duration:** 6m 2s

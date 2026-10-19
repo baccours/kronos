@@ -13,7 +13,7 @@ Kronos is an Android workout timer application supporting customizable interval 
 - **Config Persistence**: Saves the last used workout setup locally using Jetpack DataStore.
 - **Background Execution**: Runs as an Android Foreground Service (`TimerService`) with persistent notifications, notification controls (pause, resume, stop, skip, lap), and a partial wake lock to keep timing active when the screen is locked or the app is in the background.
 - **Audio Cues**: Voice announcements from pre-recorded clips (`assets/audio/*.ogg`, played through an `Announcer`) for workout phases, and synthesized PCM audio tones (beeps, buzzers, completion sound) using `AudioTrack`.
-- **Custom UI Components**: Built with Jetpack Compose (Material 3), including numeric inputs (`TimeInput`), keypad interface (`Keypad`), and stepper controls (`HybridStepper`).
+- **Custom UI Components**: Built with Jetpack Compose (Material 3), including numeric inputs (`TimeInput`), a docked keypad (`DockedKeypad`/`KeypadState`: tap a field, type, tap the next field; the previous entry is committed automatically), and stepper controls (`HybridStepper`).
 
 ---
 
@@ -33,11 +33,11 @@ Kronos is an Android workout timer application supporting customizable interval 
 
 ```
 app/src/main/java/com/baccours/kronos/
-├── engine/       # TimerEngine clock and workout state machine
-├── model/        # Data models (TimerConfig, Task, TimerState, Lap, etc.)
-├── repository/   # TimerRepository (live state) & TimerPreferencesRepository (DataStore)
+├── engine/       # TimerEngine (clock + state machine) and WorkoutController (tick scheduling, cues, state reporting; no Android dependencies, tested with virtual time)
+├── model/        # Data models (TimerConfig incl. validation limits, Task, TimerState, Lap, etc.) and TimerConfigCodec (JSON)
+├── repository/   # TimerStateStore/TimerRepository (live state) & TimerPreferencesRepository (DataStore)
 ├── audio/        # Announcer, ClipAnnouncer, ClipLibrary, ClipCatalog, ClipDecoder (voice clips); ToneSynth, StaticTrack (beeps); PcmUtil; AudioFocusController
-├── service/      # TimerService (Foreground Service) & TimerAudioManager (routes cues to the tones or the Announcer)
+├── service/      # TimerService (thin Foreground Service shell), TimerNotifier, WorkoutCommands (UI -> service), HandlerTickScheduler, TimerAudioManager (routes cues to the tones or the Announcer)
 └── ui/           # Setup and Running screens, components (Keypad, TimeInput), Theme
 ```
 
@@ -46,7 +46,10 @@ app/src/main/java/com/baccours/kronos/
 ## Required Permissions
 
 - `POST_NOTIFICATIONS`: Display persistent notification controls on Android 13+ (API 33+).
-- `FOREGROUND_SERVICE`: Keep the workout service active in the background.
+- `FOREGROUND_SERVICE` and `FOREGROUND_SERVICE_SPECIAL_USE`: Keep the workout service active in the background (Android 14+ needs the service type; Google Play asks for a declaration of the special-use case).
+- `WAKE_LOCK`: Keep the CPU awake while a workout is running with the screen off.
+
+The notification permission is requested the first time a workout is started. Declining it only hides the notification; the workout still runs.
 
 ---
 

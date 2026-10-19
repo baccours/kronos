@@ -83,6 +83,10 @@ class TimerEngine(
     private var lastElapsedSecond = 0
     private val laps = ArrayList<Lap>()
 
+    /** Immutable copy of [laps], rebuilt only when a lap is added, so snapshots stay O(1) per tick. */
+    private var lapsSnapshot: List<Lap> = emptyList()
+    private val lapCountBySet = HashMap<Int, Int>()
+
     // ---------------------------------------------------------------- commands
 
     fun start(now: Long): EngineResult {
@@ -92,6 +96,8 @@ class TimerEngine(
         completedMs = 0
         lastElapsedSecond = 0
         laps.clear()
+        lapCountBySet.clear()
+        lapsSnapshot = emptyList()
         status = TimerStatus.RUNNING
         if (plan.isEmpty()) {
             val cues = ArrayList<Cue>()
@@ -220,7 +226,7 @@ class TimerEngine(
         val elapsedMs = if (finished) 0L else (t - segmentStartMs).coerceAtLeast(0)
         val elapsedSeconds = (elapsedMs / 1000).toInt()
         val remaining = if (d > 0) (d - elapsedSeconds).coerceAtLeast(0) else 0
-        val setLaps = laps.count { it.set == seg.set }
+        val setLaps = lapCountBySet[seg.set] ?: 0
         val inTimedProgress = seg.phase != Phase.READY && !finished
         val totalElapsedMs = completedMs + if (inTimedProgress) elapsedMs else 0L
 
@@ -250,7 +256,7 @@ class TimerEngine(
             next = if (finished) null else plan.getOrNull(index + 1)?.let {
                 UpNext(it.phase, it.workIndex, it.set, it.durationSeconds)
             },
-            laps = laps.toList()
+            laps = lapsSnapshot
         )
     }
 
@@ -303,8 +309,10 @@ class TimerEngine(
     private fun isLapSegment(seg: Segment) = isForTime && seg.phase == Phase.WORK
 
     private fun addLap(set: Int, durationMs: Long) {
-        val number = laps.count { it.set == set } + 1
+        val number = (lapCountBySet[set] ?: 0) + 1
+        lapCountBySet[set] = number
         laps += Lap(set = set, number = number, durationMs = durationMs.coerceAtLeast(0))
+        lapsSnapshot = laps.toList()
     }
 
     /** Books the time of the current segment and, for For Time sets, logs the closing lap. */
@@ -312,7 +320,7 @@ class TimerEngine(
         val seg = plan[index]
         if (isLapSegment(seg)) {
             val sinceLap = endMs - lapStartMs
-            val hasLaps = laps.any { it.set == seg.set }
+            val hasLaps = (lapCountBySet[seg.set] ?: 0) > 0
             // Pressing ROUND right before FINISH must not produce a sub-second ghost lap.
             if (!hasLaps || sinceLap >= MIN_CLOSING_LAP_MS) addLap(seg.set, sinceLap)
         }
@@ -325,7 +333,7 @@ class TimerEngine(
         status = TimerStatus.FINISHED
         cues.clear()
         cues += Cue.Celebration
-        cues += Cue.Speak(Speech.WellDone)
+        cues += Cue.Speak(Speech.WellDone, interrupt = true)
     }
 
     private fun buildPlan(): List<Segment> {
@@ -368,13 +376,22 @@ class TimerEngine(
             Phase.READY -> listOf(Cue.Speak(Speech.GetReady))
             Phase.WORK -> listOf(
                 Cue.StartBuzzer,
+                // Start-of-segment announcements cut off whatever is still being said (e.g. after a skip),
+                // so the voice never lags behind what is on screen.
                 Cue.Speak(
                     if (isForTime) setIntro + Speech.Go
-                    else setIntro + roundIntro + Speech.Work(seg.workIndex)
+                    else setIntro + roundIntro + Speech.Work(seg.workIndex),
+                    interrupt = true
                 )
             )
-            Phase.REST -> listOf(Cue.StartBuzzer, Cue.Speak(setIntro + roundIntro + Speech.Rest))
-            Phase.SET_REST -> listOf(Cue.StartBuzzer, Cue.Speak(Speech.RestBetweenSets))
+            Phase.REST -> listOf(
+                Cue.StartBuzzer,
+                Cue.Speak(setIntro + roundIntro + Speech.Rest, interrupt = true)
+            )
+            Phase.SET_REST -> listOf(
+                Cue.StartBuzzer,
+                Cue.Speak(listOf(Speech.RestBetweenSets), interrupt = true)
+            )
         }
     }
 

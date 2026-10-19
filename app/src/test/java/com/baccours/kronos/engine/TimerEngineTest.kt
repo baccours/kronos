@@ -193,4 +193,71 @@ class TimerEngineTest {
         }
         assertEquals(emptySet<Speech>(), spoken - needed)
     }
+
+    @Test
+    fun forTime_totalTimeCapEndsTheWholeWorkout() {
+        val engine = TimerEngine(
+            TimerConfig(mode = TimerMode.FOR_TIME, sets = 2, setRestSeconds = 5, totalTimeCap = 30)
+        )
+        engine.start(0)
+        var t = 0L
+        val said = ArrayList<List<Speech>>()
+        while (engine.status == TimerStatus.RUNNING && t <= 120_000) {
+            said += engine.tick(t).cues.filterIsInstance<Cue.Speak>().map { it.parts }
+            t += 10
+        }
+        assertEquals(TimerStatus.FINISHED, engine.status)
+        // "Get ready" (10 s) does not count towards the cap.
+        assertTrue("finished at $t", t in 40_000..40_020)
+        assertEquals(30_000L, engine.snapshot(t).laps.single().durationMs)
+        assertTrue(said.any { it == listOf<Speech>(Speech.TenSeconds) })
+    }
+
+    @Test
+    fun pauseAndResumeDoNotRepeatACountdownBeep() {
+        val engine = TimerEngine(TimerConfig(tasks = listOf(work(10))))
+        var beeps = 0
+        fun EngineResult.count() { beeps += cues.count { it == Cue.Beep } }
+        engine.start(0).count()
+        var t = 0L
+        while (t < 17_500) { engine.tick(t).count(); t += 10 } // 7.5 s into "work": the "3" beep is behind us
+        engine.pause(17_500).count()
+        t = 30_000
+        engine.resume(t).count()
+        while (engine.status == TimerStatus.RUNNING) { engine.tick(t).count(); t += 10 }
+        // 3, 2, 1 before "work" and 3, 2, 1 before the end.
+        assertEquals(6, beeps)
+    }
+
+    @Test
+    fun onlySegmentAnnouncementsInterruptTheVoice() {
+        val engine = TimerEngine(TimerConfig(tasks = listOf(work(60), rest(20))))
+        val speaks = ArrayList<Cue.Speak>()
+        var t = 0L
+        speaks += engine.start(t).cues.filterIsInstance<Cue.Speak>()
+        while (engine.status == TimerStatus.RUNNING) {
+            speaks += engine.tick(t).cues.filterIsInstance<Cue.Speak>()
+            t += 10
+        }
+        val countdown = speaks.filter { it.parts == listOf<Speech>(Speech.Halfway) || it.parts == listOf<Speech>(Speech.TenSeconds) }
+        assertTrue(countdown.isNotEmpty())
+        assertTrue(countdown.none { it.interrupt })
+
+        val segmentStarts = speaks.filter { cue -> cue.parts.any { it is Speech.Work || it == Speech.Rest || it == Speech.WellDone } }
+        assertTrue(segmentStarts.size >= 3)
+        assertTrue(segmentStarts.all { it.interrupt })
+    }
+
+    @Test
+    fun theLapListIsTheSameObjectUntilALapIsLogged() {
+        val engine = TimerEngine(TimerConfig(mode = TimerMode.FOR_TIME))
+        engine.start(0)
+        engine.tick(10_000)
+        engine.lap(12_000)
+        val a = engine.snapshot(13_000).laps
+        val b = engine.snapshot(14_000).laps
+        assertTrue(a === b)
+        engine.lap(15_000)
+        assertEquals(2, engine.snapshot(16_000).laps.size)
+    }
 }

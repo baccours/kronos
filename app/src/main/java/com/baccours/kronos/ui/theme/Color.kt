@@ -4,7 +4,7 @@ import androidx.compose.ui.graphics.Color
 
 // Light Theme
 val md_theme_light_primary = Color(0xFF00D1B9)
-val md_theme_light_onPrimary = Color(0xFFFFFFFF)
+val md_theme_light_onPrimary = Color(0xFF002C27) // dark on the bright teal: 7.8:1 (white was 1.9:1)
 val md_theme_light_primaryContainer = Color(0xFFB3F0E7)
 val md_theme_light_onPrimaryContainer = Color(0xFF002C27)
 val md_theme_light_secondary = Color(0xFF4A6B7A) // Cool slate for rest periods
@@ -30,7 +30,7 @@ val md_theme_light_outline = Color(0xFF6F7975)
 // Dark Theme
 val md_theme_dark_primary = Color(0xFF5FE7D5)
 val md_theme_dark_onPrimary = Color(0xFF004743)
-val md_theme_dark_primaryContainer = Color(0xFF006B62)
+val md_theme_dark_primaryContainer = Color(0xFF005A53) // darker so secondary text reaches 4.5:1
 val md_theme_dark_onPrimaryContainer = Color(0xFFB3F0E7)
 val md_theme_dark_secondary = Color(0xFFB3D5E3)
 val md_theme_dark_onSecondary = Color(0xFF1A3341)
@@ -38,7 +38,7 @@ val md_theme_dark_secondaryContainer = Color(0xFF314A59)
 val md_theme_dark_onSecondaryContainer = Color(0xFFCEE7F3)
 val md_theme_dark_tertiary = Color(0xFF7FE5B8)
 val md_theme_dark_onTertiary = Color(0xFF00503B)
-val md_theme_dark_tertiaryContainer = Color(0xFF007D5F)
+val md_theme_dark_tertiaryContainer = Color(0xFF00634A) // darker so secondary text reaches 4.5:1
 val md_theme_dark_onTertiaryContainer = Color(0xFFA8F4D8)
 val md_theme_dark_error = Color(0xFFFFB4AB)
 val md_theme_dark_errorContainer = Color(0xFF93000A)

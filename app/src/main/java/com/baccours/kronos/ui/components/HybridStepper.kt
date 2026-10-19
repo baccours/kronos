@@ -13,10 +13,10 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -30,21 +30,41 @@ import com.baccours.kronos.ui.icons.Add
 import com.baccours.kronos.ui.icons.Icons
 import com.baccours.kronos.ui.icons.Remove
 
+/**
+ * A whole number with - / + buttons; tapping the number edits it with the docked keypad of the
+ * screen ([LocalKeypad]).
+ *
+ * @param fieldId identifies this field to the keypad. Must be unique on the screen and stable
+ *   across recompositions and rotation.
+ */
 @Composable
 fun HybridStepper(
+    fieldId: String,
     value: Int,
     onValueChange: (Int) -> Unit,
     modifier: Modifier = Modifier,
     range: IntRange = 1..99
 ) {
-    // rememberSaveable: the keypad survives screen rotation
-    var showSheet by rememberSaveable { mutableStateOf(false) }
+    val keypad = LocalKeypad.current
+    val currentOnChange by rememberUpdatedState(onValueChange)
+    val field = remember(fieldId, range) {
+        KeypadField(
+            id = fieldId,
+            kind = KeypadKind.NUMBER,
+            // Complete (and committed) as soon as the longest possible value has been typed (99 -> 2 digits)
+            maxDigits = range.last.toString().length,
+            // An out-of-range number leaves the value untouched
+            apply = { digits, _ -> digits.toIntOrNull()?.takeIf { it in range }?.let(currentOnChange) },
+            accepts = { digits -> digits.toIntOrNull()?.let { it in range } == true }
+        )
+    }
+    val active = keypad?.activeId == fieldId
 
-    // Digits typed in the keypad ("" = nothing typed yet: show the current value)
-    var digits by rememberSaveable { mutableStateOf("") }
+    // Hands the keypad the current version of this field (e.g. after a rotation).
+    SideEffect { if (active) keypad?.attach(field) }
 
-    // Auto-validate as soon as the longest possible value has been typed (99 -> 2 digits)
-    val maxDigits = range.last.toString().length
+    // Digits typed on the keypad ("" = nothing typed yet: show the current value)
+    val digits = if (active) keypad?.digits.orEmpty() else ""
 
     val textStyle = MaterialTheme.typography.headlineSmall.copy(
         fontFamily = FontFamily.Monospace,
@@ -52,20 +72,16 @@ fun HybridStepper(
         textAlign = TextAlign.Center
     )
 
-    /** Closes the sheet; a null or out-of-range [newValue] leaves the value untouched. */
-    fun closeSheet(newValue: Int?) {
-        newValue?.takeIf { it in range }?.let(onValueChange)
-        digits = ""
-        showSheet = false
-    }
-
     Row(
         modifier = modifier,
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.Center
     ) {
         IconButton(
-            onClick = { if (value > range.first) onValueChange(value - 1) },
+            onClick = {
+                keypad?.discardDigits(fieldId) // the value changes another way: what was typed is stale
+                if (value > range.first) onValueChange(value - 1)
+            },
             enabled = value > range.first
         ) {
             Icon(imageVector = Icons.Remove, contentDescription = stringResource(R.string.stepper_decrease))
@@ -75,17 +91,17 @@ fun HybridStepper(
             modifier = Modifier
                 .width(48.dp)
                 .height(48.dp)
-                .revealAboveKeypad(showSheet)
+                .revealWhenActive(active)
                 .border(
                     width = 1.dp,
-                    color = if (showSheet) MaterialTheme.colorScheme.primary else Color.Transparent,
+                    color = if (active) MaterialTheme.colorScheme.primary else Color.Transparent,
                     shape = MaterialTheme.shapes.extraSmall
                 )
                 .padding(horizontal = 8.dp, vertical = 4.dp)
                 .clickable(
                     onClickLabel = stringResource(R.string.edit_value),
                     role = Role.Button
-                ) { showSheet = true },
+                ) { keypad?.open(field) },
             contentAlignment = Alignment.Center
         ) {
             Text(
@@ -95,32 +111,13 @@ fun HybridStepper(
         }
 
         IconButton(
-            onClick = { if (value < range.last) onValueChange(value + 1) },
+            onClick = {
+                keypad?.discardDigits(fieldId)
+                if (value < range.last) onValueChange(value + 1)
+            },
             enabled = value < range.last
         ) {
             Icon(imageVector = Icons.Add, contentDescription = stringResource(R.string.stepper_increase))
-        }
-    }
-
-    if (showSheet) {
-        KeypadSheet(
-            digits = digits,
-            onDigitsChange = { digits = it },
-            maxDigits = maxDigits,
-            onSubmit = { closeSheet(it.toIntOrNull()) },
-            // Scrim / swipe / back = "focus lost": validate what was typed (nothing typed
-            // or out of range = no change, same as the previous text field)
-            onDismiss = { closeSheet(digits.toIntOrNull()) }
-        ) { keyHeight ->
-            // No "min" key here: leave its place empty so OK stays on the 2 bottom rows
-            KeypadActionSpacer(keyHeight)
-            KeypadAction(
-                label = stringResource(R.string.keypad_ok),
-                onClick = { closeSheet(digits.toIntOrNull()) },
-                keyHeight = keyHeight,
-                enabled = digits.toIntOrNull()?.let { it in range } == true,
-                primary = true
-            )
         }
     }
 }

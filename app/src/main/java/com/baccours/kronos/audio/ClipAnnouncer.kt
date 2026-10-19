@@ -69,11 +69,12 @@ class ClipAnnouncer(
         if (released) return false
         val names = ClipCatalog.clipsFor(cue)
         if (names.isEmpty()) return false
-        val missing = names.filter { !library.has(it) }
-        if (missing.isNotEmpty()) {
-            // Log each missing clip once, not on every announcement.
-            missing.filter { warned.add(it) }.takeIf { it.isNotEmpty() }
-                ?.let { Log.w(TAG, "Not announcing \"${cue.text}\", missing: ${it.joinToString()}") }
+        // Missing, or failed to decode recently: report it, so that a fallback voice can take over.
+        val unusable = names.filter { !library.isUsable(it) }
+        if (unusable.isNotEmpty()) {
+            // Log each clip once, not on every announcement.
+            unusable.filter { warned.add(it) }.takeIf { it.isNotEmpty() }
+                ?.let { Log.w(TAG, "Not announcing \"${cue.text}\", unusable: ${it.joinToString()}") }
             return false
         }
         if (cue.interrupt) stopPlayback()
@@ -83,7 +84,9 @@ class ClipAnnouncer(
         // A single worker keeps announcements in order, even when some clips still need decoding.
         // It also creates the AudioTrack, so the main thread only has to call play().
         worker.execute {
-            val prepared = assemble(names)?.takeIf { it.isNotEmpty() }?.let(::buildTrack)
+            val pcm = assemble(names)
+            if (pcm == null) Log.w(TAG, "Dropped \"${cue.text}\": a clip could not be decoded")
+            val prepared = pcm?.takeIf { it.isNotEmpty() }?.let(::buildTrack)
             handler.post { onPrepared(gen, prepared) }
         }
         return true

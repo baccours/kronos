@@ -1,8 +1,5 @@
 package com.baccours.kronos.ui.setup
 
-
-import com.baccours.kronos.R
-import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -21,16 +18,18 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.baccours.kronos.R
 import com.baccours.kronos.model.TaskType
 import com.baccours.kronos.ui.components.TimeInput
 import com.baccours.kronos.ui.icons.Delete
 import com.baccours.kronos.ui.icons.Icons
 
-
 @Composable
 fun TaskRow(
+    fieldId: String,
     index: Int,
     type: TaskType,
     durationSeconds: Int,
@@ -86,6 +85,7 @@ fun TaskRow(
         )
 
         TimeInput(
+            fieldId = fieldId,
             durationSeconds = durationSeconds,
             onDurationChange = onDurationChange
         )
