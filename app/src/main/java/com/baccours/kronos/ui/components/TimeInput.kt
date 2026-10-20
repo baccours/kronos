@@ -84,7 +84,7 @@ fun TimeInput(
     LaunchedEffect(enabled, active) { if (active && !enabled) keypad.cancel() }
 
     // Digits typed on keypad; displays saved value if empty
-    val digits = if (active) keypad.digits.orEmpty() else ""
+    val digits = if (active) keypad.digits else ""
 
     // Displays padded mm:ss without immediate conversion
     val typed = digits.ifEmpty { null }?.padStart(MAX_DIGITS, '0')

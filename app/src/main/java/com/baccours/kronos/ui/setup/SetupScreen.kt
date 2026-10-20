@@ -137,10 +137,10 @@ internal fun SetupScreenContent(
     // Screen keypad state
     val keypad = rememberKeypadState()
     // Commit pending input before changing mode
-    val currentUpdateMode by rememberUpdatedState({ mode: TimerMode ->
+    val currentUpdateMode by rememberUpdatedState { mode: TimerMode ->
         keypad.commitAndClose()
         actions.updateMode(mode)
-    })
+    }
     // Commit pending input on back press
     BackHandler(enabled = keypad.isOpen) { keypad.commitAndClose() }
 

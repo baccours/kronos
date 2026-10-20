@@ -62,7 +62,7 @@ fun HybridStepper(
     SideEffect { if (active) keypad.attach(field) }
 
     // Digits typed on keypad; displays current value if empty
-    val digits = if (active) keypad.digits.orEmpty() else ""
+    val digits = if (active) keypad.digits else ""
 
     val textStyle = MaterialTheme.typography.headlineSmall.copy(
         fontFamily = FontFamily.Monospace,
