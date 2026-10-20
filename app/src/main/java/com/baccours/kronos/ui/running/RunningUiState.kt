@@ -9,7 +9,7 @@ import com.baccours.kronos.model.UpNext
 import com.baccours.kronos.model.formatDuration
 import kotlin.math.abs
 
-/** A logged lap, ready to display. [delta] is the difference to the previous lap of the set. */
+/** Display model for a logged lap with time difference delta. */
 data class LapUi(
     val set: Int,
     val number: Int,
@@ -37,20 +37,20 @@ data class RunningUiState(
     val displayTime: String = "00:00",
     val elapsedSeconds: Int = 0,
     val segmentIndex: Int = 0,
-    /** Progress through the current segment, null for open-ended segments. */
+    /** Active segment progress fraction (null if open-ended). */
     val segmentProgress: Float? = null,
-    /** Where [segmentProgress] will be one second from now (for smooth animation). */
+    /** Target progress fraction for 1-second animation interpolation. */
     val segmentProgressNext: Float? = null,
-    /** Progress through the whole workout (TIMER mode), null otherwise. */
+    /** Overall workout progress fraction (TIMER mode only). */
     val overallProgress: Float? = null,
     val totalRemaining: String? = null,
     val totalElapsed: String? = null,
     val timeCap: String? = null,
     val lapTime: String? = null,
     val next: UpNext? = null,
-    /** Laps of the set in progress, newest first. */
+    /** Reverse-chronological list of laps in current set. */
     val laps: List<LapUi> = emptyList(),
-    /** Per-set results, shown when the workout is finished (For Time). */
+    /** Summary results per set on completion (FOR_TIME mode). */
     val summaries: List<SetSummaryUi> = emptyList(),
     val finishedTotal: String = "00:00"
 ) {
@@ -58,14 +58,12 @@ data class RunningUiState(
     val isPaused get() = status == TimerStatus.PAUSED
     val isForTime get() = mode == TimerMode.FOR_TIME
 
-    /** The "ROUND" lap button is available during a For Time set. */
+    /** True if lap logging is active in FOR_TIME mode. */
     val canLap get() = isForTime && phase == Phase.WORK && !isFinished
 }
 
 /**
- * Turns the engine's [TimerState] into what the running screen shows. Called once a second, so
- * the lap rows (which only change when a lap is logged) are rebuilt only when the engine hands
- * over a different laps list, and the per-set results only once the workout is finished.
+ * Maps [TimerState] to [RunningUiState], caching lap UI items and set summaries.
  */
 class RunningUiStateMapper {
     private var currentLapsSource: List<Lap>? = null
@@ -145,7 +143,7 @@ class RunningUiStateMapper {
     }
 }
 
-/** Converts laps of a single set into display rows with the delta to the previous lap. */
+/** Converts laps to display models computing time deltas between consecutive laps. */
 private fun List<Lap>.toLapUi(): List<LapUi> = mapIndexed { i, lap ->
     val previous = getOrNull(i - 1)
     val diffSeconds = previous?.let { (lap.durationMs - it.durationMs) / 1000 }

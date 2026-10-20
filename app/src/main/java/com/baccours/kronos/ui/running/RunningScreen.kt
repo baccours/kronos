@@ -18,8 +18,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
@@ -64,26 +62,17 @@ import com.baccours.kronos.ui.icons.Close
 import com.baccours.kronos.ui.icons.Icons
 import com.baccours.kronos.ui.phaseLabel
 
-/*
- * Layout model (no boxes, no panels: grouping is done with spacing only)
- *
- *   top       close cross only
- *   stats     Set / Round, big, only when there is more than one
- *   NOW       phase name -> timer -> segment bar (-> lap time in For Time), centered in the free space
- *   laps      For Time only
- *   OVERALL   thin bar + elapsed / remaining, just above the controls (like a media player)
- *   controls  icon buttons in the thumb zone
- */
+// Layout structure: Top bar, Set/Round stats, active phase timer, lap section, overall progress, controls.
 
 private val SegmentBarHeight = 12.dp
 private val OverallBarHeight = 6.dp
 private val MaxTimeFontSize = 160.dp
 
 private const val TrackAlpha = 0.18f
-/** 0.85 keeps secondary text at 4.5:1 or more on every phase colour in both themes. */
+/** Alpha value ensuring >=4.5:1 text contrast across phase colors. */
 private const val SecondaryTextAlpha = 0.85f
 
-/** Advance width of a monospace digit, in em (with a small safety margin). */
+/** Monospace digit advance width in em. */
 private const val GlyphWidthEm = 0.63f
 private const val LineHeightEm = 1.25f
 
@@ -296,10 +285,7 @@ private fun CloseButton(onClose: () -> Unit, modifier: Modifier = Modifier) {
     }
 }
 
-/**
- * Set and Round, large and readable. Hidden when there is only one set / one round.
- * For Time has no fixed number of rounds, so it only shows the lap counter during a set.
- */
+/** Displays set and round indicators. Hidden when total count is 1. */
 @Composable
 private fun SetRoundStats(state: RunningUiState, compact: Boolean) {
     val showSet = state.totalSets > 1
@@ -359,10 +345,7 @@ private fun Stat(label: String, value: String, compact: Boolean) {
     }
 }
 
-/**
- * Everything about "right now": phase name (full width, so long names like the rest
- * between sets fit), the timer, and the bar of the current segment right under it.
- */
+/** Displays active phase header, main timer readout, and segment progress bar. */
 @Composable
 private fun NowGroup(
     state: RunningUiState,
@@ -430,11 +413,7 @@ private fun nextText(state: RunningUiState): String {
     }
 }
 
-/**
- * The big time readout. The font size is derived from the available space (monospace, so
- * every digit has the same width) which keeps "00:30" and "01:00:00" on one line on any
- * screen size, orientation or font scale, and stops the digits from jittering.
- */
+/** Monospace timer readout dynamically scaled to fit container bounds without line wrapping. */
 @Composable
 private fun TimerReadout(text: String, modifier: Modifier = Modifier) {
     BoxWithConstraints(modifier = modifier, contentAlignment = Alignment.Center) {
@@ -465,7 +444,7 @@ private fun TimerReadout(text: String, modifier: Modifier = Modifier) {
     }
 }
 
-/** Bar for the current segment, animated smoothly without recomposing every frame. */
+/** Progress bar for active segment smoothly animated over time. */
 @Composable
 private fun SegmentProgress(state: RunningUiState) {
     val now = state.segmentProgress
@@ -508,9 +487,7 @@ private fun SegmentProgress(state: RunningUiState) {
     }
 }
 
-/**
- * Whole-workout progress: a thin bar with elapsed on the left and what is left on the right
- */
+/** Progress bar displaying overall workout elapsed and remaining time. */
 @Composable
 private fun OverallProgress(state: RunningUiState) {
     val progress = state.overallProgress

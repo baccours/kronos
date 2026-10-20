@@ -9,17 +9,17 @@ import android.os.SystemClock
 import android.util.Log
 import java.nio.ByteOrder
 
-/** Interleaved 16-bit PCM, as it came out of the codec. */
+/** Interleaved 16-bit PCM sample buffer. */
 class DecodedPcm(val samples: ShortArray, val sampleRate: Int, val channels: Int)
 
-/** Decodes a compressed audio asset (ogg Vorbis or Opus) to PCM with MediaExtractor + MediaCodec. */
+/** Decodes compressed audio assets (Ogg Vorbis/Opus) to PCM via MediaExtractor and MediaCodec. */
 object ClipDecoder {
 
     private const val TAG = "ClipDecoder"
     private const val TIMEOUT_US = 10_000L
     private const val MAX_DECODE_MS = 5_000L
 
-    /** Returns null (and logs why) when the clip cannot be decoded. Blocking: call off the main thread. */
+    /** Decodes clip to PCM, or returns null on failure. Blocking: call off main thread. */
     fun decode(afd: AssetFileDescriptor, name: String): DecodedPcm? {
         val extractor = MediaExtractor()
         var codec: MediaCodec? = null

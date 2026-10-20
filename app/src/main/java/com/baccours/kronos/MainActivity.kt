@@ -37,8 +37,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        // Decode the fixed phrases now, in the background, so "Get ready" is instant at Start.
-        // (Off the main thread: even finding the clips touches the asset directory.)
+        // Preload fixed phrases off the main thread so "Get ready" starts instantly.
         lifecycleScope.launch(Dispatchers.Default) {
             ClipLibrary.get(applicationContext).preload(ClipCatalog.clipsForAll(ClipCatalog.PHRASES))
         }
@@ -46,16 +45,14 @@ class MainActivity : ComponentActivity() {
             KronosTheme {
                 val status by viewModel.status.collectAsStateWithLifecycle()
 
-                // The workout waiting for the answer to the notification permission prompt.
-                // Text, so that it survives the Activity being recreated while the prompt is open.
+                // Encoded workout config awaiting notification permission response across recreations.
                 var pendingConfig by rememberSaveable { mutableStateOf<String?>(null) }
                 var askedForNotifications by rememberSaveable { mutableStateOf(false) }
 
                 val permissionLauncher = rememberLauncherForActivityResult(
                     contract = ActivityResultContracts.RequestPermission(),
                     onResult = {
-                        // Granted or not, the workout starts: without the permission it only lacks
-                        // its notification (it still runs in the foreground service).
+                        // Start workout regardless of permission; if denied, it runs without notifications.
                         val config = TimerConfigCodec.decode(pendingConfig)
                         pendingConfig = null
                         if (config != null) startWorkout(config)
@@ -66,8 +63,7 @@ class MainActivity : ComponentActivity() {
                     SetupScreen(
                         onStartTimer = { config ->
                             if (needsNotificationPermission() && !askedForNotifications) {
-                                // Asked here, when the person starts a workout and the reason is
-                                // obvious, not out of the blue when the app opens.
+                                // Prompt for notification permission when starting a workout.
                                 askedForNotifications = true
                                 pendingConfig = TimerConfigCodec.encode(config)
                                 permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
@@ -81,7 +77,7 @@ class MainActivity : ComponentActivity() {
                         onPause = { commands.pause() },
                         onResume = { commands.resume() },
                         onStop = {
-                            // A finished workout has nothing left to stop: just close its results.
+                            // Dismiss finished workout results.
                             if (status == TimerStatus.FINISHED) commands.dismissFinished() else commands.stop()
                         },
                         onSkip = { commands.skip() },

@@ -9,13 +9,13 @@ import com.baccours.kronos.model.TimerConfigCodec
 import com.baccours.kronos.repository.TimerRepository
 import com.baccours.kronos.repository.TimerStateStore
 
-/** What the UI can ask of the workout. Hides that it is a service reached with intents. */
+/** Helper class sending workout command intents to [TimerService]. */
 class WorkoutCommands(
     private val context: Context,
     private val store: TimerStateStore = TimerRepository
 ) {
 
-    /** False when the system refused to start the service (e.g. background start restrictions). */
+    /** Returns false if system prevents starting foreground service. */
     fun start(config: TimerConfig): Boolean = try {
         val intent = Intent(context, TimerService::class.java)
             .setAction(TimerService.ACTION_START)
@@ -23,7 +23,7 @@ class WorkoutCommands(
         ContextCompat.startForegroundService(context, intent)
         true
     } catch (e: IllegalStateException) {
-        // Includes ForegroundServiceStartNotAllowedException (Android 12+).
+        // Handles foreground service launch restrictions
         Log.e(TAG, "Cannot start the workout service", e)
         false
     } catch (e: SecurityException) {
@@ -36,13 +36,10 @@ class WorkoutCommands(
     fun skip() = send(TimerService.ACTION_SKIP)
     fun lap() = send(TimerService.ACTION_LAP)
 
-    /** Abandons a running or paused workout. */
+    /** Stops the active workout. */
     fun stop() = send(TimerService.ACTION_STOP)
 
-    /**
-     * Closes the results of a finished workout. The service has nothing left to do (it ends itself
-     * a few seconds after finishing), so there is no need to start it just to reset the state.
-     */
+    /** Resets state and dismisses notification for finished workouts. */
     fun dismissFinished() {
         store.reset()
         TimerNotifier(context).cancel()

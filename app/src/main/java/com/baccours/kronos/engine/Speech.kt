@@ -1,8 +1,7 @@
 package com.baccours.kronos.engine
 
 /**
- * One thing the announcer says. The engine only describes *what* is said; how it is
- * rendered (recorded clips today, maybe text-to-speech later) is up to the Announcer.
+ * Spoken cue directive emitted by the workout engine.
  */
 sealed interface Speech {
     data object GetReady : Speech
@@ -13,17 +12,17 @@ sealed interface Speech {
     data object TenSeconds : Speech
     data object WellDone : Speech
 
-    /** "Work", or "Work N" when [index] is above zero. */
+    /** Work phase cue, numbered if [index] > 0. */
     data class Work(val index: Int = 0) : Speech
 
-    /** "Set N" */
+    /** Set number cue. */
     data class SetNumber(val number: Int) : Speech
 
-    /** "Round N" */
+    /** Round number cue. */
     data class RoundNumber(val number: Int) : Speech
 }
 
-/** English rendering of a [Speech]: for logs, tests and any announcer that needs text. */
+/** English text representation of [Speech]. */
 val Speech.english: String
     get() = when (this) {
         Speech.GetReady -> "Get ready"

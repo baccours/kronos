@@ -4,7 +4,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
 
-/** Needs kotlinx.serialization (the real one), so it runs under Gradle only. */
+/** Requires kotlinx.serialization runtime. */
 class TimerConfigCodecTest {
 
     @Test

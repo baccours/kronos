@@ -2,13 +2,13 @@ package com.baccours.kronos.audio
 
 import kotlin.math.roundToInt
 
-/** Small PCM helpers for 16-bit samples. Pure Kotlin (no Android). */
+/** PCM utility functions for 16-bit audio. */
 object PcmUtil {
 
-    /** All PCM in the app (voice clips and tones) is mono, 16-bit, at this rate. */
+    /** Standard sample rate (48kHz) for all app audio. */
     const val SAMPLE_RATE = 48_000
 
-    /** Mixes interleaved [channels] down to mono by averaging them. */
+    /** Downmixes interleaved multi-channel PCM to mono. */
     fun toMono(samples: ShortArray, channels: Int): ShortArray {
         if (channels <= 1) return samples
         val frames = samples.size / channels
@@ -19,7 +19,7 @@ object PcmUtil {
         }
     }
 
-    /** Linear-interpolation resampling of mono samples from [fromRate] to [toRate]. */
+    /** Resamples mono PCM using linear interpolation. */
     fun resample(samples: ShortArray, fromRate: Int, toRate: Int): ShortArray {
         if (fromRate == toRate || samples.isEmpty()) return samples
         val outSize = (samples.size.toLong() * toRate / fromRate).toInt()

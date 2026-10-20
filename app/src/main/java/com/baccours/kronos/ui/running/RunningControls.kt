@@ -19,8 +19,6 @@ import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -35,9 +33,7 @@ import com.baccours.kronos.ui.icons.Pause
 import com.baccours.kronos.ui.icons.Play
 import com.baccours.kronos.ui.icons.SkipNext
 
-// ---------------------------------------------------------------------------- controls
-
-/** Controls for For Time: big lap button, then pause + finish. Otherwise: pause + skip. */
+/** Action controls for running workout screen. */
 @Composable
 internal fun Controls(
     state: RunningUiState,

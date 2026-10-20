@@ -13,10 +13,10 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** Runs the real scheduling loop (engine + controller) against a fake clock, scheduler and speaker. */
+/** Test harness running engine and controller with virtual clock and scheduler. */
 class WorkoutControllerTest {
 
-    /** Virtual time. Each scheduled tick fires [jitterMs] later than asked, like a busy or sleeping device. */
+    /** Simulates tick scheduling delay (jitter). */
     private class World(private val jitterMs: Long = 0) :
         TickScheduler, CuePlayer, WorkoutController.Listener {
 
@@ -141,7 +141,7 @@ class WorkoutControllerTest {
         val world = World()
         val controller = world.controller()
         controller.start(TimerConfig(tasks = listOf(work(30), rest(30))))
-        world.advanceTo(10_400) // 0.4 s into the first work item
+        world.advanceTo(10_400)
         controller.skip()
         val untilNextTick = world.dueAt - world.now
         assertTrue("next tick in $untilNextTick ms", untilNextTick in 1000..1100)

@@ -4,7 +4,6 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Arrangement
@@ -81,7 +80,7 @@ import com.baccours.kronos.ui.icons.Play
 import com.baccours.kronos.ui.theme.KronosTheme
 import kotlin.math.abs
 
-/** Everything the setup screen can ask for: one object instead of a dozen lambda parameters. */
+/** Encapsulates setup screen action callbacks. */
 @Immutable
 class SetupActions(
     val onStartTimer: (TimerConfig) -> Unit = {},
@@ -132,22 +131,22 @@ internal fun SetupScreenContent(
     val bringIntoViewRequester = remember { BringIntoViewRequester() }
     var previousTaskCount by remember { mutableIntStateOf(uiState.tasks.size) }
 
-    // Keep the swipe gesture block (keyed on Unit) reading fresh values
+    // Read current mode state within gesture detector
     val currentMode by rememberUpdatedState(uiState.mode)
 
-    // The one keypad of this screen, docked in the bottom bar while a field is edited.
+    // Screen keypad state
     val keypad = rememberKeypadState()
-    // Leaving the tab (click or swipe) hides some fields: commit what was typed first.
+    // Commit pending input before changing mode
     val currentUpdateMode by rememberUpdatedState({ mode: TimerMode ->
         keypad.commitAndClose()
         actions.updateMode(mode)
     })
-    // Back closes the keypad (keeping what was typed) before it leaves the screen.
+    // Commit pending input on back press
     BackHandler(enabled = keypad.isOpen) { keypad.commitAndClose() }
 
     LaunchedEffect(uiState.tasks.size) {
         if (uiState.tasks.size > previousTaskCount) {
-            // Scroll to the bottom (add buttons)
+            // Scroll to bottom when tasks are added
             bringIntoViewRequester.bringIntoView()
         }
         previousTaskCount = uiState.tasks.size
@@ -162,13 +161,13 @@ internal fun SetupScreenContent(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            // Keep clear of side system bars and cutouts (landscape with 3-button navigation).
+            // Handle system window insets
             .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal))
-            // Global horizontal swipe to change TimerMode
+            // Swipe gesture detector for tab switching
             .pointerInput(Unit) {
                 val threshold = 48.dp.toPx()
                 val slop = viewConfiguration.touchSlop
-                val edge = 32.dp.toPx() // leave the system back-gesture zones alone
+                val edge = 32.dp.toPx() // Exclude edge back-gesture areas
                 awaitEachGesture {
                     val down = awaitFirstDown(requireUnconsumed = false)
                     if (down.position.x < edge || down.position.x > size.width - edge) {
@@ -182,24 +181,23 @@ internal fun SetupScreenContent(
                         val event = awaitPointerEvent()
                         val change = event.changes.firstOrNull { it.id == down.id } ?: break
 
-                        // Multitouch or child took the gesture -> abort
+                        // Abort on multitouch or consumed gesture
                         if (event.changes.size > 1 || (!claimed && change.isConsumed)) break
 
                         val delta = change.positionChange()
                         dx += delta.x
                         dy += delta.y
 
-                        // Claim the gesture if it's clearly horizontal
+                        // Consume horizontal swipe gestures
                         if (!claimed && abs(dx) > slop && abs(dx) > 2 * abs(dy)) {
                             claimed = true
                         }
 
                         if (claimed) {
-                            change.consume() // Prevent buttons/scroll from triggering
+                            change.consume()
                             if (!done && abs(dx) > threshold) {
                                 done = true
-                                // Swipe Right (dx > 0) -> First Tab (TIMER)
-                                // Swipe Left (dx < 0) -> Second Tab (FOR_TIME)
+                                // Map swipe direction to timer mode
                                 val target = if (dx > 0) TimerMode.TIMER else TimerMode.FOR_TIME
                                 if (target != currentMode) currentUpdateMode(target)
                             }
@@ -215,11 +213,11 @@ internal fun SetupScreenContent(
                 Surface(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .statusBarsPadding() // Ensures content doesn't go under the clock/icons
+                        .statusBarsPadding()
                         .padding(top = 8.dp, bottom = 16.dp),
                     color = MaterialTheme.colorScheme.surface
                 ) {
-                    // Mode Selection
+                    // Mode selector
                     SingleChoiceSegmentedButtonRow(
                         modifier = Modifier.fillMaxWidth(),
                         space = 2.dp
@@ -336,7 +334,7 @@ internal fun SetupScreenContent(
                                                             )
                                                         },
                                                         onDelete = {
-                                                            keypad.cancelIf(taskFieldId) // its field is going away
+                                                            keypad.cancelIf(taskFieldId)
                                                             actions.removeTask(indexedTask.task.id)
                                                         }
                                                     )
@@ -388,7 +386,7 @@ internal fun SetupScreenContent(
     }
 }
 
-/** The total time and the Start button: the screen's bottom bar while no field is being edited. */
+/** Bottom bar displaying total duration and start button. */
 @Composable
 private fun StartBar(
     showTotal: Boolean,

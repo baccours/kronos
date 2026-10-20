@@ -33,10 +33,7 @@ import java.util.Locale
 private const val MAX_SECONDS = TimerConfig.MAX_DURATION_SECONDS
 private const val MAX_DIGITS = 4
 
-/**
- * Digits are read as mmss, padded with leading zeros:
- * "5" -> 00:05, "45" -> 00:45, "130" -> 01:30, "1030" -> 10:30
- */
+/** Converts mmss digit string to total seconds. */
 private fun mmssToSeconds(digits: String): Int {
     if (digits.isEmpty()) return 0
     val padded = digits.padStart(MAX_DIGITS, '0')
@@ -45,18 +42,16 @@ private fun mmssToSeconds(digits: String): Int {
     return (mins * 60 + secs).coerceAtMost(MAX_SECONDS)
 }
 
-/** Digits are read as a plain number of minutes: "2" -> 02:00, "15" -> 15:00 */
+/** Converts minute digit string to total seconds. */
 private fun minutesToSeconds(digits: String): Int {
     val mins = digits.toIntOrNull() ?: return 0
     return (mins * 60).coerceAtMost(MAX_SECONDS)
 }
 
 /**
- * A duration shown as mm:ss. Tapping it edits it with the docked keypad of the screen
- * ([LocalKeypad]); what is typed is shown live in the field and applied when the edit ends.
+ * Editable time duration input displaying formatted mm:ss.
  *
- * @param fieldId identifies this field to the keypad. Must be unique on the screen and stable
- *   across recompositions and rotation.
+ * @param fieldId Unique, stable identifier for keypad binding.
  */
 @Composable
 fun TimeInput(
@@ -83,15 +78,15 @@ fun TimeInput(
     }
     val active = keypad?.activeId == fieldId
 
-    // Hands the keypad the current version of this field (e.g. after a rotation).
-    SideEffect { if (active) keypad?.attach(field) }
-    // A field that gets disabled while it is being edited (e.g. rest with a single set) stops the edit.
-    LaunchedEffect(enabled, active) { if (active && !enabled) keypad?.cancel() }
+    // Re-attaches field to keypad
+    SideEffect { if (active) keypad.attach(field) }
+    // Cancels active edit if field is disabled
+    LaunchedEffect(enabled, active) { if (active && !enabled) keypad.cancel() }
 
-    // Digits typed on the keypad ("" = nothing typed yet: show the saved value).
-    val digits = if (active) keypad?.digits.orEmpty() else ""
+    // Digits typed on keypad; displays saved value if empty
+    val digits = if (active) keypad.digits.orEmpty() else ""
 
-    // Shown as typed, padded to mm:ss, with NO conversion to seconds
+    // Displays padded mm:ss without immediate conversion
     val typed = digits.ifEmpty { null }?.padStart(MAX_DIGITS, '0')
     val displayMinutes = typed?.substring(0, 2)?.toIntOrNull() ?: (durationSeconds / 60)
     val displaySeconds = typed?.substring(2, 4)?.toIntOrNull() ?: (durationSeconds % 60)
@@ -135,7 +130,7 @@ fun TimeInput(
         val color = if (showRedOnZero && isZero) {
             MaterialTheme.colorScheme.error
         } else if (!hasValue && placeholder != null) {
-            // 0.75 keeps the "no cap" hint at 4.5:1 or more (0.5 was 2.5:1 in the light theme)
+            // High contrast placeholder color
             MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f)
         } else {
             MaterialTheme.colorScheme.onSurface

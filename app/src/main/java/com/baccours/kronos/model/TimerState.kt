@@ -8,14 +8,14 @@ enum class Phase {
     READY, WORK, REST, SET_REST
 }
 
-/** One logged lap of a "For Time" set. */
+/** Logged lap entry in FOR_TIME mode. */
 data class Lap(
     val set: Int,
     val number: Int,
     val durationMs: Long
 )
 
-/** Description of the segment that follows the current one. */
+/** Preview of the upcoming workout segment. */
 data class UpNext(
     val phase: Phase,
     val workIndex: Int,
@@ -23,27 +23,27 @@ data class UpNext(
     val seconds: Int
 )
 
-/** Immutable snapshot published by the engine and consumed by the UI / notification. */
+/** Immutable workout state snapshot. */
 data class TimerState(
     val status: TimerStatus = TimerStatus.NOT_STARTED,
     val config: TimerConfig? = null,
     val phase: Phase = Phase.READY,
-    /** Index of the current segment in the plan; changes whenever the phase changes. */
+    /** Zero-based index of current segment. */
     val segmentIndex: Int = 0,
     val currentSet: Int = 1,
-    /** TIMER: current round. FOR_TIME: number of the lap in progress. */
+    /** Current round (TIMER) or active lap number (FOR_TIME). */
     val currentRound: Int = 1,
-    /** 1-based index of the WORK task within its round, 0 when not applicable. */
+    /** 1-based index of active WORK task within round (0 if inapplicable). */
     val workIndex: Int = 0,
-    /** Planned length of the current segment, 0 when open-ended (For Time without cap). */
+    /** Planned segment duration in seconds (0 = open-ended). */
     val segmentSeconds: Int = 0,
     val segmentElapsedMs: Long = 0,
     val elapsedSeconds: Int = 0,
     val remainingSeconds: Int = 0,
-    /** For Time: seconds since the last lap. */
+    /** Seconds elapsed in current lap (FOR_TIME). */
     val lapElapsedSeconds: Int = 0,
     val totalElapsedSeconds: Int = 0,
-    /** TIMER mode only. */
+    /** Total remaining workout seconds (TIMER mode). */
     val totalRemainingSeconds: Int? = null,
     val next: UpNext? = null,
     val laps: List<Lap> = emptyList()

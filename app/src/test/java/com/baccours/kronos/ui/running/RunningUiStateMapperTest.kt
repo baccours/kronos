@@ -13,7 +13,7 @@ import org.junit.Test
 
 class RunningUiStateMapperTest {
 
-    /** A For Time workout, already past "get ready" and in its first (open-ended) set. */
+    /** Test fixture for FOR_TIME workout in active set. */
     private fun forTimeEngine(): TimerEngine {
         val engine = TimerEngine(TimerConfig(mode = TimerMode.FOR_TIME))
         engine.start(0)

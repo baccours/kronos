@@ -23,7 +23,7 @@ class TimerPreferencesRepository(private val context: Context) {
         val TIMER_CONFIG = stringPreferencesKey("timer_config_json")
     }
 
-    /** The saved setup; the defaults when nothing is saved or what is saved is unreadable. */
+    /** Flow emitting saved configuration or defaults on error/missing data. */
     val timerConfigFlow: Flow<TimerConfig> = context.dataStore.data
         .catch { error ->
             if (error is IOException) {
@@ -37,7 +37,7 @@ class TimerPreferencesRepository(private val context: Context) {
             TimerConfigCodec.decode(preferences[PreferencesKeys.TIMER_CONFIG]) ?: TimerConfig()
         }
 
-    /** True when saved; a failing disk must never crash the app, the setup just is not remembered. */
+    /** Saves config to DataStore. Returns true on success. */
     suspend fun saveTimerConfig(config: TimerConfig): Boolean = try {
         val jsonString = TimerConfigCodec.encode(config)
         context.dataStore.edit { preferences ->

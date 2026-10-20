@@ -5,26 +5,23 @@ import kotlin.math.sin
 import kotlin.math.sqrt
 
 /**
- * Synthesizes the app's beeps and buzzers as mono 16-bit PCM at [PcmUtil.SAMPLE_RATE].
- * Pure Kotlin (no Android), so it can be unit-tested.
+ * Synthesizes sound effect PCM data at [PcmUtil.SAMPLE_RATE].
  */
 object ToneSynth {
 
-    /** Countdown beep. */
+    /** Countdown beep tone. */
     fun beep(): ShortArray = tone(880.0, 250)
 
-    /** Start of a work or rest phase. Square wave = harsh "buzzer" timbre. */
+    /** Buzzer sound for phase transitions. */
     fun startBuzzer(): ShortArray = tone(440.0, 550)
 
-    /** End of the workout: C major ascending arpeggio C5, E5, G5, C6. */
+    /** Victory arpeggio tone for workout completion. */
     fun celebration(): ShortArray = PcmUtil.concat(
         listOf(tone(523.25, 150), tone(659.25, 150), tone(783.99, 150), tone(1046.5, 400))
     )
 
     /**
-     * A square wave of [freqHz] lasting [durationMs], with [fadeMs] fade-in and fade-out against
-     * clicks, scaled so that its RMS level is [targetRms] (1.0 = full scale). Keep the target low
-     * enough to avoid clipping.
+     * Generates a square wave PCM tone of [freqHz] with anti-click fading and target RMS scaling.
      */
     fun tone(freqHz: Double, durationMs: Int, targetRms: Double = 0.30, fadeMs: Int = 10): ShortArray {
         val rate = PcmUtil.SAMPLE_RATE

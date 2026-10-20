@@ -207,7 +207,7 @@ class TimerEngineTest {
             t += 10
         }
         assertEquals(TimerStatus.FINISHED, engine.status)
-        // "Get ready" (10 s) does not count towards the cap.
+        // "Get ready" phase excluded from cap
         assertTrue("finished at $t", t in 40_000..40_020)
         assertEquals(30_000L, engine.snapshot(t).laps.single().durationMs)
         assertTrue(said.any { it == listOf<Speech>(Speech.TenSeconds) })
@@ -220,12 +220,12 @@ class TimerEngineTest {
         fun EngineResult.count() { beeps += cues.count { it == Cue.Beep } }
         engine.start(0).count()
         var t = 0L
-        while (t < 17_500) { engine.tick(t).count(); t += 10 } // 7.5 s into "work": the "3" beep is behind us
+        while (t < 17_500) { engine.tick(t).count(); t += 10 }
         engine.pause(17_500).count()
         t = 30_000
         engine.resume(t).count()
         while (engine.status == TimerStatus.RUNNING) { engine.tick(t).count(); t += 10 }
-        // 3, 2, 1 before "work" and 3, 2, 1 before the end.
+        // Countdown beeps before work phase and completion
         assertEquals(6, beeps)
     }
 

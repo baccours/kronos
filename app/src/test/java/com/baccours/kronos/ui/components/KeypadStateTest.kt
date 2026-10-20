@@ -8,7 +8,7 @@ import org.junit.Test
 
 class KeypadStateTest {
 
-    /** Records what the keypad applied to a field. */
+    /** Test recorder for keypad applications. */
     private class Recorder {
         val applied = ArrayList<Pair<String, Boolean>>()
     }

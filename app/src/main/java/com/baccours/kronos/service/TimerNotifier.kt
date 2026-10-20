@@ -18,15 +18,13 @@ import com.baccours.kronos.model.formatDuration
 import com.baccours.kronos.ui.phaseLabel
 
 /**
- * Builds and posts the workout notification. The notification shows a system-driven chronometer,
- * so it only needs to be re-posted when something other than the passing seconds changes
- * ([updateIfChanged]).
+ * Manages workout notifications using system chronometer rendering.
  */
 class TimerNotifier(private val context: Context) {
 
     private val manager = context.getSystemService(NotificationManager::class.java)
 
-    /** What the posted notification shows, apart from the time. */
+    /** Notification state key for change detection. */
     private data class Key(val status: TimerStatus, val segmentIndex: Int, val lapCount: Int)
 
     private var lastKey: Key? = null
@@ -47,23 +45,20 @@ class TimerNotifier(private val context: Context) {
         }
     }
 
-    /**
-     * The notification to pass to startForeground. It may be a placeholder shown before the engine
-     * has produced its first state, so the next [updateIfChanged] always re-posts.
-     */
+    /** Builds initial foreground service notification. */
     fun buildForForeground(state: TimerState): Notification {
         lastKey = null
         return build(state)
     }
 
-    /** Posts [state] now (e.g. the finished notification). */
+    /** Posts notification for [state]. */
     fun show(state: TimerState) {
         if (state.status == TimerStatus.NOT_STARTED) return
         lastKey = keyOf(state)
         manager.notify(NOTIFICATION_ID, build(state))
     }
 
-    /** Posts [state] only if it differs from what is shown in more than the passing seconds. */
+    /** Updates notification if non-chronometer state changed. */
     fun updateIfChanged(state: TimerState) {
         if (keyOf(state) != lastKey) show(state)
     }
@@ -122,7 +117,7 @@ class TimerNotifier(private val context: Context) {
             .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
 
         if (state.status == TimerStatus.RUNNING) {
-            // Let the system render the ticking time: no per-second notification updates.
+            // System chronometer handles per-second visual updates
             val nowWall = System.currentTimeMillis()
             val whenMs = if (countsDown) {
                 nowWall + state.segmentSeconds * 1000L - state.segmentElapsedMs

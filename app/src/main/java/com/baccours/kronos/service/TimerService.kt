@@ -20,10 +20,8 @@ import com.baccours.kronos.repository.TimerRepository
 import com.baccours.kronos.repository.TimerStateStore
 
 /**
- * Foreground service that keeps the workout alive while the app is in the background.
- * It is a thin shell: the run loop is the [WorkoutController] (engine, ticks, cues), the
- * notification is the [TimerNotifier]; this class translates commands, holds the foreground
- * state and the wake lock, and mirrors the controller's state to the [TimerStateStore].
+ * Foreground service maintaining workout execution in background.
+ * Delegates logic to [WorkoutController] and notification updates to [TimerNotifier].
  */
 class TimerService : Service(), WorkoutController.Listener {
 
@@ -57,12 +55,10 @@ class TimerService : Service(), WorkoutController.Listener {
         return START_NOT_STICKY
     }
 
-    // ------------------------------------------------------------------ commands
-
     private fun startTimer(config: TimerConfig?) {
         val current = controller
         if (current != null && current.isActive) {
-            // Duplicate start request: still honour the startForegroundService() contract.
+            // Re-enter foreground for duplicate start requests
             enterForeground(current.lastState)
             return
         }
@@ -72,7 +68,7 @@ class TimerService : Service(), WorkoutController.Listener {
             return
         }
         handler.removeCallbacks(stopSelfRunnable)
-        // Foreground first (the system gives only a few seconds), then the heavier setup.
+        // Enter foreground immediately before background setup
         enterForeground(TimerState(status = TimerStatus.RUNNING, config = config))
         acquireWakeLock()
         controllerForStart().start(config)
@@ -126,8 +122,6 @@ class TimerService : Service(), WorkoutController.Listener {
         inForeground = true
     }
 
-    // ------------------------------------------------------------------ WorkoutController.Listener
-
     override fun onStateChanged(state: TimerState) {
         store.updateState(state)
         if (state.status != TimerStatus.FINISHED && inForeground) {
@@ -137,17 +131,17 @@ class TimerService : Service(), WorkoutController.Listener {
 
     override fun onFinished(state: TimerState) {
         releaseWakeLock()
-        // Leave the service-foreground state but keep a (dismissable) "finished" notification.
+        // Detach foreground state while retaining completion notification
         stopForeground(STOP_FOREGROUND_DETACH)
         inForeground = false
         notifier.show(state)
-        // Give the celebration sound and "Well done" time to play before the service goes away.
+        // Linger briefly for audio completion before stopping service
         handler.removeCallbacks(stopSelfRunnable)
         handler.postDelayed(stopSelfRunnable, FINISH_LINGER_MS)
     }
 
     override fun onLateTick(lateMs: Long) {
-        // Evidence for "does the timer keep up with the screen off?" (Doze, battery savers).
+        // Log execution delay for Doze/power saving diagnostics
         Log.w(TAG, "A tick ran $lateMs ms late")
     }
 

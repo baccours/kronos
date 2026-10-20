@@ -52,7 +52,7 @@ class ClipCatalogTest {
 
     @Test
     fun setOneAndRoundOneFallBackToTheNumberWord() {
-        // Never spoken by the engine; no dedicated clip exists, so they use the generic words.
+        // Unspoken by engine; falls back to generic word composition
         assertEquals(listOf("set", "one"), clips(Speech.SetNumber(1)))
         assertEquals(listOf("round", "one"), clips(Speech.RoundNumber(1)))
     }
@@ -88,13 +88,12 @@ class ClipCatalogTest {
     fun allClipsIsTheCompleteShoppingList() {
         val all = ClipCatalog.allClips
         val n = ClipCatalog.MAX_DEDICATED
-        // 7 phrases + 3 labels + work01..N + set02..N + round02..N
-        // + one..twenty + thirty..ninety + hundred
+        // Expected clip category counts
         assertEquals(7 + 3 + n + (n - 1) + (n - 1) + 20 + 7 + 1, all.size)
         assertEquals(all.size, all.toSet().size)
         assertTrue("set01" !in all && "round01" !in all)
         assertTrue("hundred" in all && "work" in all && "set" in all && "round" in all)
-        // Valid file names: lower case, starts with a letter.
+        // Valid filename pattern
         assertTrue(all.all { Regex("[a-z][a-z0-9_]*").matches(it) })
     }
 }

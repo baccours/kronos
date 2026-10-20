@@ -8,9 +8,7 @@ import android.os.Build
 import android.os.Handler
 
 /**
- * Briefly ducks other audio (music) while a cue plays. Shared by the synthesized sounds and the
- * announcer so that one of them finishing never drops the focus while the other is still playing.
- * Must be used from the main thread.
+ * Ducks external audio during cue playback. Must be called from the main thread.
  */
 class AudioFocusController(
     context: Context,
@@ -20,7 +18,7 @@ class AudioFocusController(
     private val audioManager =
         context.applicationContext.getSystemService(Context.AUDIO_SERVICE) as AudioManager
 
-    /** While this returns true the focus is kept, even when a scheduled release comes due. */
+    /** Retains audio focus while true, overriding scheduled releases. */
     var isBusy: () -> Boolean = { false }
 
     private var hasFocus = false
@@ -29,7 +27,7 @@ class AudioFocusController(
     private val abandonRunnable = Runnable { if (!isBusy()) abandon() }
 
     companion object {
-        /** How long to keep the focus after a sound ends. */
+        /** Delay before releasing focus after sound finishes. */
         const val TAIL_MS = 300L
     }
 
@@ -54,13 +52,13 @@ class AudioFocusController(
         hasFocus = result == AudioManager.AUDIOFOCUS_REQUEST_GRANTED
     }
 
-    /** Gives the focus back after [delayMs], unless something is still playing by then. */
+    /** Releases audio focus after [delayMs] if idle. */
     fun releaseAfter(delayMs: Long) {
         handler.removeCallbacks(abandonRunnable)
         handler.postDelayed(abandonRunnable, delayMs)
     }
 
-    /** Gives the focus back right now. */
+    /** Releases audio focus immediately. */
     fun release() {
         handler.removeCallbacks(abandonRunnable)
         abandon()

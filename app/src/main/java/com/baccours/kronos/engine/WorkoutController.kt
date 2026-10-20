@@ -4,11 +4,11 @@ import com.baccours.kronos.model.TimerConfig
 import com.baccours.kronos.model.TimerState
 import com.baccours.kronos.model.TimerStatus
 
-/** Plays [Cue]s. Implemented by the Android audio layer; faked in tests. */
+/** Audio cue player interface. */
 interface CuePlayer {
     fun play(cue: Cue)
 
-    /** Gets what the announcements of an upcoming workout need ready (e.g. decodes clips). */
+    /** Preloads audio assets required for upcoming announcements. */
     fun prepare(speeches: List<Speech>)
 
     fun stopSpeaking()
@@ -16,7 +16,7 @@ interface CuePlayer {
     fun release()
 }
 
-/** Runs one task at a later time. Scheduling again replaces the pending task. */
+/** Single-task delayed scheduler. Rescheduling replaces pending tasks. */
 interface TickScheduler {
     fun scheduleAfter(delayMs: Long, task: () -> Unit)
 
@@ -24,31 +24,28 @@ interface TickScheduler {
 }
 
 /**
- * Drives a [TimerEngine]: owns it, schedules its ticks, plays its cues and reports its state.
- * Knows nothing about Android (the clock, scheduler, audio and reporting are all injected),
- * so the whole run loop, including how ticks are scheduled, can be tested with virtual time.
- *
- * Must be used from a single thread (the main thread in the app).
+ * Controller managing [TimerEngine] lifecycle, tick scheduling, audio cues, and state updates.
+ * Pure Kotlin; main-thread only.
  */
 class WorkoutController(
     private val cues: CuePlayer,
     private val scheduler: TickScheduler,
-    /** A monotonic clock in milliseconds (SystemClock.elapsedRealtime in the app). */
+    /** Monotonic clock provider (milliseconds). */
     private val clock: () -> Long,
     private val listener: Listener
 ) {
 
     interface Listener {
-        /** Every new state, before it is finished with [onFinished]. */
+        /** Callback for workout state changes. */
         fun onStateChanged(state: TimerState)
 
-        /** The workout is over (after its last [onStateChanged]). */
+        /** Callback when workout completes. */
         fun onFinished(state: TimerState)
 
-        /** A tick ran much later than planned, e.g. because the device was asleep. */
+        /** Callback when a scheduled tick is delayed. */
         fun onLateTick(lateMs: Long) {}
 
-        /** Playing a cue failed; the workout carries on silently. */
+        /** Callback on cue playback errors. */
         fun onCueError(cue: Cue, error: Exception) {}
     }
 
@@ -61,7 +58,7 @@ class WorkoutController(
     val status: TimerStatus get() = engine?.status ?: TimerStatus.NOT_STARTED
     val isActive: Boolean get() = status == TimerStatus.RUNNING || status == TimerStatus.PAUSED
 
-    /** Starts a workout. Ignored (false) while one is running or paused. */
+    /** Starts workout with [config]. Returns false if already active. */
     fun start(config: TimerConfig): Boolean {
         if (isActive) return false
         scheduler.cancel()
@@ -91,7 +88,7 @@ class WorkoutController(
     fun skip() {
         val e = engine ?: return
         publish(e.skip(clock()))
-        // The pending tick was planned for the old segment's second boundary.
+        // Reschedule tick for new segment boundary.
         scheduleNextTick()
     }
 
@@ -100,7 +97,7 @@ class WorkoutController(
         publish(e.lap(clock()))
     }
 
-    /** Abandons the workout without publishing anything. */
+    /** Cancels active workout without emitting completion. */
     fun stop() {
         scheduler.cancel()
         cues.stopSpeaking()
@@ -108,7 +105,7 @@ class WorkoutController(
         lastState = TimerState()
     }
 
-    /** One scheduled tick. Internal so tests can drive it directly. */
+    /** Processes a single scheduled tick. */
     internal fun onTick() {
         val e = engine ?: return
         val now = clock()

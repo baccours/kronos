@@ -14,9 +14,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 
 /**
- * What the screens read of the workout: which screen to show ([status], which changes rarely, so
- * the root does not recompose every second) and what the running screen displays ([uiState]).
- * Shared by [MainActivity] and the running screen (both get the activity's instance).
+ * Exposes workout UI state: [status] for top-level screen switching and [uiState] for the running view.
  */
 class WorkoutViewModel(
     store: TimerStateStore = TimerRepository

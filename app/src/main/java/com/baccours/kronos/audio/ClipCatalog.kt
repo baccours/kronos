@@ -5,28 +5,18 @@ import com.baccours.kronos.engine.Speech
 import java.util.Locale
 
 /**
- * Which recorded clips make up each announcement. Pure Kotlin (no Android), so it can be unit-tested.
- *
- * Clips are `assets/audio/<name>.ogg`. Names are lower case:
- *  - phrases:  `get_ready`, `go`, `rest`, `rest_between_sets`, `halfway`, `ten_seconds`, `well_done`
- *  - "Work N": `work01`..`workNN` (dedicated clips, N up to [MAX_DEDICATED])
- *  - "Set N":  `set02`..`setNN` (dedicated clips; "Set 1" is never spoken)
- *  - "Round N": `round02`..`roundNN` (dedicated clips; "Round 1" is never spoken)
- *  - above [MAX_DEDICATED]: the label (`work`, `set`, `round`) followed by number words
- *  - number words: `one`..`twenty`, `thirty`..`ninety`, `hundred`
- *
- * Number words are composed like English: 25 is `twenty` `five`, 100 is `one` `hundred`,
- * 125 is `one` `hundred` `twenty` `five`. Numbers go up to [MAX_NUMBER]; above it only the label is said.
+ * Maps announcements to audio clip filenames in `assets/audio/`.
+ * Formats numbers up to [MAX_NUMBER] using dedicated clips or composed number words.
  */
 object ClipCatalog {
 
     const val DIR = "audio"
     const val EXTENSION = ".ogg"
 
-    /** Largest number that is spoken. Above it only the label ("Work", "Set", "Round") is said. */
+    /** Maximum speakable number; higher values play only the label. */
     const val MAX_NUMBER = 999
 
-    /** Highest N that has its own `workNN`, `setNN` and `roundNN` clip. */
+    /** Maximum N with a dedicated audio clip (`workNN`, `setNN`, `roundNN`). */
     const val MAX_DEDICATED = 10
 
     private val UNITS = listOf(
@@ -37,16 +27,16 @@ object ClipCatalog {
     private val TENS = listOf("twenty", "thirty", "forty", "fifty", "sixty", "seventy", "eighty", "ninety")
     private const val HUNDRED = "hundred"
 
-    /** Announcements that do not depend on the workout's configuration. */
+    /** Fixed workout announcements. */
     val PHRASES: List<Speech> = listOf(
         Speech.GetReady, Speech.Go, Speech.Rest, Speech.RestBetweenSets,
         Speech.Halfway, Speech.TenSeconds, Speech.WellDone
     )
 
-    /** Clip names (no extension) to play, in order, for [cue]. */
+    /** Ordered clip names (without extension) for [cue]. */
     fun clipsFor(cue: Cue.Speak): List<String> = cue.parts.flatMap(::clipsFor)
 
-    /** Distinct clip names for all of [speeches], in the order they are first needed. */
+    /** Unique clip names required for [speeches] in execution order. */
     fun clipsForAll(speeches: Iterable<Speech>): List<String> =
         speeches.flatMap { clipsFor(it) }.distinct()
 
@@ -63,10 +53,7 @@ object ClipCatalog {
         is Speech.RoundNumber -> numbered("round", speech.number, firstDedicated = 2)
     }
 
-    /**
-     * `<label>NN` when there is a dedicated clip for [n], otherwise the label followed by number words.
-     * [firstDedicated] is the lowest N that was recorded (Set 1 and Round 1 are never spoken).
-     */
+    /** Returns dedicated clip name `<label>NN` if available, or label plus number words. */
     private fun numbered(label: String, n: Int, firstDedicated: Int): List<String> =
         if (n in firstDedicated..MAX_DEDICATED) {
             listOf(String.format(Locale.ROOT, "%s%02d", label, n))
@@ -74,7 +61,7 @@ object ClipCatalog {
             listOf(label) + number(n)
         }
 
-    /** Number words for 1..[MAX_NUMBER]; empty for anything else. */
+    /** Spoken word components for 1..[MAX_NUMBER]. */
     private fun number(n: Int): List<String> {
         if (n !in 1..MAX_NUMBER) return emptyList()
         val words = ArrayList<String>()
@@ -92,7 +79,7 @@ object ClipCatalog {
         else -> listOfNotNull(TENS[n / 10 - 2], UNITS.getOrNull(n % 10 - 1))
     }
 
-    /** Every clip name (no extension) the app may ever ask for, sorted. */
+    /** All potential clip names sorted alphabetically. */
     val allClips: List<String> by lazy {
         val all = ArrayList<Speech>(PHRASES)
         for (n in 1..MAX_NUMBER) all += Speech.Work(n)

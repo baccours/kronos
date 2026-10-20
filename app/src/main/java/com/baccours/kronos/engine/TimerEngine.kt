@@ -9,13 +9,13 @@ import com.baccours.kronos.model.TimerState
 import com.baccours.kronos.model.TimerStatus
 import com.baccours.kronos.model.UpNext
 
-/** Something the audio layer should do. */
+/** Audio action directive emitted by the engine. */
 sealed interface Cue {
-    /** Announce [parts] one after the other, e.g. "Set 2", "Round 3", "Work 4". */
+    /** Sequential speech announcement cue. */
     data class Speak(val parts: List<Speech>, val interrupt: Boolean = false) : Cue {
         constructor(vararg parts: Speech, interrupt: Boolean = false) : this(parts.toList(), interrupt)
 
-        /** English text of the whole announcement, e.g. "Set 2. Round 3. Work 4". */
+        /** Formatted English text of all speech parts. */
         val text: String get() = parts.joinToString(". ") { it.english }
     }
     data object Beep : Cue
@@ -29,19 +29,11 @@ data class EngineResult(
 )
 
 /**
- * Pure, clock-injected workout state machine (no Android dependencies, unit-testable).
+ * Pure, clock-injected workout state machine.
  *
- * The workout is flattened into a list of segments (get ready, work, rest, set rest, ...).
- * Zero-length items are dropped from the plan, so they can never stall the timer.
- *
- * TIMER mode: every segment counts down. Segments chain from their *planned* boundary, so
- * no drift accumulates.
- * FOR_TIME mode: every set is one open-ended count-up segment (optionally limited by the
- * per-set time cap) in which laps can be logged; sets are separated by a countdown rest.
- * An optional total time cap ends the whole workout once that much time has elapsed
- * (sets and rests included, "get ready" excluded).
- *
- * All methods take `now` in milliseconds from any monotonic clock.
+ * Segments (ready, work, rest, etc.) are pre-planned without zero-length items.
+ * TIMER mode counts down without drift accumulation; FOR_TIME mode counts up with
+ * lap logging and optional set/total time caps.
  */
 class TimerEngine(
     private val config: TimerConfig,
@@ -52,13 +44,13 @@ class TimerEngine(
         val set: Int,
         val round: Int,
         val workIndex: Int,
-        /** 0 means open-ended. */
+        /** Segment duration in seconds (0 = open-ended). */
         val durationSeconds: Int
     )
 
     private val plan: List<Segment> = buildPlan()
 
-    /** suffixSeconds[i] = total planned seconds of the non-READY segments after segment i. */
+    /** Cumulative duration of remaining non-READY segments after index i. */
     private val suffixSeconds: IntArray = IntArray(plan.size).also { out ->
         var acc = 0
         for (i in plan.indices.reversed()) {
@@ -69,7 +61,7 @@ class TimerEngine(
 
     private val isForTime = config.mode == TimerMode.FOR_TIME
 
-    /** Total workout cap in milliseconds, 0 = none. */
+    /** Overall time cap limit in milliseconds (0 = disabled). */
     private val totalCapMs = config.activeTotalTimeCap * 1000L
 
     var status: TimerStatus = TimerStatus.NOT_STARTED
@@ -83,11 +75,9 @@ class TimerEngine(
     private var lastElapsedSecond = 0
     private val laps = ArrayList<Lap>()
 
-    /** Immutable copy of [laps], rebuilt only when a lap is added, so snapshots stay O(1) per tick. */
+    /** Cached immutable copy of [laps] for O(1) snapshot updates. */
     private var lapsSnapshot: List<Lap> = emptyList()
     private val lapCountBySet = HashMap<Int, Int>()
-
-    // ---------------------------------------------------------------- commands
 
     fun start(now: Long): EngineResult {
         index = 0
@@ -116,17 +106,17 @@ class TimerEngine(
             val elapsedMs = now - segmentStartMs
             val capLeftMs = totalCapLeftMs(seg)
             if (capLeftMs != null && elapsedMs >= capLeftMs) {
-                // The total cap ends the workout, even in the middle of a set or a rest.
+                // Enforce overall time cap cutoff.
                 val boundary = segmentStartMs + capLeftMs
                 if (boundary > segmentStartMs) completeSegment(boundary)
                 finish(cues)
                 break
             }
             if (d > 0 && elapsedMs >= d * 1000L) {
-                // Natural end of the segment: chain from the planned boundary.
+                // Transition on planned segment boundary.
                 val boundary = segmentStartMs + d * 1000L
                 completeSegment(boundary)
-                cues.clear() // only the segment we land on is worth announcing
+                cues.clear() // Announce only current landing segment
                 if (index >= plan.lastIndex) {
                     finish(cues)
                     break
@@ -171,8 +161,7 @@ class TimerEngine(
     }
 
     /**
-     * Ends the current segment right now: skips a timer item, ends "get ready" early,
-     * or finishes a For Time set (logging its last lap). Works while paused as well.
+     * Advances to the next segment immediately (logs closing lap in FOR_TIME mode).
      */
     fun skip(now: Long): EngineResult {
         if (status != TimerStatus.RUNNING && status != TimerStatus.PAUSED) {
@@ -193,7 +182,7 @@ class TimerEngine(
         return EngineResult(snapshot(now), cues)
     }
 
-    /** For Time: logs a lap in the current set. */
+    /** Logs a lap in FOR_TIME mode. */
     fun lap(now: Long): EngineResult {
         val seg = plan.getOrNull(index)
         if (status != TimerStatus.RUNNING || seg == null || !isLapSegment(seg)) {
@@ -204,12 +193,12 @@ class TimerEngine(
         return EngineResult(snapshot(now), listOf(Cue.Beep))
     }
 
-    /** Milliseconds to wait before the next tick so that it lands just after a second boundary. */
+    /** Delay until the next second boundary. */
     fun millisUntilNextTick(now: Long): Long {
         if (status != TimerStatus.RUNNING) return IDLE_TICK_MS
         val elapsed = (now - segmentStartMs).coerceAtLeast(0)
         val toNextSecond = (1000 - (elapsed % 1000)) + TICK_SLACK_MS
-        // The total cap is not aligned with the segment's seconds: wake up right when it hits.
+        // Align tick with total cap expiration.
         val capLeft = plan.getOrNull(index)?.let { totalCapLeftMs(it) } ?: return toNextSecond
         val toCap = capLeft - elapsed
         return if (toCap > 0) minOf(toNextSecond, toCap + TICK_SLACK_MS) else TICK_SLACK_MS
@@ -261,8 +250,7 @@ class TimerEngine(
     }
 
     /**
-     * Everything this workout may say, in the order it first says it, without repeats. Lets the
-     * announcer get its voice clips ready before they are needed.
+     * Returns all unique speech directives required for preloading.
      */
     fun speechNeeded(): List<Speech> {
         val out = LinkedHashSet<Speech>()
@@ -273,7 +261,6 @@ class TimerEngine(
             startCues(i).forEach(::add)
             val seconds = plan[i].durationSeconds
             if (seconds > 0) {
-                // The countdown announcements ("10 seconds" and "halfway") fire at these two moments.
                 add(countdownCues(plan[i], 10))
                 add(countdownCues(plan[i], seconds / 2))
             }
@@ -283,19 +270,17 @@ class TimerEngine(
         return out.toList()
     }
 
-    // ---------------------------------------------------------------- internals
-
-    /** While paused, time is frozen at the moment of the pause. */
+    /** Reference timestamp accounting for pause state. */
     private fun reference(now: Long): Long =
         if (status == TimerStatus.PAUSED) pausedAtMs else now
 
-    /** Milliseconds of the total cap left when the given segment starts, null without a cap. */
+    /** Remaining cap time in milliseconds for [seg], or null if un-capped. */
     private fun totalCapLeftMs(seg: Segment): Long? =
         if (totalCapMs > 0 && seg.phase != Phase.READY) {
             (totalCapMs - completedMs).coerceAtLeast(0)
         } else null
 
-    /** Cue for the last seconds of the total cap, given the milliseconds still left. */
+    /** Returns warning cue when approaching total time cap limit. */
     private fun totalCapCue(leftMs: Long): Cue? {
         if (leftMs <= 0) return null
         val remaining = ((leftMs + 999) / 1000).toInt()
@@ -315,13 +300,13 @@ class TimerEngine(
         lapsSnapshot = laps.toList()
     }
 
-    /** Books the time of the current segment and, for For Time sets, logs the closing lap. */
+    /** Finalizes current segment duration and records closing lap if applicable. */
     private fun completeSegment(endMs: Long) {
         val seg = plan[index]
         if (isLapSegment(seg)) {
             val sinceLap = endMs - lapStartMs
             val hasLaps = (lapCountBySet[seg.set] ?: 0) > 0
-            // Pressing ROUND right before FINISH must not produce a sub-second ghost lap.
+            // Ignore sub-second ghost lap on finish.
             if (!hasLaps || sinceLap >= MIN_CLOSING_LAP_MS) addLap(seg.set, sinceLap)
         }
         if (seg.phase != Phase.READY) {
@@ -376,8 +361,7 @@ class TimerEngine(
             Phase.READY -> listOf(Cue.Speak(Speech.GetReady))
             Phase.WORK -> listOf(
                 Cue.StartBuzzer,
-                // Start-of-segment announcements cut off whatever is still being said (e.g. after a skip),
-                // so the voice never lags behind what is on screen.
+                // Interrupt active audio on segment start to remain synchronized with UI.
                 Cue.Speak(
                     if (isForTime) setIntro + Speech.Go
                     else setIntro + roundIntro + Speech.Work(seg.workIndex),
@@ -408,7 +392,7 @@ class TimerEngine(
     }
 
 
-    /** Cue played when `remaining` whole seconds are left in a countdown segment. */
+    /** Returns countdown warning cue for remaining segment seconds. */
     private fun countdownCues(seg: Segment, remaining: Int): Cue? {
         val d = seg.durationSeconds
         return when {

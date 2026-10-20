@@ -48,7 +48,7 @@ import com.baccours.kronos.R
 import com.baccours.kronos.ui.icons.Backspace
 import com.baccours.kronos.ui.icons.Icons
 
-// Below this screen height (e.g. a phone in landscape) the keypad keys are shorter
+// Height threshold for compact key sizing
 private const val COMPACT_HEIGHT_DP = 480
 
 private val KeyHeight = 56.dp
@@ -56,27 +56,13 @@ private val CompactKeyHeight = 40.dp
 private val KeyGap = 8.dp
 private val MaxKeypadWidth = 400.dp
 
-/** Room kept around a field that is scrolled into view, so it does not sit flush against an edge. */
+/** Scroll margin when bringing active field into view. */
 private val RevealMargin = 16.dp
 
-// ---------------------------------------------------------------------------------------
-// The docked keypad. Usage, in the screen that has the editable fields:
-//
-//     val keypad = rememberKeypadState()
-//     BackHandler(enabled = keypad.isOpen) { keypad.commitAndClose() }
-//     Scaffold(bottomBar = { if (keypad.isOpen) DockedKeypad(keypad) else MyBottomBar() }) {
-//         CompositionLocalProvider(LocalKeypad provides keypad) { ...TimeInput / HybridStepper... }
-//     }
-//
-// The keypad takes the place of the bottom bar, so the list simply gets less room (through the
-// Scaffold's content padding) and the field being edited is scrolled into view; no window
-// coordinates are involved. Tapping another field commits the current one and moves on.
-// ---------------------------------------------------------------------------------------
-
-/** The keypad the fields in this part of the UI edit with; null = fields are read-only (e.g. previews). */
+/** CompositionLocal for screen keypad state. */
 val LocalKeypad = staticCompositionLocalOf<KeypadState?> { null }
 
-/** Only the active field's id and the typed digits survive a rotation; fields re-attach themselves. */
+/** Saver preserving active field ID and typed digits across config changes. */
 private val KeypadStateSaver = listSaver<KeypadState, String>(
     save = { listOf(it.activeId.orEmpty(), it.digits) },
     restore = { KeypadState(activeId = it[0].ifEmpty { null }, digits = it[1]) }
@@ -86,9 +72,7 @@ private val KeypadStateSaver = listSaver<KeypadState, String>(
 fun rememberKeypadState(): KeypadState {
     val keypad = rememberSaveable(saver = KeypadStateSaver) { KeypadState() }
 
-    // After a rotation the active field is restored by id only. If it is not composed any more
-    // (e.g. it is scrolled out of the list) nothing can receive the digits: close instead of
-    // leaving a keypad that edits nothing. Fields attach during the first frames.
+    // Closes keypad if active field is no longer composed after rotation.
     LaunchedEffect(keypad.activeId) {
         if (keypad.activeId != null) {
             repeat(3) { withFrameNanos { } }
@@ -98,20 +82,17 @@ fun rememberKeypadState(): KeypadState {
     return keypad
 }
 
-/**
- * Apply to an editable field: when it becomes the active one, scrolls it into view (the list has
- * just lost the space the docked keypad takes).
- */
+/** Scrolls element into view when active. */
 @Composable
 internal fun Modifier.revealWhenActive(active: Boolean): Modifier {
-    // Not saved: re-measured after a rotation.
+    // Re-measured on layout
     val requester = remember { BringIntoViewRequester() }
     var fieldSize by remember { mutableStateOf(IntSize.Zero) }
     val marginPx = with(LocalDensity.current) { RevealMargin.toPx() }
 
     LaunchedEffect(active) {
         if (active) {
-            withFrameNanos { } // let the list adopt the space left by the keypad first
+            withFrameNanos { } // Await layout adjustment before scrolling
             requester.bringIntoView(
                 Rect(
                     left = 0f,
@@ -128,7 +109,7 @@ internal fun Modifier.revealWhenActive(active: Boolean): Modifier {
         .onSizeChanged { fieldSize = it }
 }
 
-/** The digit pad with its action keys, shown instead of the screen's bottom bar while a field is edited. */
+/** Docked numeric keypad UI. */
 @Composable
 fun DockedKeypad(
     state: KeypadState,
@@ -168,7 +149,7 @@ fun DockedKeypad(
                 ) {
                     when (kind) {
                         KeypadKind.TIME -> {
-                            // "min": digits are plain minutes. OK: digits are mmss (or just close).
+                            // "min" treats input as minutes; OK treats input as mmss
                             KeypadAction(
                                 label = stringResource(R.string.unit_min),
                                 onClick = state::commitAsMinutesAndClose,
@@ -183,7 +164,7 @@ fun DockedKeypad(
                             )
                         }
                         KeypadKind.NUMBER -> {
-                            // No "min" key here: leave its place empty so OK stays on the 2 bottom rows
+                            // Empty spacer aligning OK button
                             KeypadActionSpacer(keyHeight)
                             KeypadAction(
                                 label = stringResource(R.string.keypad_ok),
@@ -200,10 +181,7 @@ fun DockedKeypad(
     }
 }
 
-/**
- * Button for the keypad's right-hand column, [rows] keys tall (the pad has 4 rows).
- * [primary] = filled button (OK), otherwise tonal (e.g. "min").
- */
+/** Action key spanning [rows] rows in keypad action column. */
 @Composable
 private fun KeypadAction(
     label: String,
@@ -239,16 +217,13 @@ private fun KeypadAction(
     }
 }
 
-/**
- * Empty space [rows] keys tall in the right-hand column, to push an action down:
- * [KeypadActionSpacer] + [KeypadAction] = an action in the 2 bottom rows.
- */
+/** Spacer for aligning action keys in right-hand keypad column. */
 @Composable
 private fun KeypadActionSpacer(keyHeight: Dp, rows: Int = 2) {
     Spacer(modifier = Modifier.height(keyHeight * rows + KeyGap * (rows - 1)))
 }
 
-/** 3 columns x 4 rows: 1-9, then backspace / 0 / clear. */
+/** Numeric 3x4 key grid. */
 @Composable
 private fun DigitPad(
     keyHeight: Dp,

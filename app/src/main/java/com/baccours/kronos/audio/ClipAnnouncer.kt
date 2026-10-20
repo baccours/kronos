@@ -12,15 +12,9 @@ import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
 /**
- * [Announcer] that plays recorded clips from `assets/audio/` (see [ClipCatalog] for the names).
- *
- * Decoded clips come from the process-wide [ClipLibrary]. An announcement is the PCM of its clips
- * concatenated, so the words follow each other with no gap, and it is played through one
- * [AudioTrack]; both are prepared on a background thread so the main thread only calls play().
- * If any clip of an announcement is missing, the whole announcement is skipped (a lone
- * "twenty" would be worse than silence) and [say] returns false.
- *
- * Public methods must be called from the main thread; decoding runs on background threads.
+ * [Announcer] playing concatenated audio clips via [ClipLibrary] and [AudioTrack].
+ * Skips the entire announcement and returns false if any required clip is missing.
+ * Public methods are main-thread only; background worker handles audio decoding.
  */
 class ClipAnnouncer(
     context: Context,
@@ -39,9 +33,9 @@ class ClipAnnouncer(
         Thread(r, "clip-announcer").apply { isDaemon = true }
     }
 
-    // --- Playback state (main thread only)
+    // Playback state (main thread)
 
-    /** An announcement ready to play: its PCM is already written to [track]. */
+    /** Announcement ready for playback with PCM written to [track]. */
     private class Prepared(val track: AudioTrack, val frames: Int)
 
     private class Playing(val id: Int, val track: AudioTrack, val frames: Int) {
@@ -52,7 +46,7 @@ class ClipAnnouncer(
     private var current: Playing? = null
     private var playCounter = 0
 
-    /** Bumped by [stop]: announcements still being assembled when it happens are dropped. */
+    /** Increment by [stop] to drop in-flight background assemblies. */
     private var generation = 0
     private var inFlight = 0
     private val warned = HashSet<String>()
@@ -69,10 +63,10 @@ class ClipAnnouncer(
         if (released) return false
         val names = ClipCatalog.clipsFor(cue)
         if (names.isEmpty()) return false
-        // Missing, or failed to decode recently: report it, so that a fallback voice can take over.
+        // Skip if clips are missing or failed decoding recently.
         val unusable = names.filter { !library.isUsable(it) }
         if (unusable.isNotEmpty()) {
-            // Log each clip once, not on every announcement.
+            // Log unusable clips once.
             unusable.filter { warned.add(it) }.takeIf { it.isNotEmpty() }
                 ?.let { Log.w(TAG, "Not announcing \"${cue.text}\", unusable: ${it.joinToString()}") }
             return false
@@ -81,8 +75,7 @@ class ClipAnnouncer(
         focus.request()
         val gen = generation
         inFlight++
-        // A single worker keeps announcements in order, even when some clips still need decoding.
-        // It also creates the AudioTrack, so the main thread only has to call play().
+        // Sequential worker thread creates AudioTrack and preserves clip order.
         worker.execute {
             val pcm = assemble(names)
             if (pcm == null) Log.w(TAG, "Dropped \"${cue.text}\": a clip could not be decoded")
@@ -101,21 +94,17 @@ class ClipAnnouncer(
         released = true
         stopPlayback()
         worker.shutdownNow()
-        // The ClipLibrary is shared and stays alive, with its decoded clips, for the next workout.
+        // Shared ClipLibrary remains cached across workouts.
     }
-
-    // ------------------------------------------------------------------ assembling (background)
 
     private fun assemble(names: List<String>): ShortArray? {
         val parts = names.map { library.pcm(it) ?: return null }
         return PcmUtil.concat(parts)
     }
 
-    // ------------------------------------------------------------------ playback (main thread)
-
     private fun onPrepared(gen: Int, prepared: Prepared?) {
         if (gen != generation) {
-            // Stopped in the meantime: nobody will play this track.
+            // Discard track if playback was stopped during preparation.
             prepared?.let { releaseTrack(it.track) }
             return
         }
@@ -140,7 +129,7 @@ class ClipAnnouncer(
         current = playing
         track.setPlaybackPositionUpdateListener(object : AudioTrack.OnPlaybackPositionUpdateListener {
             override fun onMarkerReached(t: AudioTrack?) {
-                // All frames have been consumed; give the output a moment to play them out.
+                // Allow remaining audio frames to flush before finishing.
                 handler.removeCallbacks(playing.end)
                 handler.postDelayed(playing.end, OUTPUT_TAIL_MS)
             }
@@ -156,7 +145,7 @@ class ClipAnnouncer(
             finish(playing.id)
             return
         }
-        // Safety net in case the marker never fires.
+        // Fallback timeout in case notification marker fails.
         handler.postDelayed(playing.end, playing.frames * 1000L / SAMPLE_RATE + FALLBACK_MS)
     }
 
@@ -181,7 +170,7 @@ class ClipAnnouncer(
         current = null
     }
 
-    /** Creates a static AudioTrack holding [pcm]. Called on the worker thread. */
+    /** Builds a static AudioTrack from [pcm] on the worker thread. */
     private fun buildTrack(pcm: ShortArray): Prepared? =
         createStaticTrack(pcm, attributes)?.let { Prepared(it, pcm.size) }
 

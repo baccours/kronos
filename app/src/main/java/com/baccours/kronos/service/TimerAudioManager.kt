@@ -14,12 +14,8 @@ import com.baccours.kronos.engine.CuePlayer
 import com.baccours.kronos.engine.Speech
 
 /**
- * Plays the workout's cues on the media stream (so they are not muted by the notification
- * volume) and briefly ducks other audio (music) while a cue plays.
- * Beeps and buzzers are synthesized ([ToneSynth]) and played as [StaticTrack]s; spoken cues are
- * delegated to an [Announcer] (recorded clips by default), which is the place to plug in another
- * voice, e.g. text-to-speech.
- * Must be used from the main thread.
+ * Audio manager playing synthesized tones and spoken cues with audio ducking on the media stream.
+ * Main-thread only.
  */
 class TimerAudioManager(
     context: Context,
@@ -44,7 +40,7 @@ class TimerAudioManager(
     private val tones = listOf(beep, startBuzzer, celebration)
 
     init {
-        // Keep the focus while an announcement is still playing.
+        // Maintain focus during speech playback
         focus.isBusy = { announcer.isSpeaking }
     }
 
@@ -57,13 +53,10 @@ class TimerAudioManager(
         }
     }
 
-    /**
-     * Gets what is needed ready before it is: lets the announcer prepare [speeches] (e.g. decode
-     * clips) and creates the tone tracks, so that the first beep is not delayed.
-     */
+    /** Preloads speech assets and tone tracks for immediate playback. */
     override fun prepare(speeches: List<Speech>) {
         announcer.prepare(speeches)
-        // Posted, so that the cues of the starting workout are not delayed by it.
+        // Post tone initialization to prevent delaying initial start cues
         handler.post { tones.forEach { it.prepare() } }
     }
 

@@ -5,7 +5,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
-/** What the UI and the service need from the shared workout state. Lets tests supply their own. */
+/** Shared workout state store interface. */
 interface TimerStateStore {
     val timerState: StateFlow<TimerState>
 
@@ -14,7 +14,7 @@ interface TimerStateStore {
     fun reset()
 }
 
-/** Single source of truth shared between [com.baccours.kronos.service.TimerService] and the UI. */
+/** Global singleton state store for workout state. */
 object TimerRepository : TimerStateStore {
     private val _timerState = MutableStateFlow(TimerState())
     override val timerState: StateFlow<TimerState> = _timerState.asStateFlow()

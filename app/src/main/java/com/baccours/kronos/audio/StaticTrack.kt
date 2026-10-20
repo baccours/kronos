@@ -8,8 +8,7 @@ import android.util.Log
 private const val TAG = "StaticTrack"
 
 /**
- * Creates a static (fully preloaded) mono 16-bit [AudioTrack] at [PcmUtil.SAMPLE_RATE] holding [pcm],
- * or returns null, after logging, when that fails. Safe to call from any thread.
+ * Creates a static 16-bit mono [AudioTrack] populated with [pcm]. Thread-safe.
  */
 fun createStaticTrack(pcm: ShortArray, attributes: AudioAttributes): AudioTrack? {
     if (pcm.isEmpty()) return null
@@ -40,8 +39,7 @@ fun createStaticTrack(pcm: ShortArray, attributes: AudioAttributes): AudioTrack?
 }
 
 /**
- * A short sound (beep, buzzer, ...) that can be replayed at will. Its PCM is generated and its
- * track created on first use, or earlier through [prepare]. Main thread only.
+ * Reusable static audio track for short sound effects. Main-thread only.
  */
 class StaticTrack(
     private val pcmSource: () -> ShortArray,
@@ -51,12 +49,12 @@ class StaticTrack(
     private var track: AudioTrack? = null
     private var durationMs = 0L
 
-    /** Creates the track now, so that the first [play] does not have to. */
+    /** Pre-initializes the AudioTrack. */
     fun prepare() {
         ensureTrack()
     }
 
-    /** Plays the sound from the start, restarting it if it is still playing. */
+    /** Plays or restarts the sound. */
     fun play() {
         val t = ensureTrack() ?: return
         focus.request()

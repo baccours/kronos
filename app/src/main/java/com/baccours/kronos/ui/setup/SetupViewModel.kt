@@ -31,7 +31,7 @@ class SetupViewModel @JvmOverloads constructor(
     private val _uiState = MutableStateFlow(TimerConfig())
     val uiState: StateFlow<TimerConfig> = _uiState.asStateFlow()
 
-    /** Set by the first edit; a saved setup that arrives later must not overwrite what the user did. */
+    /** Flag indicating user edit to prevent overwriting with loaded preferences. */
     private var edited = false
 
     val totalDuration: StateFlow<String> = _uiState
@@ -47,8 +47,7 @@ class SetupViewModel @JvmOverloads constructor(
             val saved = preferencesRepository.timerConfigFlow.first()
             if (!edited) _uiState.value = saved
 
-            // Only write what differs from what is on disk (a StateFlow replays its current value
-            // to a new collector, which would otherwise rewrite the setup that was just loaded).
+            // Persist configuration changes when modified
             var lastSaved = saved
             _uiState
                 .debounce(300.milliseconds)

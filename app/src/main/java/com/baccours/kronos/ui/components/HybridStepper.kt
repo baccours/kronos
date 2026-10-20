@@ -31,11 +31,9 @@ import com.baccours.kronos.ui.icons.Icons
 import com.baccours.kronos.ui.icons.Remove
 
 /**
- * A whole number with - / + buttons; tapping the number edits it with the docked keypad of the
- * screen ([LocalKeypad]).
+ * Stepper component combining -/+ buttons with direct keypad entry.
  *
- * @param fieldId identifies this field to the keypad. Must be unique on the screen and stable
- *   across recompositions and rotation.
+ * @param fieldId Unique, stable identifier for keypad binding.
  */
 @Composable
 fun HybridStepper(
@@ -51,20 +49,20 @@ fun HybridStepper(
         KeypadField(
             id = fieldId,
             kind = KeypadKind.NUMBER,
-            // Complete (and committed) as soon as the longest possible value has been typed (99 -> 2 digits)
+            // Auto-commits when maximum digit count is reached
             maxDigits = range.last.toString().length,
-            // An out-of-range number leaves the value untouched
+            // Ignores out-of-range values
             apply = { digits, _ -> digits.toIntOrNull()?.takeIf { it in range }?.let(currentOnChange) },
             accepts = { digits -> digits.toIntOrNull()?.let { it in range } == true }
         )
     }
     val active = keypad?.activeId == fieldId
 
-    // Hands the keypad the current version of this field (e.g. after a rotation).
-    SideEffect { if (active) keypad?.attach(field) }
+    // Re-attaches active field to keypad
+    SideEffect { if (active) keypad.attach(field) }
 
-    // Digits typed on the keypad ("" = nothing typed yet: show the current value)
-    val digits = if (active) keypad?.digits.orEmpty() else ""
+    // Digits typed on keypad; displays current value if empty
+    val digits = if (active) keypad.digits.orEmpty() else ""
 
     val textStyle = MaterialTheme.typography.headlineSmall.copy(
         fontFamily = FontFamily.Monospace,
@@ -79,7 +77,7 @@ fun HybridStepper(
     ) {
         IconButton(
             onClick = {
-                keypad?.discardDigits(fieldId) // the value changes another way: what was typed is stale
+                keypad?.discardDigits(fieldId) // Discard typed digits on manual stepper change
                 if (value > range.first) onValueChange(value - 1)
             },
             enabled = value > range.first

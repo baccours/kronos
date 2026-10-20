@@ -3,7 +3,7 @@ package com.baccours.kronos.service
 import android.os.Handler
 import com.baccours.kronos.engine.TickScheduler
 
-/** [TickScheduler] on a [Handler] (the main looper in the service). */
+/** Handler-backed implementation of [TickScheduler]. */
 class HandlerTickScheduler(private val handler: Handler) : TickScheduler {
 
     private var pending: Runnable? = null

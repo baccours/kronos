@@ -29,14 +29,14 @@ data class TimerConfig(
     val mode: TimerMode = TimerMode.TIMER,
     val sets: Int = 1,
     val setRestSeconds: Int = 0,
-    /** For Time: cap per set in seconds, 0 = none. */
+    /** Per-set time cap in seconds (0 = disabled). */
     val timeCap: Int = 0,
-    /** For Time: cap on the whole workout (all sets and rests) in seconds, 0 = none. */
+    /** Total workout time cap in seconds (0 = disabled). */
     val totalTimeCap: Int = 0,
     val rounds: Int = 1,
     val tasks: List<Task> = listOf(Task(type = TaskType.WORK), Task(type = TaskType.REST)),
 ) {
-    /** Tasks with independent numbering: WORK 1, WORK 2, ... and REST 1, REST 2, ... */
+    /** Task items numbered independently by type. */
     val indexedTasks: List<IndexedTask>
         get() {
             var workCount = 0
@@ -49,7 +49,7 @@ data class TimerConfig(
     val activeTotalTimeCap: Int
         get() = if (mode == TimerMode.FOR_TIME && sets > 1) totalTimeCap.coerceAtLeast(0) else 0
 
-    /** Planned length of the whole workout (without "get ready"). Never overflows an Int. */
+    /** Planned total duration in seconds (excluding get-ready). */
     val totalDurationSeconds: Int
         get() {
             val tasksDuration = tasks.sumOf { it.durationSeconds.toLong() }
@@ -60,9 +60,7 @@ data class TimerConfig(
         }
 
     /**
-     * A copy with every value forced into the range the UI allows. Configs come from storage
-     * (which can be corrupted or restored from a backup), so they are cleaned before use.
-     * With these limits [totalDurationSeconds] always fits in an Int.
+     * Returns a copy with all values clamped within allowed ranges.
      */
     fun sanitized(): TimerConfig = copy(
         sets = sets.coerceIn(1, MAX_SETS),
@@ -83,14 +81,10 @@ data class TimerConfig(
         const val MAX_SETS = 99
         const val MAX_ROUNDS = 99
 
-        /**
-         * The most tasks for which the longest possible workout still fits in an Int (seconds):
-         * 36 x 5999 x 99 x 99 + 5999 x 98 = 2,117,251,066 < Int.MAX_VALUE (2,147,483,647).
-         * A 37th task would overflow (2,175,459,363 + ...), see TimerConfigTest.
-         */
+        /** Maximum allowed tasks to prevent integer overflow in total duration. */
         const val MAX_TASKS = 36
 
-        /** 99:59, the largest value the time input can produce. */
+        /** Maximum input duration in seconds (99:59). */
         const val MAX_DURATION_SECONDS = 99 * 60 + 59
     }
 }
