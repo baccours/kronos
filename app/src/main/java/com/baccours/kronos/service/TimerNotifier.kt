@@ -15,7 +15,7 @@ import com.baccours.kronos.model.TimerMode
 import com.baccours.kronos.model.TimerState
 import com.baccours.kronos.model.TimerStatus
 import com.baccours.kronos.model.formatDuration
-import com.baccours.kronos.ui.phaseLabel
+import com.baccours.kronos.phaseLabel
 
 /**
  * Manages workout notifications using system chronometer rendering.

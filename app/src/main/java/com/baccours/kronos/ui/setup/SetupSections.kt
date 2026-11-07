@@ -30,6 +30,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.baccours.kronos.R
+import com.baccours.kronos.model.TimerConfig
 import com.baccours.kronos.ui.components.HybridStepper
 import com.baccours.kronos.ui.components.TimeInput
 import com.baccours.kronos.ui.icons.Add
@@ -87,6 +88,7 @@ internal fun SetsSection(
                 fieldId = "sets",
                 value = sets,
                 onValueChange = onSetsChange,
+                range = 1..TimerConfig.MAX_SETS,
                 modifier = Modifier.weight(1.2f)
             )
             Row(
@@ -158,6 +160,7 @@ internal fun RoundsSection(
             fieldId = "rounds",
             value = rounds,
             onValueChange = onRoundsChange,
+            range = 1..TimerConfig.MAX_ROUNDS,
             modifier = Modifier.fillMaxWidth()
                 .offset(y = (-2).dp)
                 .height(44.dp)

@@ -40,8 +40,8 @@ fun HybridStepper(
     fieldId: String,
     value: Int,
     onValueChange: (Int) -> Unit,
-    modifier: Modifier = Modifier,
-    range: IntRange = 1..99
+    range: IntRange,
+    modifier: Modifier = Modifier
 ) {
     val keypad = LocalKeypad.current
     val currentOnChange by rememberUpdatedState(onValueChange)

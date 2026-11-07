@@ -40,6 +40,7 @@ class TimerConfigTest {
     }
 
     @Test
+    @Suppress("KotlinConstantConditions")
     fun theLargestAllowedWorkoutStillFitsInAnInt() {
         val biggest = TimerConfig(
             sets = TimerConfig.MAX_SETS,

@@ -1,8 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!--
-    Backup rules for Android 11 and older (Android 12+ uses data_extraction_rules.xml).
-    Only the saved workout setup (the DataStore in files/datastore) is worth restoring.
--->
+<!-- Auto backup rules (API <=30). -->
 <full-backup-content>
-    <include domain="file" path="datastore" />
+    <exclude domain="root" />
 </full-backup-content>

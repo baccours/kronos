@@ -1,13 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!--
-    Backup rules for Android 12+. Only the saved workout setup (the DataStore in files/datastore)
-    is backed up and moved to a new device; nothing else needs to be.
--->
+<!-- Backup and transfer rules (API 31+).-->
 <data-extraction-rules>
     <cloud-backup>
-        <include domain="file" path="datastore" />
+        <exclude domain="root" />
     </cloud-backup>
     <device-transfer>
-        <include domain="file" path="datastore" />
+        <exclude domain="root" />
     </device-transfer>
 </data-extraction-rules>

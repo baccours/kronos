@@ -58,9 +58,9 @@ import com.baccours.kronos.WorkoutViewModel
 import com.baccours.kronos.model.Phase
 import com.baccours.kronos.model.TimerStatus
 import com.baccours.kronos.model.formatDuration
+import com.baccours.kronos.phaseLabel
 import com.baccours.kronos.ui.icons.Close
 import com.baccours.kronos.ui.icons.Icons
-import com.baccours.kronos.ui.phaseLabel
 
 // Layout structure: Top bar, Set/Round stats, active phase timer, lap section, overall progress, controls.
 

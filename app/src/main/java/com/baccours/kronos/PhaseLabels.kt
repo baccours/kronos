@@ -1,7 +1,6 @@
-package com.baccours.kronos.ui
+package com.baccours.kronos
 
 import android.content.Context
-import com.baccours.kronos.R
 import com.baccours.kronos.model.Phase
 
 /** Formats phase display labels. */

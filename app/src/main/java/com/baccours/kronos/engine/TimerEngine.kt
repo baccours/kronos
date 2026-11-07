@@ -328,15 +328,15 @@ class TimerEngine(
         for (set in 1..config.sets) {
             if (config.mode == TimerMode.TIMER) {
                 for (round in 1..config.rounds) {
-                    for (item in indexed) {
-                        if (item.task.durationSeconds <= 0) continue
-                        val isWork = item.task.type == TaskType.WORK
+                    for ((task, displayIndex) in indexed) {
+                        if (task.durationSeconds <= 0) continue
+                        val isWork = task.type == TaskType.WORK
                         out += Segment(
                             phase = if (isWork) Phase.WORK else Phase.REST,
                             set = set,
                             round = round,
-                            workIndex = if (isWork) item.displayIndex else 0,
-                            durationSeconds = item.task.durationSeconds
+                            workIndex = if (isWork) displayIndex else 0,
+                            durationSeconds = task.durationSeconds
                         )
                     }
                 }

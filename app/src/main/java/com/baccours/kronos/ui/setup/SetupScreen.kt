@@ -2,10 +2,6 @@ package com.baccours.kronos.ui.setup
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.animateContentSize
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.gestures.awaitEachGesture
-import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -35,9 +31,6 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -52,19 +45,10 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.baccours.kronos.R
@@ -78,7 +62,6 @@ import com.baccours.kronos.ui.components.rememberKeypadState
 import com.baccours.kronos.ui.icons.Icons
 import com.baccours.kronos.ui.icons.Play
 import com.baccours.kronos.ui.theme.KronosTheme
-import kotlin.math.abs
 
 /** Encapsulates setup screen action callbacks. */
 @Immutable
@@ -131,9 +114,6 @@ internal fun SetupScreenContent(
     val bringIntoViewRequester = remember { BringIntoViewRequester() }
     var previousTaskCount by remember { mutableIntStateOf(uiState.tasks.size) }
 
-    // Read current mode state within gesture detector
-    val currentMode by rememberUpdatedState(uiState.mode)
-
     // Screen keypad state
     val keypad = rememberKeypadState()
     // Commit pending input before changing mode
@@ -153,58 +133,15 @@ internal fun SetupScreenContent(
     }
 
     val isTimerMode = uiState.mode == TimerMode.TIMER
-    val timerWgt by animateFloatAsState(targetValue = if (isTimerMode) 2f else 1f, label = "TW")
-    val forTimeWgt by animateFloatAsState(targetValue = if (!isTimerMode) 2f else 1f, label = "FTW")
 
-    val isStartEnabled = if (isTimerMode) uiState.totalDurationSeconds > 0 else true
+    val isStartEnabled = !isTimerMode || uiState.totalDurationSeconds > 0
 
     Box(
         modifier = Modifier
             .fillMaxSize()
             // Handle system window insets
             .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal))
-            // Swipe gesture detector for tab switching
-            .pointerInput(Unit) {
-                val threshold = 48.dp.toPx()
-                val slop = viewConfiguration.touchSlop
-                val edge = 32.dp.toPx() // Exclude edge back-gesture areas
-                awaitEachGesture {
-                    val down = awaitFirstDown(requireUnconsumed = false)
-                    if (down.position.x < edge || down.position.x > size.width - edge) {
-                        return@awaitEachGesture
-                    }
-                    var dx = 0f
-                    var dy = 0f
-                    var claimed = false
-                    var done = false
-                    do {
-                        val event = awaitPointerEvent()
-                        val change = event.changes.firstOrNull { it.id == down.id } ?: break
-
-                        // Abort on multitouch or consumed gesture
-                        if (event.changes.size > 1 || (!claimed && change.isConsumed)) break
-
-                        val delta = change.positionChange()
-                        dx += delta.x
-                        dy += delta.y
-
-                        // Consume horizontal swipe gestures
-                        if (!claimed && abs(dx) > slop && abs(dx) > 2 * abs(dy)) {
-                            claimed = true
-                        }
-
-                        if (claimed) {
-                            change.consume()
-                            if (!done && abs(dx) > threshold) {
-                                done = true
-                                // Map swipe direction to timer mode
-                                val target = if (dx > 0) TimerMode.TIMER else TimerMode.FOR_TIME
-                                if (target != currentMode) currentUpdateMode(target)
-                            }
-                        }
-                    } while (change.pressed)
-                }
-            }
+            .swipeToSwitchMode(uiState.mode, currentUpdateMode)
     ) {
         Scaffold(
             modifier = Modifier.fillMaxSize(),
@@ -217,58 +154,7 @@ internal fun SetupScreenContent(
                         .padding(top = 8.dp, bottom = 16.dp),
                     color = MaterialTheme.colorScheme.surface
                 ) {
-                    // Mode selector
-                    SingleChoiceSegmentedButtonRow(
-                        modifier = Modifier.fillMaxWidth(),
-                        space = 2.dp
-                    ) {
-                        val modes = listOf(
-                            TimerMode.TIMER to stringResource(R.string.mode_timer),
-                            TimerMode.FOR_TIME to stringResource(R.string.mode_for_time)
-                        )
-
-                        modes.forEachIndexed { index, (mode, labelText) ->
-                            val selected = uiState.mode == mode
-                            SegmentedButton(
-                                selected = selected,
-                                onClick = { currentUpdateMode(mode) },
-                                modifier = Modifier
-                                    .weight(if (mode == TimerMode.TIMER) timerWgt else forTimeWgt)
-                                    .height(56.dp),
-                                shape = SegmentedButtonDefaults.itemShape(index = index, count = modes.size),
-                                colors = SegmentedButtonDefaults.colors(
-                                    activeContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                                    inactiveContainerColor = MaterialTheme.colorScheme.surfaceVariant,
-                                    activeContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                                    inactiveContentColor = MaterialTheme.colorScheme.onSurfaceVariant
-                                ),
-                                border = BorderStroke(0.dp, Color.Transparent),
-                                icon = {},
-                                label = {
-                                    val upperText = labelText.uppercase()
-                                    val baseFontSize = if (selected) 20.sp else 12.sp
-                                    val leadingFontSize = if (selected) 26.sp else 16.sp
-                                    val annotatedString = buildAnnotatedString {
-                                        withStyle(style = SpanStyle(fontSize = leadingFontSize)) {
-                                            append(upperText.take(1))
-                                        }
-                                        withStyle(style = SpanStyle(fontSize = baseFontSize)) {
-                                            append(upperText.drop(1))
-                                        }
-                                    }
-                                    Text(
-                                        text = annotatedString,
-                                        maxLines = 1,
-                                        style = MaterialTheme.typography.titleLarge.copy(
-                                            fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
-                                        ),
-                                        textAlign = TextAlign.Center,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
-                                }
-                            )
-                        }
-                    }
+                    ModeSelector(mode = uiState.mode, onModeChange = currentUpdateMode)
                 }
              },
             bottomBar = {
