@@ -3,6 +3,7 @@ package com.baccours.kronos.repository
 import android.content.Context
 import android.util.Log
 import androidx.datastore.core.DataStore
+import androidx.datastore.core.handlers.ReplaceFileCorruptionHandler
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
@@ -15,7 +16,11 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
 import java.io.IOException
 
-private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "kronos_timer_prefs")
+private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(
+    name = "kronos_timer_prefs",
+    // A corrupt file would otherwise fail every later save.
+    corruptionHandler = ReplaceFileCorruptionHandler { emptyPreferences() }
+)
 
 class TimerPreferencesRepository(private val context: Context) {
 

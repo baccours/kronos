@@ -135,11 +135,11 @@ class TimerEngineTest {
         }
         val all = parts.filter { it.isNotEmpty() }.map { it.toList() }
         assertEquals(listOf(Speech.GetReady), all.first())
-        assertTrue(listOf<Speech>(Speech.Work(1)) in all)
-        assertTrue(listOf<Speech>(Speech.RoundNumber(2), Speech.Work(1)) in all)
-        assertTrue(listOf<Speech>(Speech.RestBetweenSets) in all)
-        assertTrue(listOf<Speech>(Speech.SetNumber(2), Speech.Work(1)) in all)
-        assertEquals(listOf<Speech>(Speech.WellDone), all.last())
+        assertTrue(listOf(Speech.Work(1)) in all)
+        assertTrue(listOf(Speech.RoundNumber(2), Speech.Work(1)) in all)
+        assertTrue(listOf(Speech.RestBetweenSets) in all)
+        assertTrue(listOf(Speech.SetNumber(2), Speech.Work(1)) in all)
+        assertEquals(listOf(Speech.WellDone), all.last())
     }
 
     @Test
@@ -155,7 +155,7 @@ class TimerEngineTest {
         )
         val needed = engine.speechNeeded()
         assertEquals(
-            listOf<Speech>(
+            listOf(
                 Speech.GetReady, Speech.Work(1), Speech.Work(2), Speech.Rest,
                 Speech.RoundNumber(2), Speech.RestBetweenSets, Speech.SetNumber(2), Speech.WellDone
             ),
@@ -210,7 +210,7 @@ class TimerEngineTest {
         // "Get ready" phase excluded from cap
         assertTrue("finished at $t", t in 40_000..40_020)
         assertEquals(30_000L, engine.snapshot(t).laps.single().durationMs)
-        assertTrue(said.any { it == listOf<Speech>(Speech.TenSeconds) })
+        assertTrue(said.any { it == listOf(Speech.TenSeconds) })
     }
 
     @Test
@@ -239,7 +239,7 @@ class TimerEngineTest {
             speaks += engine.tick(t).cues.filterIsInstance<Cue.Speak>()
             t += 10
         }
-        val countdown = speaks.filter { it.parts == listOf<Speech>(Speech.Halfway) || it.parts == listOf<Speech>(Speech.TenSeconds) }
+        val countdown = speaks.filter { it.parts == listOf(Speech.Halfway) || it.parts == listOf(Speech.TenSeconds) }
         assertTrue(countdown.isNotEmpty())
         assertTrue(countdown.none { it.interrupt })
 

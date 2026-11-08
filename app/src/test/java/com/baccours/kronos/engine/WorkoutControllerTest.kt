@@ -30,6 +30,7 @@ class WorkoutControllerTest {
         val cueErrors = ArrayList<Cue>()
         var finished: TimerState? = null
         var finishedAt = -1L
+        var finishedCount = 0
         var stopSpeakingCalls = 0
         var failOnBeep = false
 
@@ -65,7 +66,7 @@ class WorkoutControllerTest {
         override fun release() {}
 
         override fun onStateChanged(state: TimerState) { states += state }
-        override fun onFinished(state: TimerState) { finished = state; finishedAt = now }
+        override fun onFinished(state: TimerState) { finished = state; finishedAt = now; finishedCount++ }
         override fun onLateTick(lateMs: Long) { lateTicks += lateMs }
         override fun onCueError(cue: Cue, error: Exception) { cueErrors += cue }
 
@@ -88,7 +89,18 @@ class WorkoutControllerTest {
         assertEquals(TimerStatus.FINISHED, controller.status)
         assertFalse(world.hasPending)
         assertTrue("finished at ${world.finishedAt}", world.finishedAt in plannedMs..(plannedMs + 50))
-        assertEquals(Cue.Celebration, world.played.filter { it == Cue.Celebration }.single())
+        assertEquals(Cue.Celebration, world.played.single { it == Cue.Celebration })
+    }
+
+    @Test
+    fun skipAndLapAfterTheEndDoNotFinishAgain() {
+        val world = World()
+        val controller = world.controller()
+        controller.start(simple)
+        world.advanceTo(100_000)
+        controller.skip()
+        controller.lap()
+        assertEquals(1, world.finishedCount)
     }
 
     @Test

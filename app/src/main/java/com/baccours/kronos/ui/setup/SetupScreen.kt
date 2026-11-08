@@ -56,6 +56,7 @@ import com.baccours.kronos.model.Task
 import com.baccours.kronos.model.TaskType
 import com.baccours.kronos.model.TimerConfig
 import com.baccours.kronos.model.TimerMode
+import com.baccours.kronos.model.formatDuration
 import com.baccours.kronos.ui.components.DockedKeypad
 import com.baccours.kronos.ui.components.LocalKeypad
 import com.baccours.kronos.ui.components.rememberKeypadState
@@ -84,7 +85,6 @@ fun SetupScreen(
     onStartTimer: (TimerConfig) -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val totalDuration by viewModel.totalDuration.collectAsStateWithLifecycle()
 
     val actions = remember(viewModel, onStartTimer) {
         SetupActions(
@@ -101,7 +101,10 @@ fun SetupScreen(
         )
     }
 
-    SetupScreenContent(uiState = uiState, totalDuration = totalDuration, actions = actions)
+    // Draw nothing until the saved setup is loaded; the window background matches the theme.
+    val config = uiState ?: return
+    val totalDuration = remember(config) { config.totalDurationSeconds.formatDuration() }
+    SetupScreenContent(uiState = config, totalDuration = totalDuration, actions = actions)
 }
 
 @Composable

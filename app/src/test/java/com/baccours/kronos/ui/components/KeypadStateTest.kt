@@ -17,7 +17,7 @@ class KeypadStateTest {
         id = id,
         kind = KeypadKind.TIME,
         maxDigits = 4,
-        apply = { digits, asMinutes -> recorder.applied += (id + ":" + digits) to asMinutes },
+        apply = { digits, asMinutes -> recorder.applied += "$id:$digits" to asMinutes },
         accepts = { true }
     )
 
@@ -25,7 +25,7 @@ class KeypadStateTest {
         id = id,
         kind = KeypadKind.NUMBER,
         maxDigits = range.last.toString().length,
-        apply = { digits, _ -> digits.toIntOrNull()?.takeIf { it in range }?.let { recorder.applied += (id + ":" + it) to false } },
+        apply = { digits, _ -> digits.toIntOrNull()?.takeIf { it in range }?.let { recorder.applied += "$id:$it" to false } },
         accepts = { digits -> digits.toIntOrNull()?.let { it in range } == true }
     )
 

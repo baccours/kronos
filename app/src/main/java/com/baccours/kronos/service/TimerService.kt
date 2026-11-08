@@ -52,6 +52,8 @@ class TimerService : Service(), WorkoutController.Listener {
             ACTION_LAP -> controller?.lap()
             ACTION_STOP -> stopTimer()
         }
+        // A command for a workout that no longer exists must not leave an idle service behind.
+        if (controller == null) stopSelf()
         return START_NOT_STICKY
     }
 

@@ -86,14 +86,15 @@ class WorkoutController(
     }
 
     fun skip() {
-        val e = engine ?: return
+        // Ignored once finished: a late tap must not re-trigger onFinished.
+        val e = engine?.takeIf { isActive } ?: return
         publish(e.skip(clock()))
         // Reschedule tick for new segment boundary.
         scheduleNextTick()
     }
 
     fun lap() {
-        val e = engine ?: return
+        val e = engine?.takeIf { isActive } ?: return
         publish(e.lap(clock()))
     }
 
