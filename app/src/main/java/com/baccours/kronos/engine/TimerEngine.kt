@@ -170,7 +170,8 @@ class TimerEngine(private val config: TimerConfig) {
             segmentStartMs = t
             lapStartMs = t
             lastElapsedSecond = 0
-            cues += startCues(index)
+            // Stay silent while paused; finishing still announces the end.
+            if (status == TimerStatus.RUNNING) cues += startCues(index)
         }
         return EngineResult(snapshot(now), cues)
     }

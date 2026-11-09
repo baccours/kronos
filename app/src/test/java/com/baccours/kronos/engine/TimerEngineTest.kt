@@ -66,6 +66,7 @@ class TimerEngineTest {
         engine.pause(14_000)
         val skipped = engine.skip(20_000)
         assertEquals(Phase.REST, skipped.state.phase)
+        assertTrue("no cues while paused", skipped.cues.isEmpty())
         engine.resume(50_000)
         assertEquals(20, engine.snapshot(50_000).remainingSeconds)
         assertEquals(15, engine.snapshot(55_000).remainingSeconds)

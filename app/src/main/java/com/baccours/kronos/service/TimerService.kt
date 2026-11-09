@@ -33,6 +33,7 @@ class TimerService : Service(), WorkoutController.Listener {
     private var controller: WorkoutController? = null
     private var wakeLock: PowerManager.WakeLock? = null
     private var inForeground = false
+    private var lockSegment = -1
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -125,6 +126,11 @@ class TimerService : Service(), WorkoutController.Listener {
 
     override fun onStateChanged(state: TimerState) {
         store.updateState(state)
+        // Renew the wake lock's safety timeout on each new segment.
+        if (state.status == TimerStatus.RUNNING && state.segmentIndex != lockSegment) {
+            lockSegment = state.segmentIndex
+            acquireWakeLock()
+        }
         if (state.status != TimerStatus.FINISHED && inForeground) {
             notifier.updateIfChanged(state)
         }

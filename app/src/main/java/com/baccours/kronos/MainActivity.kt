@@ -74,6 +74,7 @@ class MainActivity : ComponentActivity() {
                     )
                 } else {
                     RunningScreen(
+                        viewModel = viewModel,
                         onPause = { commands.pause() },
                         onResume = { commands.resume() },
                         onStop = {
