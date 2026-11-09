@@ -3,16 +3,16 @@ package com.baccours.kronos.service
 import android.content.Context
 import android.content.Intent
 import android.util.Log
+import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import com.baccours.kronos.model.TimerConfig
 import com.baccours.kronos.model.TimerConfigCodec
-import com.baccours.kronos.repository.TimerRepository
 import com.baccours.kronos.repository.TimerStateStore
 
 /** Helper class sending workout command intents to [TimerService]. */
 class WorkoutCommands(
     private val context: Context,
-    private val store: TimerStateStore = TimerRepository
+    private val store: TimerStateStore = TimerStateStore
 ) {
 
     /** Returns false if system prevents starting foreground service. */
@@ -42,7 +42,7 @@ class WorkoutCommands(
     /** Resets state and dismisses notification for finished workouts. */
     fun dismissFinished() {
         store.reset()
-        TimerNotifier(context).cancel()
+        NotificationManagerCompat.from(context).cancel(TimerNotifier.NOTIFICATION_ID)
     }
 
     private fun send(action: String) {

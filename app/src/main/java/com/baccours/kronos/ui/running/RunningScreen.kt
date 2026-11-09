@@ -455,9 +455,10 @@ private fun SegmentProgress(state: RunningUiState) {
     }
     val animated = remember(state.segmentIndex) { Animatable(now) }
     val running = state.status == TimerStatus.RUNNING
+    val stepMs = state.progressStepMs
     LaunchedEffect(state.segmentIndex, state.elapsedSeconds, running) {
         animated.snapTo(now)
-        if (running) animated.animateTo(next, tween(1000, easing = LinearEasing))
+        if (running) animated.animateTo(next, tween(stepMs, easing = LinearEasing))
     }
 
     Row(

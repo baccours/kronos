@@ -31,14 +31,12 @@ data class EngineResult(
 /**
  * Pure, clock-injected workout state machine.
  *
- * Segments (ready, work, rest, etc.) are pre-planned without zero-length items.
+ * Segments (ready, work, rest, etc.) are pre-planned without zero-length items; the plan
+ * always starts with a READY segment, so it is never empty.
  * TIMER mode counts down without drift accumulation; FOR_TIME mode counts up with
  * lap logging and optional set/total time caps.
  */
-class TimerEngine(
-    private val config: TimerConfig,
-    private val readySeconds: Int = DEFAULT_READY_SECONDS
-) {
+class TimerEngine(private val config: TimerConfig) {
     private data class Segment(
         val phase: Phase,
         val set: Int,
@@ -89,11 +87,6 @@ class TimerEngine(
         lapCountBySet.clear()
         lapsSnapshot = emptyList()
         status = TimerStatus.RUNNING
-        if (plan.isEmpty()) {
-            val cues = ArrayList<Cue>()
-            finish(cues)
-            return EngineResult(snapshot(now), cues)
-        }
         return EngineResult(snapshot(now), startCues(index))
     }
 
@@ -205,9 +198,6 @@ class TimerEngine(
     }
 
     fun snapshot(now: Long): TimerState {
-        if (plan.isEmpty()) {
-            return TimerState(status = status, config = config)
-        }
         val t = reference(now)
         val seg = plan[index]
         val finished = status == TimerStatus.FINISHED
@@ -323,7 +313,7 @@ class TimerEngine(
 
     private fun buildPlan(): List<Segment> {
         val out = ArrayList<Segment>()
-        if (readySeconds > 0) out += Segment(Phase.READY, 1, 1, 0, readySeconds)
+        out += Segment(Phase.READY, 1, 1, 0, DEFAULT_READY_SECONDS)
         val indexed = config.indexedTasks
         for (set in 1..config.sets) {
             if (config.mode == TimerMode.TIMER) {

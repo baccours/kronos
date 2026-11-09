@@ -37,10 +37,11 @@ data class RunningUiState(
     val displayTime: String = "00:00",
     val elapsedSeconds: Int = 0,
     val segmentIndex: Int = 0,
-    /** Active segment progress fraction (null if open-ended). */
+    /** Exact active segment progress fraction (null if open-ended); stays put while paused. */
     val segmentProgress: Float? = null,
-    /** Target progress fraction for 1-second animation interpolation. */
+    /** Progress fraction at the next whole second, reached in [progressStepMs]. */
     val segmentProgressNext: Float? = null,
+    val progressStepMs: Int = 1000,
     /** Overall workout progress fraction (TIMER mode only). */
     val overallProgress: Float? = null,
     val totalRemaining: String? = null,
@@ -79,7 +80,7 @@ class RunningUiStateMapper {
         val countsUp = isForTime && phase == Phase.WORK
 
         val progress = if (segmentSeconds > 0) {
-            elapsedSeconds.toFloat() / segmentSeconds
+            (segmentElapsedMs / (segmentSeconds * 1000f)).coerceIn(0f, 1f)
         } else null
         val progressNext = if (segmentSeconds > 0) {
             (elapsedSeconds + 1).coerceAtMost(segmentSeconds).toFloat() / segmentSeconds
@@ -105,6 +106,7 @@ class RunningUiStateMapper {
             segmentIndex = segmentIndex,
             segmentProgress = progress,
             segmentProgressNext = progressNext,
+            progressStepMs = (1000 - segmentElapsedMs % 1000).toInt(),
             overallProgress = overall,
             totalRemaining = totalRemainingSeconds?.formatDuration(),
             totalElapsed = if (isForTime) totalElapsedSeconds.formatDuration() else null,

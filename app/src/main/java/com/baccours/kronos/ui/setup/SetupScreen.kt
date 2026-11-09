@@ -5,7 +5,6 @@ import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -21,8 +20,8 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -113,7 +112,7 @@ internal fun SetupScreenContent(
     totalDuration: String,
     actions: SetupActions
 ) {
-    val listState = rememberLazyListState()
+    val scrollState = rememberScrollState()
     val bringIntoViewRequester = remember { BringIntoViewRequester() }
     var previousTaskCount by remember { mutableIntStateOf(uiState.tasks.size) }
 
@@ -174,100 +173,95 @@ internal fun SetupScreenContent(
             }
         ) { padding ->
             CompositionLocalProvider(LocalKeypad provides keypad) {
-                LazyColumn(
-                    state = listState,
+                Column(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(padding)
-                        .padding(horizontal = 12.dp),
-                    contentPadding = PaddingValues(vertical = 8.dp)
+                        .verticalScroll(scrollState)
+                        .padding(horizontal = 12.dp, vertical = 8.dp)
                 ) {
-                    item(key = "hierarchy") {
-                        SetsSection(
-                            sets = uiState.sets,
-                            restSeconds = uiState.setRestSeconds,
-                            onSetsChange = actions.updateSets,
-                            onRestChange = actions.updateSetRest
-                        ) {
-                            if (!isTimerMode) {
-                                TimeCapSection(
-                                    fieldId = "time_cap",
-                                    title = stringResource(R.string.setup_time_cap),
-                                    suffix = stringResource(R.string.setup_time_cap_suffix),
-                                    timeCap = uiState.timeCap,
-                                    onDurationChange = actions.updateTimeCap
-                                )
-                            } else {
-                                RoundsSection(
-                                    rounds = uiState.rounds,
-                                    onRoundsChange = actions.updateRounds
+                    SetsSection(
+                        sets = uiState.sets,
+                        restSeconds = uiState.setRestSeconds,
+                        onSetsChange = actions.updateSets,
+                        onRestChange = actions.updateSetRest
+                    ) {
+                        if (!isTimerMode) {
+                            TimeCapSection(
+                                fieldId = "time_cap",
+                                title = stringResource(R.string.setup_time_cap),
+                                suffix = stringResource(R.string.setup_time_cap_suffix),
+                                timeCap = uiState.timeCap,
+                                onDurationChange = actions.updateTimeCap
+                            )
+                        } else {
+                            RoundsSection(
+                                rounds = uiState.rounds,
+                                onRoundsChange = actions.updateRounds
+                            ) {
+                                Column(
+                                    verticalArrangement = Arrangement.spacedBy(12.dp)
                                 ) {
-                                    Column(
-                                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                                    ) {
-                                        uiState.indexedTasks.forEach { indexedTask ->
-                                            key(indexedTask.task.id) {
-                                                Box(
-                                                    modifier = Modifier.animateContentSize()
-                                                ) {
-                                                    val taskFieldId = "task_" + indexedTask.task.id
-                                                    TaskRow(
-                                                        fieldId = taskFieldId,
-                                                        index = indexedTask.displayIndex,
-                                                        type = indexedTask.task.type,
-                                                        durationSeconds = indexedTask.task.durationSeconds,
-                                                        onDurationChange = {
-                                                            actions.updateTaskDuration(
-                                                                indexedTask.task.id,
-                                                                it
-                                                            )
-                                                        },
-                                                        onDelete = {
-                                                            keypad.cancelIf(taskFieldId)
-                                                            actions.removeTask(indexedTask.task.id)
-                                                        }
-                                                    )
-                                                }
+                                    uiState.indexedTasks.forEach { indexedTask ->
+                                        key(indexedTask.task.id) {
+                                            Box(
+                                                modifier = Modifier.animateContentSize()
+                                            ) {
+                                                val taskFieldId = "task_" + indexedTask.task.id
+                                                TaskRow(
+                                                    fieldId = taskFieldId,
+                                                    index = indexedTask.displayIndex,
+                                                    type = indexedTask.task.type,
+                                                    durationSeconds = indexedTask.task.durationSeconds,
+                                                    onDurationChange = {
+                                                        actions.updateTaskDuration(
+                                                            indexedTask.task.id,
+                                                            it
+                                                        )
+                                                    },
+                                                    onDelete = {
+                                                        keypad.cancelIf(taskFieldId)
+                                                        actions.removeTask(indexedTask.task.id)
+                                                    }
+                                                )
                                             }
                                         }
+                                    }
 
-                                        Row(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .bringIntoViewRequester(bringIntoViewRequester),
-                                            horizontalArrangement = Arrangement.spacedBy(16.dp),
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            val canAddTask = uiState.tasks.size < TimerConfig.MAX_TASKS
-                                            TaskActionButton(
-                                                text = stringResource(R.string.setup_add_work),
-                                                onClick = { actions.addTask(TaskType.WORK) },
-                                                modifier = Modifier.weight(1.0f),
-                                                enabled = canAddTask
-                                            )
-                                            TaskActionButton(
-                                                text = stringResource(R.string.setup_add_rest),
-                                                onClick = { actions.addTask(TaskType.REST) },
-                                                modifier = Modifier.weight(1.0f),
-                                                enabled = canAddTask
-                                            )
-                                        }
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .bringIntoViewRequester(bringIntoViewRequester),
+                                        horizontalArrangement = Arrangement.spacedBy(16.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        val canAddTask = uiState.tasks.size < TimerConfig.MAX_TASKS
+                                        TaskActionButton(
+                                            text = stringResource(R.string.setup_add_work),
+                                            onClick = { actions.addTask(TaskType.WORK) },
+                                            modifier = Modifier.weight(1.0f),
+                                            enabled = canAddTask
+                                        )
+                                        TaskActionButton(
+                                            text = stringResource(R.string.setup_add_rest),
+                                            onClick = { actions.addTask(TaskType.REST) },
+                                            modifier = Modifier.weight(1.0f),
+                                            enabled = canAddTask
+                                        )
                                     }
                                 }
                             }
                         }
                     }
                     if (!isTimerMode) {
-                        item(key = "total_cap") {
-                            Spacer(modifier = Modifier.height(16.dp))
-                            TimeCapSection(
-                                fieldId = "total_time_cap",
-                                title = stringResource(R.string.setup_total_time_cap),
-                                timeCap = uiState.totalTimeCap,
-                                onDurationChange = actions.updateTotalTimeCap,
-                                enabled = uiState.sets > 1
-                            )
-                        }
+                        Spacer(modifier = Modifier.height(16.dp))
+                        TimeCapSection(
+                            fieldId = "total_time_cap",
+                            title = stringResource(R.string.setup_total_time_cap),
+                            timeCap = uiState.totalTimeCap,
+                            onDurationChange = actions.updateTotalTimeCap,
+                            enabled = uiState.sets > 1
+                        )
                     }
                 }
             }

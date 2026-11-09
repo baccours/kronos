@@ -34,6 +34,21 @@ class RunningUiStateMapperTest {
     }
 
     @Test
+    fun segmentProgressIsExactAndDoesNotMoveWhilePaused() {
+        val engine = TimerEngine(
+            TimerConfig(tasks = listOf(Task(type = TaskType.WORK, durationSeconds = 30)))
+        )
+        engine.start(0)
+        engine.tick(10_000)
+        val mapper = RunningUiStateMapper()
+        val running = mapper.map(engine.tick(12_400).state)
+        assertEquals(2.4f / 30f, running.segmentProgress!!, 0.0001f)
+        assertEquals(600, running.progressStepMs)
+        val paused = mapper.map(engine.pause(12_400).state)
+        assertEquals(running.segmentProgress, paused.segmentProgress)
+    }
+
+    @Test
     fun lapRowsAreRebuiltOnlyWhenALapIsLogged() {
         val engine = forTimeEngine()
         val mapper = RunningUiStateMapper()

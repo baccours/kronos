@@ -3,7 +3,6 @@ package com.baccours.kronos
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.baccours.kronos.model.TimerStatus
-import com.baccours.kronos.repository.TimerRepository
 import com.baccours.kronos.repository.TimerStateStore
 import com.baccours.kronos.ui.running.RunningUiState
 import com.baccours.kronos.ui.running.RunningUiStateMapper
@@ -17,7 +16,7 @@ import kotlinx.coroutines.flow.stateIn
  * Exposes workout UI state: [status] for top-level screen switching and [uiState] for the running view.
  */
 class WorkoutViewModel(
-    store: TimerStateStore = TimerRepository
+    store: TimerStateStore = TimerStateStore
 ) : ViewModel() {
 
     val status: StateFlow<TimerStatus> = store.timerState

@@ -46,7 +46,8 @@ class ClipAnnouncer(
     private var current: Playing? = null
     private var playCounter = 0
 
-    /** Increment by [stop] to drop in-flight background assemblies. */
+    /** Incremented by [stop]/interrupts to drop in-flight background assemblies (read by the worker). */
+    @Volatile
     private var generation = 0
     private var inFlight = 0
     private val warned = HashSet<String>()
@@ -69,6 +70,8 @@ class ClipAnnouncer(
             // Log unusable clips once.
             unusable.filter { warned.add(it) }.takeIf { it.isNotEmpty() }
                 ?.let { Log.w(TAG, "Not announcing \"${cue.text}\", unusable: ${it.joinToString()}") }
+            // Don't let the previous announcement talk over the new segment.
+            if (cue.interrupt) stop()
             return false
         }
         if (cue.interrupt) stopPlayback()
@@ -76,10 +79,13 @@ class ClipAnnouncer(
         val gen = generation
         inFlight++
         // Sequential worker thread creates AudioTrack and preserves clip order.
+        // Voice starts after the segment buzzer so long phrases stay intelligible.
+        val lead = if (cue.interrupt) LEAD_SILENCE else null
         worker.execute {
-            val pcm = assemble(names)
+            if (gen != generation) return@execute // Superseded before it started.
+            val pcm = assemble(names, lead)
             if (pcm == null) Log.w(TAG, "Dropped \"${cue.text}\": a clip could not be decoded")
-            val prepared = pcm?.takeIf { it.isNotEmpty() }?.let(::buildTrack)
+            val prepared = pcm?.takeIf { it.isNotEmpty() && gen == generation }?.let(::buildTrack)
             handler.post { onPrepared(gen, prepared) }
         }
         return true
@@ -97,9 +103,9 @@ class ClipAnnouncer(
         // Shared ClipLibrary remains cached across workouts.
     }
 
-    private fun assemble(names: List<String>): ShortArray? {
+    private fun assemble(names: List<String>, lead: ShortArray?): ShortArray? {
         val parts = names.map { library.pcm(it) ?: return null }
-        return PcmUtil.concat(parts)
+        return PcmUtil.concat(if (lead != null) listOf(lead) + parts else parts)
     }
 
     private fun onPrepared(gen: Int, prepared: Prepared?) {
@@ -189,5 +195,9 @@ class ClipAnnouncer(
         const val FALLBACK_MS = 500L
 
         const val SAMPLE_RATE = ClipLibrary.SAMPLE_RATE
+
+        /** Silence before interrupting announcements (the segment buzzer plays meanwhile). */
+        const val VOICE_LEAD_MS = 300
+        val LEAD_SILENCE = ShortArray(SAMPLE_RATE * VOICE_LEAD_MS / 1000)
     }
 }

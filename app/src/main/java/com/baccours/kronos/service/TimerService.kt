@@ -16,7 +16,6 @@ import com.baccours.kronos.model.TimerConfig
 import com.baccours.kronos.model.TimerConfigCodec
 import com.baccours.kronos.model.TimerState
 import com.baccours.kronos.model.TimerStatus
-import com.baccours.kronos.repository.TimerRepository
 import com.baccours.kronos.repository.TimerStateStore
 
 /**
@@ -25,7 +24,7 @@ import com.baccours.kronos.repository.TimerStateStore
  */
 class TimerService : Service(), WorkoutController.Listener {
 
-    private val store: TimerStateStore = TimerRepository
+    private val store: TimerStateStore = TimerStateStore
     private val handler = Handler(Looper.getMainLooper())
     private val stopSelfRunnable = Runnable { stopSelf() }
 
