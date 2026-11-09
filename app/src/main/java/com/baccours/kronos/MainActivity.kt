@@ -77,10 +77,7 @@ class MainActivity : ComponentActivity() {
                         viewModel = viewModel,
                         onPause = { commands.pause() },
                         onResume = { commands.resume() },
-                        onStop = {
-                            // Dismiss finished workout results.
-                            if (status == TimerStatus.FINISHED) commands.dismissFinished() else commands.stop()
-                        },
+                        onStop = { commands.stop() },
                         onSkip = { commands.skip() },
                         onLap = { commands.lap() }
                     )

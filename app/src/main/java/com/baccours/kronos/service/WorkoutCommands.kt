@@ -36,11 +36,9 @@ class WorkoutCommands(
     fun skip() = send(TimerService.ACTION_SKIP)
     fun lap() = send(TimerService.ACTION_LAP)
 
-    /** Stops the active workout. */
-    fun stop() = send(TimerService.ACTION_STOP)
-
-    /** Resets state and dismisses notification for finished workouts. */
-    fun dismissFinished() {
+    /** Stops the workout, resets state, and dismisses notifications immediately. */
+    fun stop() {
+        send(TimerService.ACTION_STOP)
         store.reset()
         NotificationManagerCompat.from(context).cancel(TimerNotifier.NOTIFICATION_ID)
     }
