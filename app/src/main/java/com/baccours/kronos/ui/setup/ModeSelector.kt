@@ -3,7 +3,7 @@ package com.baccours.kronos.ui.setup
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
@@ -48,7 +48,7 @@ internal fun ModeSelector(mode: TimerMode, onModeChange: (TimerMode) -> Unit) {
                 onClick = { onModeChange(itemMode) },
                 modifier = Modifier
                     .weight(if (itemMode == TimerMode.TIMER) timerWgt else forTimeWgt)
-                    .height(56.dp),
+                    .heightIn(min = 56.dp),
                 shape = SegmentedButtonDefaults.itemShape(index = index, count = modes.size),
                 colors = SegmentedButtonDefaults.colors(
                     activeContainerColor = MaterialTheme.colorScheme.primaryContainer,

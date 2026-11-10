@@ -58,11 +58,11 @@ class WorkoutController(
     val status: TimerStatus get() = engine?.status ?: TimerStatus.NOT_STARTED
     val isActive: Boolean get() = status == TimerStatus.RUNNING || status == TimerStatus.PAUSED
 
-    /** Starts workout with [config]. Returns false if already active. */
+    /** Starts workout with [config], which must be valid (see [TimerConfig.sanitized]). Returns false if already active. */
     fun start(config: TimerConfig): Boolean {
         if (isActive) return false
         scheduler.cancel()
-        val newEngine = TimerEngine(config.sanitized())
+        val newEngine = TimerEngine(config)
         engine = newEngine
         cues.prepare(newEngine.speechNeeded())
         publish(newEngine.start(clock()))

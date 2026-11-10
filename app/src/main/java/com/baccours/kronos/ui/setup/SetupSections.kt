@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
@@ -81,7 +82,7 @@ internal fun SetsSection(
     ) {
         Row(
             modifier = Modifier.fillMaxWidth()
-                .height(44.dp),
+                .heightIn(min = 44.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             HybridStepper(
@@ -89,10 +90,10 @@ internal fun SetsSection(
                 value = sets,
                 onValueChange = onSetsChange,
                 range = 1..TimerConfig.MAX_SETS,
-                modifier = Modifier.weight(1.2f)
+                modifier = Modifier.weight(1.1f)
             )
             Row(
-                modifier = Modifier.weight(0.8f),
+                modifier = Modifier.weight(0.9f),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.Center
             ) {
@@ -163,7 +164,7 @@ internal fun RoundsSection(
             range = 1..TimerConfig.MAX_ROUNDS,
             modifier = Modifier.fillMaxWidth()
                 .offset(y = (-2).dp)
-                .height(44.dp)
+                .heightIn(min = 44.dp)
         )
         Spacer(modifier = Modifier.height(4.dp))
         content()

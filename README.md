@@ -8,10 +8,10 @@ Kronos is an Android workout timer application supporting customizable interval 
 
 - **Training Modes**:
   - **Timer**: Countdown timer for interval workouts with configurable sets, rounds, work tasks, rest tasks, and rest between sets.
-  - **For Time**: Count-up timer with round/lap tracking and an optional time cap.
+  - **For Time**: Count-up timer with round/lap tracking and optional per-set and total time caps.
 - **Workout Configuration**: Setup screen for configuring sets, rounds, work/rest task sequences, and rest durations with estimated total workout duration.
 - **Config Persistence**: Saves the last used workout setup locally using Jetpack DataStore.
-- **Background Execution**: Runs as an Android Foreground Service (`TimerService`) with persistent notifications, notification controls (pause, resume, stop, skip, lap), and a partial wake lock to keep timing active when the screen is locked or the app is in the background.
+- **Background Execution**: Runs as an Android Foreground Service (`TimerService`) with persistent notifications, notification controls (pause, resume, stop, and lap in For Time mode), and a partial wake lock to keep timing active when the screen is locked or the app is in the background.
 - **Audio Cues**: Voice announcements from pre-recorded clips (`assets/audio/*.ogg`, played through an `Announcer`) for workout phases, and synthesized PCM audio tones (beeps, buzzers, completion sound) using `AudioTrack`.
 - **Custom UI Components**: Built with Jetpack Compose (Material 3), including numeric inputs (`TimeInput`), a docked keypad (`DockedKeypad`/`KeypadState`: tap a field, type, tap the next field; the previous entry is committed automatically), and stepper controls (`HybridStepper`).
 
@@ -19,7 +19,7 @@ Kronos is an Android workout timer application supporting customizable interval 
 
 ## Tech Stack
 
-- **Language**: Kotlin 2.0+
+- **Language**: Kotlin
 - **UI Framework**: Jetpack Compose with Material 3 and Edge-to-Edge display
 - **Architecture**: MVVM with Repository pattern and pure Kotlin timing state machine (`TimerEngine`)
 - **State Management**: Kotlin Coroutines and `StateFlow`
@@ -34,12 +34,14 @@ Kronos is an Android workout timer application supporting customizable interval 
 ```
 app/src/main/java/com/baccours/kronos/
 ├── engine/       # TimerEngine (clock + state machine) and WorkoutController (tick scheduling, cues, state reporting; no Android dependencies, tested with virtual time)
-├── model/        # Data models (TimerConfig incl. validation limits, Task, TimerState, Lap, etc.) and TimerConfigCodec (JSON)
+├── model/        # Data models (TimerConfig incl. limits and `sanitized()`, Task, TimerState, Lap, etc.) and TimerConfigCodec (JSON)
 ├── repository/   # TimerStateStore (live state) & TimerPreferencesRepository (DataStore)
 ├── audio/        # Announcer, ClipAnnouncer, ClipLibrary, ClipCatalog, ClipDecoder (voice clips); ToneSynth, StaticTrack (beeps); PcmUtil; AudioFocusController
 ├── service/      # TimerService (thin Foreground Service shell), TimerNotifier, WorkoutCommands (UI -> service), HandlerTickScheduler, TimerAudioManager (routes cues to the tones or the Announcer)
 └── ui/           # Setup and Running screens, components (Keypad, TimeInput), Theme
 ```
+
+**Validation**: `TimerConfig.sanitized()` is the single clamping point. It runs when the setup view model applies an edit and when the codec decodes stored or transmitted text; the engine assumes a valid config.
 
 ---
 
@@ -57,7 +59,7 @@ The notification permission is requested the first time a workout is started. De
 
 Spoken cues are generated as `Speech` values by the engine and announced via `ClipAnnouncer` using pre-recorded `.ogg` files in `app/src/main/assets/audio/` (defined in `ClipCatalog`).
 
-- **Pre-decoding & Caching**: Clips are decoded to PCM ahead of time—common phrases at launch, workout cues during setup—and cached in `ClipLibrary` to eliminate playback latency.
+- **Pre-decoding & Caching**: Clips are decoded to PCM ahead of time—common phrases at launch, the cues a workout needs when it starts—and cached in `ClipLibrary` to eliminate playback latency.
 - **Audio Assets**: Trimmed mono `.ogg` files covering phrases (`get_ready`, `go`, `rest`, etc.), dedicated clips for 1–10 (e.g., `work01`), and composite label + number words for higher values (up to 999). Generated with `ffmpeg`:
   ```bash
   ffmpeg -nostdin -i "input_file" -vn -ac 1 -ar 48000 \

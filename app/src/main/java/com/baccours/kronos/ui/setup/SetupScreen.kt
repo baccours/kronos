@@ -20,11 +20,11 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.foundation.relocation.bringIntoViewRequester
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -56,6 +56,7 @@ import com.baccours.kronos.model.TaskType
 import com.baccours.kronos.model.TimerConfig
 import com.baccours.kronos.model.TimerMode
 import com.baccours.kronos.model.formatDuration
+import com.baccours.kronos.model.numbered
 import com.baccours.kronos.ui.components.DockedKeypad
 import com.baccours.kronos.ui.components.LocalKeypad
 import com.baccours.kronos.ui.components.rememberKeypadState
@@ -113,8 +114,6 @@ internal fun SetupScreenContent(
     actions: SetupActions
 ) {
     val scrollState = rememberScrollState()
-    val bringIntoViewRequester = remember { BringIntoViewRequester() }
-    var previousTaskCount by remember { mutableIntStateOf(uiState.tasks.size) }
 
     // Screen keypad state
     val keypad = rememberKeypadState()
@@ -125,14 +124,6 @@ internal fun SetupScreenContent(
     }
     // Commit pending input on back press
     BackHandler(enabled = keypad.isOpen) { keypad.commitAndClose() }
-
-    LaunchedEffect(uiState.tasks.size) {
-        if (uiState.tasks.size > previousTaskCount) {
-            // Scroll to bottom when tasks are added
-            bringIntoViewRequester.bringIntoView()
-        }
-        previousTaskCount = uiState.tasks.size
-    }
 
     val isTimerMode = uiState.mode == TimerMode.TIMER
 
@@ -199,57 +190,7 @@ internal fun SetupScreenContent(
                                 rounds = uiState.rounds,
                                 onRoundsChange = actions.updateRounds
                             ) {
-                                Column(
-                                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                                ) {
-                                    uiState.indexedTasks.forEach { indexedTask ->
-                                        key(indexedTask.task.id) {
-                                            Box(
-                                                modifier = Modifier.animateContentSize()
-                                            ) {
-                                                val taskFieldId = "task_" + indexedTask.task.id
-                                                TaskRow(
-                                                    fieldId = taskFieldId,
-                                                    index = indexedTask.displayIndex,
-                                                    type = indexedTask.task.type,
-                                                    durationSeconds = indexedTask.task.durationSeconds,
-                                                    onDurationChange = {
-                                                        actions.updateTaskDuration(
-                                                            indexedTask.task.id,
-                                                            it
-                                                        )
-                                                    },
-                                                    onDelete = {
-                                                        keypad.cancelIf(taskFieldId)
-                                                        actions.removeTask(indexedTask.task.id)
-                                                    }
-                                                )
-                                            }
-                                        }
-                                    }
-
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .bringIntoViewRequester(bringIntoViewRequester),
-                                        horizontalArrangement = Arrangement.spacedBy(16.dp),
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        val canAddTask = uiState.tasks.size < TimerConfig.MAX_TASKS
-                                        TaskActionButton(
-                                            text = stringResource(R.string.setup_add_work),
-                                            onClick = { actions.addTask(TaskType.WORK) },
-                                            modifier = Modifier.weight(1.0f),
-                                            enabled = canAddTask
-                                        )
-                                        TaskActionButton(
-                                            text = stringResource(R.string.setup_add_rest),
-                                            onClick = { actions.addTask(TaskType.REST) },
-                                            modifier = Modifier.weight(1.0f),
-                                            enabled = canAddTask
-                                        )
-                                    }
-                                }
+                                TaskList(uiState, actions)
                             }
                         }
                     }
@@ -265,6 +206,62 @@ internal fun SetupScreenContent(
                     }
                 }
             }
+        }
+    }
+}
+
+/** Task rows plus the add buttons; scrolls the buttons into view when a task is added. */
+@Composable
+private fun TaskList(config: TimerConfig, actions: SetupActions) {
+    val keypad = LocalKeypad.current
+    val addButtons = remember { BringIntoViewRequester() }
+    val numbered = remember(config.tasks) { config.tasks.numbered() }
+    var previousCount by remember { mutableIntStateOf(config.tasks.size) }
+
+    LaunchedEffect(config.tasks.size) {
+        if (config.tasks.size > previousCount) addButtons.bringIntoView()
+        previousCount = config.tasks.size
+    }
+
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        numbered.forEach { (task, displayIndex) ->
+            key(task.id) {
+                Box(modifier = Modifier.animateContentSize()) {
+                    val fieldId = "task_" + task.id
+                    TaskRow(
+                        fieldId = fieldId,
+                        index = displayIndex,
+                        type = task.type,
+                        durationSeconds = task.durationSeconds,
+                        onDurationChange = { actions.updateTaskDuration(task.id, it) },
+                        onDelete = {
+                            keypad?.cancelIf(fieldId)
+                            actions.removeTask(task.id)
+                        }
+                    )
+                }
+            }
+        }
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .bringIntoViewRequester(addButtons),
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            val canAddTask = config.tasks.size < TimerConfig.MAX_TASKS
+            TaskActionButton(
+                text = stringResource(R.string.setup_add_work),
+                onClick = { actions.addTask(TaskType.WORK) },
+                modifier = Modifier.weight(1f),
+                enabled = canAddTask
+            )
+            TaskActionButton(
+                text = stringResource(R.string.setup_add_rest),
+                onClick = { actions.addTask(TaskType.REST) },
+                modifier = Modifier.weight(1f),
+                enabled = canAddTask
+            )
         }
     }
 }

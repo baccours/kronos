@@ -5,9 +5,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -87,8 +86,7 @@ fun HybridStepper(
 
         Box(
             modifier = Modifier
-                .width(48.dp)
-                .height(48.dp)
+                .defaultMinSize(minWidth = 48.dp, minHeight = 44.dp)
                 .revealWhenActive(active)
                 .border(
                     width = 1.dp,

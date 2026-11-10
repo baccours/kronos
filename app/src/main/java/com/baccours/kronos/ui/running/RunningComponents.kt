@@ -4,7 +4,7 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
@@ -30,6 +31,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import com.baccours.kronos.R
 import com.baccours.kronos.model.Phase
@@ -40,14 +42,11 @@ import com.baccours.kronos.phaseLabel
 private val SegmentBarHeight = 12.dp
 private val OverallBarHeight = 6.dp
 private val MaxTimeFontSize = 160.dp
+private val MinTimeFontSize = 24.sp
 
 private const val TrackAlpha = 0.18f
 /** Alpha value ensuring >=4.5:1 text contrast across phase colors. */
 private const val SecondaryTextAlpha = 0.85f
-
-/** Monospace digit advance width in em. */
-private const val GlyphWidthEm = 0.63f
-private const val LineHeightEm = 1.25f
 
 /** Displays set and round indicators. Hidden when total count is 1. */
 @Composable
@@ -177,32 +176,21 @@ private fun nextText(state: RunningUiState): String {
     }
 }
 
-/** Monospace timer readout dynamically scaled to fit container bounds without line wrapping. */
+/** Monospace readout, auto-sized to the largest font that fits its bounds on one line. */
 @Composable
 private fun TimerReadout(text: String, modifier: Modifier = Modifier) {
-    BoxWithConstraints(modifier = modifier, contentAlignment = Alignment.Center) {
-        val density = LocalDensity.current
-        val byWidth = constraints.maxWidth / (text.length * GlyphWidthEm)
-        val byHeight = if (constraints.hasBoundedHeight) {
-            constraints.maxHeight / LineHeightEm
-        } else {
-            Float.MAX_VALUE
-        }
-        val fontSize = with(density) {
-            val px = minOf(byWidth, byHeight, MaxTimeFontSize.toPx())
-            px.toDp().toSp()
-        }
+    val maxFontSize = with(LocalDensity.current) { MaxTimeFontSize.toSp() }
+    Box(modifier = modifier, contentAlignment = Alignment.Center) {
         Text(
             text = text,
+            autoSize = TextAutoSize.StepBased(minFontSize = MinTimeFontSize, maxFontSize = maxFontSize),
             style = MaterialTheme.typography.displayLarge.copy(
-                fontSize = fontSize,
-                lineHeight = fontSize * 1.1f,
+                lineHeight = 1.1.em,
                 fontFamily = FontFamily.Monospace,
                 fontWeight = FontWeight.Black,
                 letterSpacing = 0.sp
             ),
             maxLines = 1,
-            softWrap = false,
             textAlign = TextAlign.Center
         )
     }

@@ -211,15 +211,4 @@ class WorkoutControllerTest {
         controller.lap()
         assertEquals(1, controller.lastState.laps.size)
     }
-
-    @Test
-    fun theConfigIsSanitizedBeforeItIsUsed() {
-        val world = World()
-        val controller = world.controller()
-        // sets = 0 would otherwise produce a plan with nothing but "get ready".
-        controller.start(TimerConfig(sets = 0, rounds = -4, tasks = listOf(work(3))))
-        world.advanceTo(100_000)
-        val expected = (TimerEngine.DEFAULT_READY_SECONDS + 3) * 1000L
-        assertTrue("finished at ${world.finishedAt}", world.finishedAt in expected..(expected + 50))
-    }
 }

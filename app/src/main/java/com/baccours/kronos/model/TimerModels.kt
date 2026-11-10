@@ -24,6 +24,13 @@ data class IndexedTask(
     val displayIndex: Int
 )
 
+/** Numbers tasks independently per type (WORK 1, REST 1, WORK 2...). */
+fun List<Task>.numbered(): List<IndexedTask> {
+    var work = 0
+    var rest = 0
+    return map { IndexedTask(it, if (it.type == TaskType.WORK) ++work else ++rest) }
+}
+
 @Serializable
 data class TimerConfig(
     val mode: TimerMode = TimerMode.TIMER,
@@ -36,18 +43,6 @@ data class TimerConfig(
     val rounds: Int = 1,
     val tasks: List<Task> = listOf(Task(type = TaskType.WORK), Task(type = TaskType.REST)),
 ) {
-    /** Task items numbered independently by type. Computed once per instance (not serialized). */
-    val indexedTasks: List<IndexedTask> by lazy {
-        var workCount = 0
-        var restCount = 0
-        tasks.map { task ->
-            val index = if (task.type == TaskType.WORK) ++workCount else ++restCount
-            IndexedTask(task, index)
-        }
-    }
-    val activeTotalTimeCap: Int
-        get() = if (mode == TimerMode.FOR_TIME && sets > 1) totalTimeCap.coerceAtLeast(0) else 0
-
     /** Planned total duration in seconds (excluding get-ready). */
     val totalDurationSeconds: Int
         get() {

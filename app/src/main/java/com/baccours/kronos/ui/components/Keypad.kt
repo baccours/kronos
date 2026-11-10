@@ -149,9 +149,14 @@ fun DockedKeypad(
                 ) {
                     when (kind) {
                         KeypadKind.TIME -> {
-                            // "min" treats input as minutes; OK treats input as mmss
+                            // "N min" commits the typed digits as minutes; OK reads them as mmss
+                            val minutes = state.digits.toIntOrNull()
                             KeypadAction(
-                                label = stringResource(R.string.unit_min),
+                                label = if (minutes != null) {
+                                    stringResource(R.string.keypad_n_min, minutes)
+                                } else {
+                                    stringResource(R.string.unit_min)
+                                },
                                 onClick = state::commitAsMinutesAndClose,
                                 keyHeight = keyHeight,
                                 enabled = state.digits.isNotEmpty()

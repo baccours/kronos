@@ -8,6 +8,7 @@ import com.baccours.kronos.model.TimerMode
 import com.baccours.kronos.model.TimerState
 import com.baccours.kronos.model.TimerStatus
 import com.baccours.kronos.model.UpNext
+import com.baccours.kronos.model.numbered
 
 /** Audio action directive emitted by the engine. */
 sealed interface Cue {
@@ -59,8 +60,9 @@ class TimerEngine(private val config: TimerConfig) {
 
     private val isForTime = config.mode == TimerMode.FOR_TIME
 
-    /** Overall time cap limit in milliseconds (0 = disabled). */
-    private val totalCapMs = config.activeTotalTimeCap * 1000L
+    /** Overall time cap, only for multi-set FOR_TIME workouts (0 = disabled). */
+    private val totalCapSeconds = if (isForTime && config.sets > 1) config.totalTimeCap else 0
+    private val totalCapMs = totalCapSeconds * 1000L
 
     var status: TimerStatus = TimerStatus.NOT_STARTED
         private set
@@ -228,7 +230,7 @@ class TimerEngine(private val config: TimerConfig) {
             totalElapsedSeconds = (totalElapsedMs / 1000).toInt(),
             totalRemainingSeconds = when {
                 finished -> if (isForTime && totalCapMs <= 0) null else 0
-                totalCapMs > 0 -> (config.activeTotalTimeCap - (totalElapsedMs / 1000).toInt())
+                totalCapMs > 0 -> (totalCapSeconds - (totalElapsedMs / 1000).toInt())
                     .coerceAtLeast(0)
                 isForTime -> null
                 else -> (if (seg.phase == Phase.READY) 0 else remaining) + suffixSeconds[index]
@@ -315,7 +317,7 @@ class TimerEngine(private val config: TimerConfig) {
     private fun buildPlan(): List<Segment> {
         val out = ArrayList<Segment>()
         out += Segment(Phase.READY, 1, 1, 0, DEFAULT_READY_SECONDS)
-        val indexed = config.indexedTasks
+        val indexed = config.tasks.numbered()
         for (set in 1..config.sets) {
             if (config.mode == TimerMode.TIMER) {
                 for (round in 1..config.rounds) {

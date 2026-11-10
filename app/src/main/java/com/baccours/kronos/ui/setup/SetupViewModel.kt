@@ -47,34 +47,29 @@ class SetupViewModel @JvmOverloads constructor(
         }
     }
 
+    /** Every edit is clamped to the allowed ranges here, once. */
     private fun edit(transform: (TimerConfig) -> TimerConfig) {
-        _uiState.update { it?.let(transform) }
+        _uiState.update { it?.let { config -> transform(config).sanitized() } }
     }
 
     fun updateMode(mode: TimerMode) = edit { it.copy(mode = mode) }
 
-    fun updateSets(sets: Int) = edit { it.copy(sets = sets.coerceIn(1, TimerConfig.MAX_SETS)) }
+    fun updateSets(sets: Int) = edit { it.copy(sets = sets) }
 
-    fun updateSetRest(seconds: Int) =
-        edit { it.copy(setRestSeconds = seconds.coerceIn(0, TimerConfig.MAX_DURATION_SECONDS)) }
+    fun updateSetRest(seconds: Int) = edit { it.copy(setRestSeconds = seconds) }
 
-    fun updateTimeCap(seconds: Int) =
-        edit { it.copy(timeCap = seconds.coerceIn(0, TimerConfig.MAX_DURATION_SECONDS)) }
+    fun updateTimeCap(seconds: Int) = edit { it.copy(timeCap = seconds) }
 
-    fun updateTotalTimeCap(seconds: Int) =
-        edit { it.copy(totalTimeCap = seconds.coerceIn(0, TimerConfig.MAX_DURATION_SECONDS)) }
+    fun updateTotalTimeCap(seconds: Int) = edit { it.copy(totalTimeCap = seconds) }
 
-    fun updateRounds(rounds: Int) = edit { it.copy(rounds = rounds.coerceIn(1, TimerConfig.MAX_ROUNDS)) }
+    fun updateRounds(rounds: Int) = edit { it.copy(rounds = rounds) }
 
+    /** Adding beyond [TimerConfig.MAX_TASKS] is a no-op (the extra task is trimmed). */
     fun addTask(type: TaskType = TaskType.WORK) = edit { current ->
-        if (current.tasks.size >= TimerConfig.MAX_TASKS) {
-            current
-        } else {
-            val duration = current.tasks.findLast { it.type == type }?.durationSeconds
-                ?: current.tasks.lastOrNull()?.durationSeconds
-                ?: 30
-            current.copy(tasks = current.tasks + Task(type = type, durationSeconds = duration))
-        }
+        val duration = current.tasks.findLast { it.type == type }?.durationSeconds
+            ?: current.tasks.lastOrNull()?.durationSeconds
+            ?: 30
+        current.copy(tasks = current.tasks + Task(type = type, durationSeconds = duration))
     }
 
     fun removeTask(id: String) = edit {
@@ -83,9 +78,7 @@ class SetupViewModel @JvmOverloads constructor(
 
     fun updateTaskDuration(id: String, durationSeconds: Int) = edit {
         it.copy(tasks = it.tasks.map { task ->
-            if (task.id == id) {
-                task.copy(durationSeconds = durationSeconds.coerceIn(0, TimerConfig.MAX_DURATION_SECONDS))
-            } else task
+            if (task.id == id) task.copy(durationSeconds = durationSeconds) else task
         })
     }
 }
