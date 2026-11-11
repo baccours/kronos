@@ -1,4 +1,4 @@
-package com.baccours.kronos.model
+package com.baccours.kronos
 
 import java.util.Locale
 

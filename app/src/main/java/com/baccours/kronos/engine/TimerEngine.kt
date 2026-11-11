@@ -73,6 +73,9 @@ class TimerEngine(private val config: TimerConfig) {
     private var pausedAtMs = 0L
     private var completedMs = 0L
     private var lastElapsedSecond = 0
+
+    /** Start cues of a segment skipped to while paused; played on resume. */
+    private var pendingCues: List<Cue> = emptyList()
     private val laps = ArrayList<Lap>()
 
     /** Cached immutable copy of [laps] for O(1) snapshot updates. */
@@ -85,6 +88,7 @@ class TimerEngine(private val config: TimerConfig) {
         lapStartMs = now
         completedMs = 0
         lastElapsedSecond = 0
+        pendingCues = emptyList()
         laps.clear()
         lapCountBySet.clear()
         lapsSnapshot = emptyList()
@@ -146,13 +150,16 @@ class TimerEngine(private val config: TimerConfig) {
     }
 
     fun resume(now: Long): EngineResult {
+        var cues = emptyList<Cue>()
         if (status == TimerStatus.PAUSED) {
             val shift = now - pausedAtMs
             segmentStartMs += shift
             lapStartMs += shift
             status = TimerStatus.RUNNING
+            cues = pendingCues
+            pendingCues = emptyList()
         }
-        return EngineResult(snapshot(now))
+        return EngineResult(snapshot(now), cues)
     }
 
     /**
@@ -172,8 +179,8 @@ class TimerEngine(private val config: TimerConfig) {
             segmentStartMs = t
             lapStartMs = t
             lastElapsedSecond = 0
-            // Stay silent while paused; finishing still announces the end.
-            if (status == TimerStatus.RUNNING) cues += startCues(index)
+            // While paused, announce on resume instead; finishing still announces the end.
+            if (status == TimerStatus.RUNNING) cues += startCues(index) else pendingCues = startCues(index)
         }
         return EngineResult(snapshot(now), cues)
     }

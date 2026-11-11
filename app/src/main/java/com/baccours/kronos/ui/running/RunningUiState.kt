@@ -1,12 +1,12 @@
 package com.baccours.kronos.ui.running
 
+import com.baccours.kronos.formatDuration
 import com.baccours.kronos.model.Lap
 import com.baccours.kronos.model.Phase
 import com.baccours.kronos.model.TimerMode
 import com.baccours.kronos.model.TimerState
 import com.baccours.kronos.model.TimerStatus
 import com.baccours.kronos.model.UpNext
-import com.baccours.kronos.model.formatDuration
 import kotlin.math.abs
 
 /** Display model for a logged lap with time difference delta. */

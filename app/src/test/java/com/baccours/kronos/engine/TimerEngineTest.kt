@@ -67,7 +67,10 @@ class TimerEngineTest {
         val skipped = engine.skip(20_000)
         assertEquals(Phase.REST, skipped.state.phase)
         assertTrue("no cues while paused", skipped.cues.isEmpty())
-        engine.resume(50_000)
+        val resumed = engine.resume(50_000)
+        assertEquals("skipped-to item is announced on resume", listOf("Rest"), resumed.spoken())
+        assertTrue(Cue.StartBuzzer in resumed.cues)
+        assertTrue("announced only once", engine.resume(51_000).cues.isEmpty())
         assertEquals(20, engine.snapshot(50_000).remainingSeconds)
         assertEquals(15, engine.snapshot(55_000).remainingSeconds)
     }

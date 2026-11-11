@@ -27,13 +27,17 @@ import com.baccours.kronos.model.TimerMode
 
 /** Timer / For Time selector; the selected segment is widened. */
 @Composable
-internal fun ModeSelector(mode: TimerMode, onModeChange: (TimerMode) -> Unit) {
+internal fun ModeSelector(
+    mode: TimerMode,
+    onModeChange: (TimerMode) -> Unit,
+    modifier: Modifier = Modifier
+) {
     val isTimerMode = mode == TimerMode.TIMER
     val timerWgt by animateFloatAsState(targetValue = if (isTimerMode) 2f else 1f, label = "TW")
     val forTimeWgt by animateFloatAsState(targetValue = if (!isTimerMode) 2f else 1f, label = "FTW")
 
     SingleChoiceSegmentedButtonRow(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         space = 2.dp
     ) {
         val modes = listOf(

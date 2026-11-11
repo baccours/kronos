@@ -34,9 +34,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import com.baccours.kronos.R
+import com.baccours.kronos.formatDuration
 import com.baccours.kronos.model.Phase
 import com.baccours.kronos.model.TimerStatus
-import com.baccours.kronos.model.formatDuration
 import com.baccours.kronos.phaseLabel
 
 private val SegmentBarHeight = 12.dp

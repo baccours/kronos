@@ -1,11 +1,4 @@
-# The saved setup and the workout handed to the service are JSON (kotlinx.serialization):
-# keep the model classes and their generated serializers.
--keep class com.baccours.kronos.model.** { *; }
--keepattributes *Annotation*,Signature,InnerClasses,EnclosingMethod
--keepclassmembers class com.baccours.kronos.model.** {
-    *** Companion;
-    *** serializer(...);
-}
--keepclasseswithmembers class * {
-    @kotlinx.serialization.Serializable *;
-}
+# Add project specific ProGuard rules here.
+# kotlinx.serialization ships its own consumer keep rules in kotlinx-serialization-core/json.
+# Default rules (proguard-android-optimize.txt) are enabled in build.gradle.kts.
+

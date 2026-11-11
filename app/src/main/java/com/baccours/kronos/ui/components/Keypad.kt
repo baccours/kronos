@@ -1,5 +1,7 @@
 package com.baccours.kronos.ui.components
 
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,6 +24,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -39,6 +42,7 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
@@ -108,6 +112,37 @@ internal fun Modifier.revealWhenActive(active: Boolean): Modifier {
         .bringIntoViewRequester(requester)
         .onSizeChanged { fieldSize = it }
 }
+
+/**
+ * Binds a field to the keypad: tap to edit, outlined while active, re-attached after
+ * recomposition or rotation, and the edit is canceled if [enabled] turns off.
+ */
+@Composable
+internal fun Modifier.keypadField(
+    keypad: KeypadState?,
+    field: KeypadField,
+    enabled: Boolean = true
+): Modifier {
+    val active = keypad?.activeId == field.id
+    SideEffect { if (active) keypad.attach(field) }
+    LaunchedEffect(enabled, active) { if (active && !enabled) keypad.cancel() }
+    return revealWhenActive(active)
+        .border(
+            width = 1.dp,
+            color = if (active) MaterialTheme.colorScheme.primary else Color.Transparent,
+            shape = MaterialTheme.shapes.extraSmall
+        )
+        .padding(horizontal = 8.dp, vertical = 4.dp)
+        .clickable(
+            enabled = enabled,
+            onClickLabel = stringResource(R.string.edit_value),
+            role = Role.Button
+        ) { keypad?.open(field) }
+}
+
+/** Digits typed into field [id]; empty unless it is the active one. */
+internal fun KeypadState?.digitsFor(id: String): String =
+    this?.takeIf { it.activeId == id }?.digits.orEmpty()
 
 /** Docked numeric keypad UI. */
 @Composable

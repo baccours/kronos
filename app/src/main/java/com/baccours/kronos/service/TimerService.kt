@@ -1,5 +1,6 @@
 package com.baccours.kronos.service
 
+import android.app.AlarmManager
 import android.app.Service
 import android.content.Intent
 import android.content.pm.ServiceInfo
@@ -26,13 +27,26 @@ class TimerService : Service(), WorkoutController.Listener {
 
     private val store: TimerStateStore = TimerStateStore
     private val handler = Handler(Looper.getMainLooper())
-    private val stopSelfRunnable = Runnable { stopSelf() }
+    private val alarms by lazy { getSystemService(AlarmManager::class.java) }
+
+    private var finishedState: TimerState? = null
+
+    /** Ends the service after the closing audio; the completion notification stays. */
+    private val finishRunnable = Runnable {
+        releaseWakeLock()
+        stopForeground(STOP_FOREGROUND_DETACH)
+        // Re-post once detached so it is a normal, dismissible notification.
+        finishedState?.let { notifier.show(it) }
+        stopSelf()
+    }
+
+    /** Fires (on [handler]) when a workout has been paused too long. */
+    private val pauseTimeout = AlarmManager.OnAlarmListener { stopTimer() }
 
     private lateinit var notifier: TimerNotifier
     private var audio: TimerAudioManager? = null
     private var controller: WorkoutController? = null
     private var wakeLock: PowerManager.WakeLock? = null
-    private var inForeground = false
     private var lockSegment = -1
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -69,7 +83,7 @@ class TimerService : Service(), WorkoutController.Listener {
             stopSelf()
             return
         }
-        handler.removeCallbacks(stopSelfRunnable)
+        handler.removeCallbacks(finishRunnable)
         // Enter foreground immediately before background setup
         enterForeground(TimerState(status = TimerStatus.RUNNING, config = config))
         acquireWakeLock()
@@ -88,24 +102,37 @@ class TimerService : Service(), WorkoutController.Listener {
     }
 
     private fun pauseTimer() {
-        controller?.pause()
+        val c = controller ?: return
+        c.pause()
         releaseWakeLock()
+        // Don't keep a forgotten paused workout (and its notification) alive forever.
+        // An alarm, unlike a handler delay, still counts time while the device sleeps.
+        if (c.status == TimerStatus.PAUSED) {
+            alarms.set(
+                AlarmManager.ELAPSED_REALTIME_WAKEUP,
+                SystemClock.elapsedRealtime() + PAUSE_TIMEOUT_MS,
+                "kronos:pause-timeout",
+                pauseTimeout,
+                handler
+            )
+        }
     }
 
     private fun resumeTimer() {
         val c = controller ?: return
         if (c.status != TimerStatus.PAUSED) return
+        alarms.cancel(pauseTimeout)
         acquireWakeLock()
         c.resume()
     }
 
     private fun stopTimer() {
-        handler.removeCallbacks(stopSelfRunnable)
+        handler.removeCallbacks(finishRunnable)
+        alarms.cancel(pauseTimeout)
         controller?.stop()
         releaseWakeLock()
         store.reset()
         stopForeground(STOP_FOREGROUND_REMOVE)
-        inForeground = false
         notifier.cancel()
         stopSelf()
     }
@@ -121,7 +148,6 @@ class TimerService : Service(), WorkoutController.Listener {
         } else {
             startForeground(TimerNotifier.NOTIFICATION_ID, notification)
         }
-        inForeground = true
     }
 
     override fun onStateChanged(state: TimerState) {
@@ -131,20 +157,19 @@ class TimerService : Service(), WorkoutController.Listener {
             lockSegment = state.segmentIndex
             acquireWakeLock()
         }
-        if (state.status != TimerStatus.FINISHED && inForeground) {
+        if (state.status != TimerStatus.FINISHED) {
             notifier.updateIfChanged(state)
         }
     }
 
     override fun onFinished(state: TimerState) {
-        releaseWakeLock()
-        // Detach foreground state while retaining completion notification
-        stopForeground(STOP_FOREGROUND_DETACH)
-        inForeground = false
+        alarms.cancel(pauseTimeout)
+        finishedState = state
         notifier.show(state)
-        // Linger briefly for audio completion before stopping service
-        handler.removeCallbacks(stopSelfRunnable)
-        handler.postDelayed(stopSelfRunnable, FINISH_LINGER_MS)
+        // Stay foreground (wake lock held) until the closing audio has played: from Android 17
+        // background audio is silenced once the service leaves the foreground.
+        handler.removeCallbacks(finishRunnable)
+        handler.postDelayed(finishRunnable, FINISH_LINGER_MS)
     }
 
     override fun onLateTick(lateMs: Long) {
@@ -173,6 +198,7 @@ class TimerService : Service(), WorkoutController.Listener {
 
     override fun onDestroy() {
         handler.removeCallbacksAndMessages(null)
+        alarms.cancel(pauseTimeout)
         controller?.stop()
         controller = null
         releaseWakeLock()
@@ -194,7 +220,8 @@ class TimerService : Service(), WorkoutController.Listener {
         const val EXTRA_CONFIG = "EXTRA_CONFIG"
 
         private const val TAG = "TimerService"
-        private const val FINISH_LINGER_MS = 8_000L
+        private const val FINISH_LINGER_MS = 4_000L
+        private const val PAUSE_TIMEOUT_MS = 30L * 60 * 1000
         private const val WAKE_LOCK_TIMEOUT_MS = 6L * 60 * 60 * 1000
     }
 }

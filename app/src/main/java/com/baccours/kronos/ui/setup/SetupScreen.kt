@@ -19,7 +19,9 @@ import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.rememberScrollState
@@ -51,11 +53,11 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.baccours.kronos.R
+import com.baccours.kronos.formatDuration
 import com.baccours.kronos.model.Task
 import com.baccours.kronos.model.TaskType
 import com.baccours.kronos.model.TimerConfig
 import com.baccours.kronos.model.TimerMode
-import com.baccours.kronos.model.formatDuration
 import com.baccours.kronos.model.numbered
 import com.baccours.kronos.ui.components.DockedKeypad
 import com.baccours.kronos.ui.components.LocalKeypad
@@ -147,7 +149,11 @@ internal fun SetupScreenContent(
                         .padding(top = 8.dp, bottom = 16.dp),
                     color = MaterialTheme.colorScheme.surface
                 ) {
-                    ModeSelector(mode = uiState.mode, onModeChange = currentUpdateMode)
+                    ModeSelector(
+                        mode = uiState.mode,
+                        onModeChange = currentUpdateMode,
+                        modifier = Modifier.contentWidth()
+                    )
                 }
              },
             bottomBar = {
@@ -169,6 +175,7 @@ internal fun SetupScreenContent(
                         .fillMaxSize()
                         .padding(padding)
                         .verticalScroll(scrollState)
+                        .contentWidth()
                         .padding(horizontal = 12.dp, vertical = 8.dp)
                 ) {
                     SetsSection(
@@ -209,6 +216,12 @@ internal fun SetupScreenContent(
         }
     }
 }
+
+private val MaxContentWidth = 600.dp
+
+/** Centers content and caps its width on wide screens (tablets, landscape). */
+private fun Modifier.contentWidth(): Modifier =
+    fillMaxWidth().wrapContentWidth(Alignment.CenterHorizontally).widthIn(max = MaxContentWidth)
 
 /** Task rows plus the add buttons; scrolls the buttons into view when a task is added. */
 @Composable
@@ -277,7 +290,7 @@ private fun StartBar(
     Surface(modifier = Modifier.fillMaxWidth()) {
         Column(
             modifier = Modifier
-                .fillMaxWidth()
+                .contentWidth()
                 .navigationBarsPadding()
                 .padding(horizontal = 16.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp),

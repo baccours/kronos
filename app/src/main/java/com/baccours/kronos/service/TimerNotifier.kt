@@ -10,11 +10,11 @@ import android.os.Build
 import androidx.core.app.NotificationCompat
 import com.baccours.kronos.MainActivity
 import com.baccours.kronos.R
+import com.baccours.kronos.formatDuration
 import com.baccours.kronos.model.Phase
 import com.baccours.kronos.model.TimerMode
 import com.baccours.kronos.model.TimerState
 import com.baccours.kronos.model.TimerStatus
-import com.baccours.kronos.model.formatDuration
 import com.baccours.kronos.phaseLabel
 
 /**

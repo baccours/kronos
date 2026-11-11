@@ -7,6 +7,7 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import com.baccours.kronos.model.TimerConfig
 import com.baccours.kronos.model.TimerConfigCodec
+import com.baccours.kronos.model.TimerStatus
 import com.baccours.kronos.repository.TimerStateStore
 
 /** Helper class sending workout command intents to [TimerService]. */
@@ -38,7 +39,12 @@ class WorkoutCommands(
 
     /** Stops the workout, resets state, and dismisses notifications immediately. */
     fun stop() {
-        send(TimerService.ACTION_STOP)
+        if (store.timerState.value.status == TimerStatus.FINISHED) {
+            // Nothing left to stop but a possibly lingering service; never start one just for this.
+            context.stopService(Intent(context, TimerService::class.java))
+        } else {
+            send(TimerService.ACTION_STOP)
+        }
         store.reset()
         NotificationManagerCompat.from(context).cancel(TimerNotifier.NOTIFICATION_ID)
     }

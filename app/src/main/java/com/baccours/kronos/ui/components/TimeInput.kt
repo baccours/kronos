@@ -1,24 +1,17 @@
 package com.baccours.kronos.ui.components
 
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.defaultMinSize
-import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
@@ -74,15 +67,9 @@ fun TimeInput(
             accepts = { true }
         )
     }
-    val active = keypad?.activeId == fieldId
-
-    // Re-attaches field to keypad
-    SideEffect { if (active) keypad.attach(field) }
-    // Cancels active edit if field is disabled
-    LaunchedEffect(enabled, active) { if (active && !enabled) keypad.cancel() }
 
     // Digits typed on keypad; displays saved value if empty
-    val digits = if (active) keypad.digits else ""
+    val digits = keypad.digitsFor(fieldId)
 
     // Displays padded mm:ss without immediate conversion
     val typed = digits.ifEmpty { null }?.padStart(MAX_DIGITS, '0')
@@ -109,19 +96,8 @@ fun TimeInput(
         modifier = modifier
             .alpha(if (enabled) 1f else 0.38f)
             .defaultMinSize(minWidth = 96.dp, minHeight = 48.dp)
-            .revealWhenActive(active)
-            .border(
-                width = 1.dp,
-                color = if (active) MaterialTheme.colorScheme.primary else Color.Transparent,
-                shape = MaterialTheme.shapes.extraSmall
-            )
-            .padding(horizontal = 8.dp, vertical = 4.dp)
-            .semantics { a11yDescription?.let { contentDescription = it } }
-            .clickable(
-                enabled = enabled,
-                onClickLabel = stringResource(R.string.edit_value),
-                role = Role.Button
-            ) { keypad?.open(field) },
+            .keypadField(keypad, field, enabled)
+            .semantics { a11yDescription?.let { contentDescription = it } },
         contentAlignment = Alignment.Center
     ) {
         val color = if (showRedOnZero && isZero) {
