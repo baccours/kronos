@@ -40,10 +40,12 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.baccours.kronos.R
 import com.baccours.kronos.WorkoutViewModel
+import com.baccours.kronos.model.AppSettings
 import com.baccours.kronos.model.Phase
 import com.baccours.kronos.model.TimerStatus
 import com.baccours.kronos.ui.icons.Close
 import com.baccours.kronos.ui.icons.Icons
+import com.baccours.kronos.ui.settings.SettingsMenuButton
 
 // Layout structure: Top bar, Set/Round stats, active phase timer, lap section, overall progress, controls.
 
@@ -67,6 +69,8 @@ fun RunningScreen(
     onStop: () -> Unit,
     onSkip: () -> Unit = {},
     onLap: () -> Unit = {},
+    settings: AppSettings = AppSettings(),
+    onSettingsChange: (AppSettings) -> Unit = {},
     viewModel: WorkoutViewModel = viewModel()
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -125,10 +129,12 @@ fun RunningScreen(
             when {
                 state.isFinished -> FinishedView(state, landscape, onExit = onStop)
                 landscape -> LandscapeContent(
-                    state, animatedColors, requestStop, onPause, onResume, onSkip, onLap
+                    state, animatedColors, requestStop, onPause, onResume, onSkip, onLap,
+                    settings, onSettingsChange
                 )
                 else -> PortraitContent(
-                    state, animatedColors, requestStop, onPause, onResume, onSkip, onLap
+                    state, animatedColors, requestStop, onPause, onResume, onSkip, onLap,
+                    settings, onSettingsChange
                 )
             }
         }
@@ -165,7 +171,9 @@ private fun PortraitContent(
     onPause: () -> Unit,
     onResume: () -> Unit,
     onSkip: () -> Unit,
-    onLap: () -> Unit
+    onLap: () -> Unit,
+    settings: AppSettings,
+    onSettingsChange: (AppSettings) -> Unit
 ) {
     Box(modifier = Modifier.fillMaxSize()) {
         Column(
@@ -189,6 +197,7 @@ private fun PortraitContent(
             Controls(state, colors, compact = false, onPause, onResume, onSkip, onLap)
         }
         CloseButton(onClose, Modifier.align(Alignment.TopStart))
+        SettingsMenuButton(settings, onSettingsChange, Modifier.align(Alignment.TopEnd))
     }
 }
 
@@ -200,7 +209,9 @@ private fun LandscapeContent(
     onPause: () -> Unit,
     onResume: () -> Unit,
     onSkip: () -> Unit,
-    onLap: () -> Unit
+    onLap: () -> Unit,
+    settings: AppSettings,
+    onSettingsChange: (AppSettings) -> Unit
 ) {
     Box(modifier = Modifier.fillMaxSize()) {
         Row(
@@ -244,6 +255,7 @@ private fun LandscapeContent(
             }
         }
         CloseButton(onClose, Modifier.align(Alignment.TopStart))
+        SettingsMenuButton(settings, onSettingsChange, Modifier.align(Alignment.TopEnd))
     }
 }
 

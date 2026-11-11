@@ -50,10 +50,12 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.baccours.kronos.R
 import com.baccours.kronos.formatDuration
+import com.baccours.kronos.model.AppSettings
 import com.baccours.kronos.model.Task
 import com.baccours.kronos.model.TaskType
 import com.baccours.kronos.model.TimerConfig
@@ -64,6 +66,7 @@ import com.baccours.kronos.ui.components.LocalKeypad
 import com.baccours.kronos.ui.components.rememberKeypadState
 import com.baccours.kronos.ui.icons.Icons
 import com.baccours.kronos.ui.icons.Play
+import com.baccours.kronos.ui.settings.SettingsMenuButton
 import com.baccours.kronos.ui.theme.KronosTheme
 
 /** Encapsulates setup screen action callbacks. */
@@ -84,6 +87,8 @@ class SetupActions(
 @Composable
 fun SetupScreen(
     viewModel: SetupViewModel = viewModel(),
+    settings: AppSettings = AppSettings(),
+    onSettingsChange: (AppSettings) -> Unit = {},
     onStartTimer: (TimerConfig) -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -106,14 +111,22 @@ fun SetupScreen(
     // Draw nothing until the saved setup is loaded; the window background matches the theme.
     val config = uiState ?: return
     val totalDuration = remember(config) { config.totalDurationSeconds.formatDuration() }
-    SetupScreenContent(uiState = config, totalDuration = totalDuration, actions = actions)
+    SetupScreenContent(
+        uiState = config,
+        totalDuration = totalDuration,
+        actions = actions,
+        settings = settings,
+        onSettingsChange = onSettingsChange
+    )
 }
 
 @Composable
 internal fun SetupScreenContent(
     uiState: TimerConfig,
     totalDuration: String,
-    actions: SetupActions
+    actions: SetupActions,
+    settings: AppSettings = AppSettings(),
+    onSettingsChange: (AppSettings) -> Unit = {}
 ) {
     val scrollState = rememberScrollState()
 
@@ -146,14 +159,22 @@ internal fun SetupScreenContent(
                     modifier = Modifier
                         .fillMaxWidth()
                         .statusBarsPadding()
-                        .padding(top = 8.dp, bottom = 16.dp),
+                        .padding(bottom = 16.dp),
                     color = MaterialTheme.colorScheme.surface
                 ) {
-                    ModeSelector(
-                        mode = uiState.mode,
-                        onModeChange = currentUpdateMode,
-                        modifier = Modifier.contentWidth()
-                    )
+                    Column {
+                        TitleRow(
+                            settings = settings,
+                            onSettingsChange = onSettingsChange,
+                            onOpenSettings = { keypad.commitAndClose() },
+                            modifier = Modifier.contentWidth()
+                        )
+                        ModeSelector(
+                            mode = uiState.mode,
+                            onModeChange = currentUpdateMode,
+                            modifier = Modifier.contentWidth()
+                        )
+                    }
                 }
              },
             bottomBar = {
@@ -222,6 +243,33 @@ private val MaxContentWidth = 600.dp
 /** Centers content and caps its width on wide screens (tablets, landscape). */
 private fun Modifier.contentWidth(): Modifier =
     fillMaxWidth().wrapContentWidth(Alignment.CenterHorizontally).widthIn(max = MaxContentWidth)
+
+/** App name and the settings entry point. */
+@Composable
+private fun TitleRow(
+    settings: AppSettings,
+    onSettingsChange: (AppSettings) -> Unit,
+    onOpenSettings: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier.padding(start = 16.dp, end = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = stringResource(R.string.app_name).uppercase(),
+            modifier = Modifier.weight(1f),
+            style = MaterialTheme.typography.titleMedium.copy(letterSpacing = 3.sp),
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.primary
+        )
+        SettingsMenuButton(
+            settings = settings,
+            onChange = onSettingsChange,
+            onOpen = onOpenSettings
+        )
+    }
+}
 
 /** Task rows plus the add buttons; scrolls the buttons into view when a task is added. */
 @Composable

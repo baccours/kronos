@@ -11,6 +11,7 @@ Kronos is an Android workout timer application supporting customizable interval 
   - **For Time**: Count-up timer with round/lap tracking and optional per-set and total time caps.
 - **Workout Configuration**: Setup screen for configuring sets, rounds, work/rest task sequences, and rest durations with estimated total workout duration.
 - **Config Persistence**: Saves the last used workout setup locally using Jetpack DataStore.
+- **Settings**: Icon-only toggles for beeps and voice (also reachable from the running screen) and a System / Light / Dark theme, saved with DataStore.
 - **Background Execution**: Runs as an Android Foreground Service (`TimerService`) with persistent notifications, notification controls (pause, resume, stop, and lap in For Time mode), and a partial wake lock to keep timing active when the screen is locked or the app is in the background.
 - **Audio Cues**: Voice announcements from pre-recorded clips (`assets/audio/*.ogg`, played through an `Announcer`) for workout phases, and synthesized PCM audio tones (beeps, buzzers, completion sound) using `AudioTrack`.
 - **Custom UI Components**: Built with Jetpack Compose (Material 3), including numeric inputs (`TimeInput`), a docked keypad (`DockedKeypad`/`KeypadState`: tap a field, type, tap the next field; the previous entry is committed automatically), and stepper controls (`HybridStepper`).
@@ -35,7 +36,7 @@ Kronos is an Android workout timer application supporting customizable interval 
 app/src/main/java/com/baccours/kronos/
 ├── engine/       # TimerEngine (clock + state machine) and WorkoutController (tick scheduling, cues, state reporting; no Android dependencies, tested with virtual time)
 ├── model/        # Data models (TimerConfig incl. limits and `sanitized()`, Task, TimerState, Lap, etc.) and TimerConfigCodec (JSON)
-├── repository/   # TimerStateStore (live state) & TimerPreferencesRepository (DataStore)
+├── repository/   # TimerStateStore (live state), SettingsStore (live settings) & DataStore repositories
 ├── audio/        # Announcer, ClipAnnouncer, ClipLibrary, ClipCatalog, ClipDecoder (voice clips); ToneSynth, StaticTrack (beeps); PcmUtil; AudioFocusController
 ├── service/      # TimerService (thin Foreground Service shell), TimerNotifier, WorkoutCommands (UI -> service), HandlerTickScheduler, TimerAudioManager (routes cues to the tones or the Announcer)
 └── ui/           # Setup and Running screens, components (Keypad, TimeInput), Theme

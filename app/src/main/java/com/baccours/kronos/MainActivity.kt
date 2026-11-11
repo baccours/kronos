@@ -2,15 +2,18 @@ package com.baccours.kronos
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -27,11 +30,13 @@ import com.baccours.kronos.service.WorkoutCommands
 import com.baccours.kronos.ui.running.RunningScreen
 import com.baccours.kronos.ui.setup.SetupScreen
 import com.baccours.kronos.ui.theme.KronosTheme
+import com.baccours.kronos.ui.theme.isDark
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
     private val viewModel: WorkoutViewModel by viewModels()
+    private val settingsViewModel: SettingsViewModel by viewModels()
     private val commands by lazy { WorkoutCommands(this) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -42,7 +47,19 @@ class MainActivity : ComponentActivity() {
             ClipLibrary.get(applicationContext).preload(ClipCatalog.clipsForAll(ClipCatalog.PHRASES))
         }
         setContent {
-            KronosTheme {
+            val saved by settingsViewModel.settings.collectAsStateWithLifecycle()
+            // Draw nothing until the saved settings are loaded, so the first frame has the right theme.
+            val settings = saved ?: return@setContent
+            val dark = settings.theme.isDark()
+            // System bar icons follow the app theme, which may differ from the system one.
+            DisposableEffect(dark) {
+                enableEdgeToEdge(
+                    statusBarStyle = SystemBarStyle.auto(Color.TRANSPARENT, Color.TRANSPARENT) { dark },
+                    navigationBarStyle = SystemBarStyle.auto(LIGHT_SCRIM, DARK_SCRIM) { dark }
+                )
+                onDispose {}
+            }
+            KronosTheme(settings.theme) {
                 val status by viewModel.status.collectAsStateWithLifecycle()
 
                 // Encoded workout config awaiting notification permission response across recreations.
@@ -61,6 +78,8 @@ class MainActivity : ComponentActivity() {
 
                 if (status == TimerStatus.NOT_STARTED) {
                     SetupScreen(
+                        settings = settings,
+                        onSettingsChange = settingsViewModel::update,
                         onStartTimer = { config ->
                             if (needsNotificationPermission() && !askedForNotifications) {
                                 // Prompt for notification permission when starting a workout.
@@ -79,7 +98,9 @@ class MainActivity : ComponentActivity() {
                         onResume = { commands.resume() },
                         onStop = { commands.stop() },
                         onSkip = { commands.skip() },
-                        onLap = { commands.lap() }
+                        onLap = { commands.lap() },
+                        settings = settings,
+                        onSettingsChange = settingsViewModel::update
                     )
                 }
             }
@@ -90,6 +111,12 @@ class MainActivity : ComponentActivity() {
         if (!commands.start(config)) {
             Toast.makeText(this, R.string.start_failed, Toast.LENGTH_LONG).show()
         }
+    }
+
+    private companion object {
+        // Scrims for the 3-button navigation bar, as in the Android sample apps.
+        val LIGHT_SCRIM = Color.argb(0xe6, 0xFF, 0xFF, 0xFF)
+        val DARK_SCRIM = Color.argb(0x80, 0x1b, 0x1b, 0x1b)
     }
 
     private fun needsNotificationPermission(): Boolean =

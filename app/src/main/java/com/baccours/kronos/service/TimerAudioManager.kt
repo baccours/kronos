@@ -9,9 +9,12 @@ import com.baccours.kronos.audio.AudioFocusController
 import com.baccours.kronos.audio.ClipAnnouncer
 import com.baccours.kronos.audio.StaticTrack
 import com.baccours.kronos.audio.ToneSynth
+import com.baccours.kronos.audio.allows
 import com.baccours.kronos.engine.Cue
 import com.baccours.kronos.engine.CuePlayer
 import com.baccours.kronos.engine.Speech
+import com.baccours.kronos.model.AppSettings
+import com.baccours.kronos.repository.SettingsStore
 
 /**
  * Audio manager playing synthesized tones and spoken cues with audio ducking on the media stream.
@@ -21,7 +24,9 @@ class TimerAudioManager(
     context: Context,
     announcerFactory: (AudioFocusController) -> Announcer = {
         ClipAnnouncer(context.applicationContext, it)
-    }
+    },
+    /** Read at play time, so settings changes apply immediately. */
+    private val settings: () -> AppSettings = { SettingsStore.settings.value }
 ) : CuePlayer {
 
     private val handler = Handler(Looper.getMainLooper())
@@ -45,6 +50,7 @@ class TimerAudioManager(
     }
 
     override fun play(cue: Cue) {
+        if (!settings().allows(cue)) return
         when (cue) {
             is Cue.Speak -> announcer.say(cue)
             Cue.Beep -> beep.play()
@@ -55,7 +61,8 @@ class TimerAudioManager(
 
     /** Preloads speech assets and tone tracks for immediate playback. */
     override fun prepare(speeches: List<Speech>) {
-        announcer.prepare(speeches)
+        // Clips for a muted voice are decoded on demand if it is switched back on.
+        if (settings().voice) announcer.prepare(speeches)
         // Post tone initialization to prevent delaying initial start cues
         handler.post { tones.forEach { it.prepare() } }
     }

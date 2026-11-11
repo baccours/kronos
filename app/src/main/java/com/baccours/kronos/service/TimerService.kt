@@ -17,7 +17,13 @@ import com.baccours.kronos.model.TimerConfig
 import com.baccours.kronos.model.TimerConfigCodec
 import com.baccours.kronos.model.TimerState
 import com.baccours.kronos.model.TimerStatus
+import com.baccours.kronos.repository.SettingsStore
 import com.baccours.kronos.repository.TimerStateStore
+import kotlinx.coroutines.MainScope
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
 
 /**
  * Foreground service maintaining workout execution in background.
@@ -27,6 +33,7 @@ class TimerService : Service(), WorkoutController.Listener {
 
     private val store: TimerStateStore = TimerStateStore
     private val handler = Handler(Looper.getMainLooper())
+    private val scope = MainScope()
     private val alarms by lazy { getSystemService(AlarmManager::class.java) }
 
     private var finishedState: TimerState? = null
@@ -55,6 +62,12 @@ class TimerService : Service(), WorkoutController.Listener {
         super.onCreate()
         notifier = TimerNotifier(this)
         notifier.createChannel()
+        // Muting the voice cuts the phrase being spoken; later cues are filtered by the audio manager.
+        scope.launch {
+            SettingsStore.settings.map { it.voice }.distinctUntilChanged().collect { voice ->
+                if (!voice) audio?.stopSpeaking()
+            }
+        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -197,6 +210,7 @@ class TimerService : Service(), WorkoutController.Listener {
     }
 
     override fun onDestroy() {
+        scope.cancel()
         handler.removeCallbacksAndMessages(null)
         alarms.cancel(pauseTimeout)
         controller?.stop()
