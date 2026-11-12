@@ -6,6 +6,9 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.IconToggleButton
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -15,6 +18,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import com.baccours.kronos.R
 import com.baccours.kronos.model.AppSettings
 import com.baccours.kronos.model.ThemeMode
@@ -27,8 +32,6 @@ import com.baccours.kronos.ui.icons.Settings
 import com.baccours.kronos.ui.icons.Speech
 import com.baccours.kronos.ui.icons.SpeechOff
 import com.baccours.kronos.ui.icons.ThemeAuto
-
-// Icon-first controls: labels exist only for screen readers.
 
 /** Setting wheel button opening a vertical dropdown menu. */
 @Composable
@@ -63,24 +66,49 @@ private fun SettingsVerticalControls(
         modifier = modifier,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        IconButton(onClick = { onChange(settings.copy(beeps = !settings.beeps)) }) {
-            Icon(
-                imageVector = if (settings.beeps) Icons.Bell else Icons.BellOff,
-                contentDescription = stringResource(R.string.setting_beeps)
-            )
-        }
-        IconButton(onClick = { onChange(settings.copy(voice = !settings.voice)) }) {
-            Icon(
-                imageVector = if (settings.voice) Icons.Speech else Icons.SpeechOff,
-                contentDescription = stringResource(R.string.setting_voice)
-            )
-        }
-        IconButton(onClick = { onChange(settings.copy(theme = settings.theme.next())) }) {
+        SettingToggle(
+            checked = settings.beeps,
+            onCheckedChange = { onChange(settings.copy(beeps = it)) },
+            icon = if (settings.beeps) Icons.Bell else Icons.BellOff,
+            label = stringResource(R.string.setting_beeps)
+        )
+        SettingToggle(
+            checked = settings.voice,
+            onCheckedChange = { onChange(settings.copy(voice = it)) },
+            icon = if (settings.voice) Icons.Speech else Icons.SpeechOff,
+            label = stringResource(R.string.setting_voice)
+        )
+        // Not a toggle: cycles through three themes, the current one is announced as the state.
+        val themeState = stringResource(settings.theme.label())
+        IconButton(
+            onClick = { onChange(settings.copy(theme = settings.theme.next())) },
+            modifier = Modifier.semantics { stateDescription = themeState }
+        ) {
             Icon(
                 imageVector = settings.theme.icon(),
-                contentDescription = stringResource(settings.theme.label())
+                contentDescription = stringResource(R.string.setting_theme)
             )
         }
+    }
+}
+
+/** Icon button announcing its on/off state to screen readers. */
+@Composable
+private fun SettingToggle(
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    icon: ImageVector,
+    label: String
+) {
+    val state = stringResource(if (checked) R.string.setting_state_on else R.string.setting_state_off)
+    IconToggleButton(
+        checked = checked,
+        onCheckedChange = onCheckedChange,
+        modifier = Modifier.semantics { stateDescription = state },
+        // The icon already shows the state: keep the content color.
+        colors = IconButtonDefaults.iconToggleButtonColors(checkedContentColor = LocalContentColor.current)
+    ) {
+        Icon(imageVector = icon, contentDescription = label)
     }
 }
 

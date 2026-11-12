@@ -23,7 +23,17 @@ class AudioFocusController(
 
     private var hasFocus = false
     private var focusRequest: AudioFocusRequest? = null
-    private val focusListener = AudioManager.OnAudioFocusChangeListener { }
+    /** Called when another app (e.g. an incoming call) takes focus. */
+    var onLost: () -> Unit = {}
+
+    private val focusListener = AudioManager.OnAudioFocusChangeListener { change ->
+        if (change == AudioManager.AUDIOFOCUS_LOSS ||
+            change == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT
+        ) {
+            release()
+            onLost()
+        }
+    }
     private val abandonRunnable = Runnable { if (!isBusy()) abandon() }
 
     companion object {
@@ -31,9 +41,10 @@ class AudioFocusController(
         const val TAIL_MS = 300L
     }
 
-    fun request() {
+    /** Returns false when focus is denied (e.g. during a call): stay silent then. */
+    fun request(): Boolean {
         handler.removeCallbacks(abandonRunnable)
-        if (hasFocus) return
+        if (hasFocus) return true
         val result = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val request = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK)
                 .setAudioAttributes(attributes)
@@ -50,6 +61,7 @@ class AudioFocusController(
             )
         }
         hasFocus = result == AudioManager.AUDIOFOCUS_REQUEST_GRANTED
+        return hasFocus
     }
 
     /** Releases audio focus after [delayMs] if idle. */

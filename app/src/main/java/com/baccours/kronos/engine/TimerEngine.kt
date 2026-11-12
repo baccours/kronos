@@ -128,12 +128,11 @@ class TimerEngine(private val config: TimerConfig) {
                 continue
             }
             val elapsedSecond = (elapsedMs / 1000).toInt()
-            if (d > 0 || capLeftMs != null) {
-                for (e in (lastElapsedSecond + 1)..elapsedSecond) {
-                    val cue = (if (d > 0) countdownCues(seg, d - e) else null)
-                        ?: capLeftMs?.let { totalCapCue(it - e * 1000L) }
-                    cue?.let { cues += it }
-                }
+            // Only the current second is announced: after a stall, older cues would be stale.
+            if ((d > 0 || capLeftMs != null) && elapsedSecond > lastElapsedSecond) {
+                val cue = (if (d > 0) countdownCues(seg, d - elapsedSecond) else null)
+                    ?: capLeftMs?.let { totalCapCue(it - elapsedSecond * 1000L) }
+                cue?.let { cues += it }
             }
             lastElapsedSecond = maxOf(lastElapsedSecond, elapsedSecond)
             break

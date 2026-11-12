@@ -25,7 +25,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.baccours.kronos.R
-import com.baccours.kronos.model.Phase
 import com.baccours.kronos.ui.icons.Add
 import com.baccours.kronos.ui.icons.Done
 import com.baccours.kronos.ui.icons.Icons
@@ -36,7 +35,9 @@ import com.baccours.kronos.ui.icons.SkipNext
 /** Action controls for running workout screen. */
 @Composable
 internal fun Controls(
-    state: RunningUiState,
+    isPaused: Boolean,
+    canLap: Boolean,
+    isLastSet: Boolean,
     colors: PhaseColors,
     compact: Boolean,
     onPause: () -> Unit,
@@ -46,11 +47,10 @@ internal fun Controls(
 ) {
     val bigSize = if (compact) 64.dp else 80.dp
     val smallSize = if (compact) 56.dp else 64.dp
-    val finishSet = state.isForTime && state.phase == Phase.WORK
     val skipDescription = stringResource(
         when {
-            !finishSet -> R.string.action_skip
-            state.isLastSet -> R.string.action_finish
+            !canLap -> R.string.action_skip // For Time: skipping a work segment finishes the set.
+            isLastSet -> R.string.action_finish
             else -> R.string.action_finish_set
         }
     )
@@ -59,10 +59,10 @@ internal fun Controls(
         verticalArrangement = Arrangement.spacedBy(12.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        if (state.canLap) {
+        if (canLap) {
             Button(
                 onClick = onLap,
-                enabled = !state.isPaused,
+                enabled = !isPaused,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(smallSize),
@@ -89,7 +89,7 @@ internal fun Controls(
             verticalAlignment = Alignment.CenterVertically
         ) {
             FilledIconButton(
-                onClick = if (state.isPaused) onResume else onPause,
+                onClick = if (isPaused) onResume else onPause,
                 modifier = Modifier.size(bigSize),
                 shape = CircleShape,
                 colors = IconButtonDefaults.filledIconButtonColors(
@@ -98,9 +98,9 @@ internal fun Controls(
                 )
             ) {
                 Icon(
-                    imageVector = if (state.isPaused) Icons.Play else Icons.Pause,
+                    imageVector = if (isPaused) Icons.Play else Icons.Pause,
                     contentDescription = stringResource(
-                        if (state.isPaused) R.string.action_resume else R.string.action_pause
+                        if (isPaused) R.string.action_resume else R.string.action_pause
                     ),
                     modifier = Modifier.size(40.dp)
                 )
@@ -114,7 +114,7 @@ internal fun Controls(
                 )
             ) {
                 Icon(
-                    imageVector = if (finishSet) Icons.Done else Icons.SkipNext,
+                    imageVector = if (canLap) Icons.Done else Icons.SkipNext,
                     contentDescription = skipDescription,
                     modifier = Modifier.size(32.dp)
                 )

@@ -57,7 +57,7 @@ class StaticTrack(
     /** Plays or restarts the sound. */
     fun play() {
         val t = ensureTrack() ?: return
-        focus.request()
+        if (!focus.request()) return
         try {
             t.stop()
             t.reloadStaticData()

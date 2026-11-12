@@ -64,8 +64,8 @@ class TimerService : Service(), WorkoutController.Listener {
         notifier.createChannel()
         // Muting the voice cuts the phrase being spoken; later cues are filtered by the audio manager.
         scope.launch {
-            SettingsStore.settings.map { it.voice }.distinctUntilChanged().collect { voice ->
-                if (!voice) audio?.stopSpeaking()
+            SettingsStore.settings.map { it?.voice }.distinctUntilChanged().collect { voice ->
+                if (voice == false) audio?.stopSpeaking()
             }
         }
     }

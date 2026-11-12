@@ -27,17 +27,22 @@ import com.baccours.kronos.R
 
 /** Section displaying current pinned lap and scrollable finished laps. */
 @Composable
-internal fun LapSection(state: RunningUiState, modifier: Modifier = Modifier) {
+internal fun LapSection(
+    lapTime: String?,
+    currentRound: Int,
+    laps: List<LapUi>,
+    modifier: Modifier = Modifier
+) {
     Column(modifier = modifier) {
-        state.lapTime?.let { lapTime ->
+        lapTime?.let {
             LapRow(
-                number = state.currentRound,
-                time = lapTime,
+                number = currentRound,
+                time = it,
                 active = true
             )
         }
         LapList(
-            laps = state.laps,
+            laps = laps,
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth()

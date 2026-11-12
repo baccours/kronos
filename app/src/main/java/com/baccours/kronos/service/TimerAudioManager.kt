@@ -26,7 +26,7 @@ class TimerAudioManager(
         ClipAnnouncer(context.applicationContext, it)
     },
     /** Read at play time, so settings changes apply immediately. */
-    private val settings: () -> AppSettings = { SettingsStore.settings.value }
+    private val settings: () -> AppSettings = { SettingsStore.current }
 ) : CuePlayer {
 
     private val handler = Handler(Looper.getMainLooper())
@@ -47,6 +47,8 @@ class TimerAudioManager(
     init {
         // Maintain focus during speech playback
         focus.isBusy = { announcer.isSpeaking }
+        // Cut speech when another app takes focus.
+        focus.onLost = { announcer.stop() }
     }
 
     override fun play(cue: Cue) {

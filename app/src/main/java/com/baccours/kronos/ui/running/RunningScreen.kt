@@ -26,6 +26,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -49,6 +50,7 @@ import com.baccours.kronos.ui.settings.SettingsMenuButton
 
 // Layout structure: Top bar, Set/Round stats, active phase timer, lap section, overall progress, controls.
 
+@Immutable
 internal data class PhaseColors(val container: Color, val content: Color)
 
 @Composable
@@ -185,7 +187,9 @@ private fun PortraitContent(
             if (state.isForTime) {
                 Spacer(Modifier.height(12.dp))
                 LapSection(
-                    state = state,
+                    lapTime = state.lapTime,
+                    currentRound = state.currentRound,
+                    laps = state.laps,
                     modifier = Modifier
                         .weight(0.8f)
                         .fillMaxWidth()
@@ -194,7 +198,7 @@ private fun PortraitContent(
             Spacer(Modifier.height(16.dp))
             OverallProgress(state)
             Spacer(Modifier.height(16.dp))
-            Controls(state, colors, compact = false, onPause, onResume, onSkip, onLap)
+            Controls(state.isPaused, state.canLap, state.isLastSet, colors, compact = false, onPause, onResume, onSkip, onLap)
         }
         CloseButton(onClose, Modifier.align(Alignment.TopStart))
         SettingsMenuButton(settings, onSettingsChange, Modifier.align(Alignment.TopEnd))
@@ -241,7 +245,9 @@ private fun LandscapeContent(
                 SetRoundStats(state, compact = true)
                 if (state.isForTime) {
                     LapSection(
-                        state = state,
+                        lapTime = state.lapTime,
+                        currentRound = state.currentRound,
+                        laps = state.laps,
                         modifier = Modifier
                             .weight(1f)
                             .fillMaxWidth()
@@ -251,7 +257,7 @@ private fun LandscapeContent(
                     OverallProgress(state)
                 }
                 Spacer(Modifier.height(8.dp))
-                Controls(state, colors, compact = true, onPause, onResume, onSkip, onLap)
+                Controls(state.isPaused, state.canLap, state.isLastSet, colors, compact = true, onPause, onResume, onSkip, onLap)
             }
         }
         CloseButton(onClose, Modifier.align(Alignment.TopStart))

@@ -61,6 +61,9 @@
     <string name="action_settings">Settings</string>
     <string name="setting_beeps">Beeps</string>
     <string name="setting_voice">Voice</string>
+    <string name="setting_theme">Theme</string>
+    <string name="setting_state_on">On</string>
+    <string name="setting_state_off">Off</string>
     <string name="theme_system">Follow system theme</string>
     <string name="theme_light">Light theme</string>
     <string name="theme_dark">Dark theme</string>

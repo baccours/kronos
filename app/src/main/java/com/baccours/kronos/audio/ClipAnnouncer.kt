@@ -75,7 +75,7 @@ class ClipAnnouncer(
             return false
         }
         if (cue.interrupt) stopPlayback()
-        focus.request()
+        if (!focus.request()) return false
         val gen = generation
         inFlight++
         // Sequential worker thread creates AudioTrack and preserves clip order.
