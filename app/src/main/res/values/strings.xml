@@ -43,8 +43,8 @@
     <string name="running_paused">Paused</string>
     <string name="running_next">Next: %1$s</string>
     <string name="running_next_with_time">Next: %1$s · %2$s</string>
-    <string name="running_next_set">Next: SET %1$d</string>
-    <string name="running_next_finish">Next: FINISH</string>
+    <string name="running_next_set">Set %1$d</string>
+    <string name="running_next_finish">Finish</string>
     <string name="action_round">Round</string>
     <string name="action_finish_set">Finish set</string>
     <string name="action_finish">Finish</string>

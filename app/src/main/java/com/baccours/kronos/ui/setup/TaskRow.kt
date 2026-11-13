@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.dp
 import com.baccours.kronos.R
 import com.baccours.kronos.format.caps
 import com.baccours.kronos.model.TaskType
+import com.baccours.kronos.model.TimerConfig
 import com.baccours.kronos.ui.components.FieldId
 import com.baccours.kronos.ui.components.TimeInput
 import com.baccours.kronos.ui.icons.Delete
@@ -89,6 +90,7 @@ fun TaskRow(
         TimeInput(
             fieldId = fieldId,
             durationSeconds = durationSeconds,
+            maxSeconds = TimerConfig.MAX_DURATION_SECONDS,
             onDurationChange = onDurationChange
         )
 

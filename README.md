@@ -47,6 +47,22 @@ app/src/main/java/com/baccours/kronos/
 
 ---
 
+### Dependencies
+
+Arrows read "depends on"; the graph has no cycles and must stay that way.
+
+```
+KronosApp, MainActivity  ->  ui, service, repository, audio (composition root)
+ui        ->  repository, format, model      (never service/audio/engine)
+service   ->  engine, audio, repository, format, model
+audio     ->  engine (Cue, Speech, CuePlayer), model
+engine    ->  model
+repository, format  ->  model
+model     ->  nothing
+```
+
+`engine` and `model` have no Android imports. `ui.components` and `ui.icons` are generic (no `model`).
+
 ## Required Permissions
 
 - `POST_NOTIFICATIONS`: Display persistent notification controls on Android 13+ (API 33+).

@@ -18,25 +18,23 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.baccours.kronos.R
-import com.baccours.kronos.model.TimerConfig
 import java.util.Locale
 
-private const val MAX_SECONDS = TimerConfig.MAX_DURATION_SECONDS
 private const val MAX_DIGITS = 4
 
 /** Converts mmss digit string to total seconds. */
-private fun mmssToSeconds(digits: String): Int {
+private fun mmssToSeconds(digits: String, maxSeconds: Int): Int {
     if (digits.isEmpty()) return 0
     val padded = digits.padStart(MAX_DIGITS, '0')
     val mins = padded.substring(0, 2).toIntOrNull() ?: 0
     val secs = padded.substring(2, 4).toIntOrNull() ?: 0
-    return (mins * 60 + secs).coerceAtMost(MAX_SECONDS)
+    return (mins * 60 + secs).coerceAtMost(maxSeconds)
 }
 
 /** Converts minute digit string to total seconds. */
-private fun minutesToSeconds(digits: String): Int {
+private fun minutesToSeconds(digits: String, maxSeconds: Int): Int {
     val mins = digits.toIntOrNull() ?: return 0
-    return (mins * 60).coerceAtMost(MAX_SECONDS)
+    return (mins * 60).coerceAtMost(maxSeconds)
 }
 
 /**
@@ -48,6 +46,7 @@ private fun minutesToSeconds(digits: String): Int {
 fun TimeInput(
     fieldId: FieldId,
     durationSeconds: Int,
+    maxSeconds: Int,
     onDurationChange: (Int) -> Unit,
     modifier: Modifier = Modifier,
     showRedOnZero: Boolean = true,
@@ -56,13 +55,15 @@ fun TimeInput(
 ) {
     val keypad = LocalKeypad.current
     val currentOnChange by rememberUpdatedState(onDurationChange)
-    val field = remember(fieldId) {
+    val field = remember(fieldId, maxSeconds) {
         KeypadField(
             id = fieldId,
             kind = KeypadKind.TIME,
             maxDigits = MAX_DIGITS,
             apply = { digits, asMinutes ->
-                currentOnChange(if (asMinutes) minutesToSeconds(digits) else mmssToSeconds(digits))
+                currentOnChange(
+                    if (asMinutes) minutesToSeconds(digits, maxSeconds) else mmssToSeconds(digits, maxSeconds)
+                )
             },
             accepts = { true }
         )

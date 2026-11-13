@@ -20,9 +20,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.lifecycleScope
-import com.baccours.kronos.audio.ClipCatalog
-import com.baccours.kronos.audio.ClipLibrary
 import com.baccours.kronos.model.TimerConfig
 import com.baccours.kronos.model.TimerConfigCodec
 import com.baccours.kronos.model.TimerStatus
@@ -33,8 +30,6 @@ import com.baccours.kronos.ui.settings.SettingsViewModel
 import com.baccours.kronos.ui.setup.SetupScreen
 import com.baccours.kronos.ui.theme.KronosTheme
 import com.baccours.kronos.ui.theme.isDark
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
     private val viewModel: WorkoutViewModel by viewModels()
@@ -45,10 +40,6 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         // Default bars until the settings are loaded; re-applied with the theme below.
         enableEdgeToEdge()
-        // Preload fixed phrases off the main thread so "Get ready" starts instantly.
-        lifecycleScope.launch(Dispatchers.Default) {
-            ClipLibrary.get(applicationContext).preload(ClipCatalog.clipsForAll(ClipCatalog.PHRASES))
-        }
         setContent {
             val saved by settingsViewModel.settings.collectAsStateWithLifecycle()
             // Draw nothing until the saved settings are loaded, so the first frame has the right theme.

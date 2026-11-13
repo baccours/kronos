@@ -111,6 +111,7 @@ internal fun SetsSection(
                 TimeInput(
                     fieldId = SetupFields.SetRest,
                     durationSeconds = restSeconds,
+                    maxSeconds = TimerConfig.MAX_DURATION_SECONDS,
                     onDurationChange = onRestChange,
                     showRedOnZero = false,
                     enabled = restEnabled
@@ -139,6 +140,7 @@ internal fun TimeCapSection(
         TimeInput(
             fieldId = fieldId,
             durationSeconds = timeCap,
+            maxSeconds = TimerConfig.MAX_DURATION_SECONDS,
             onDurationChange = onDurationChange,
             showRedOnZero = false,
             placeholder = stringResource(R.string.setup_time_cap_none),

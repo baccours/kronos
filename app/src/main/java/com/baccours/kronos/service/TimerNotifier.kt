@@ -8,7 +8,6 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import androidx.core.app.NotificationCompat
-import com.baccours.kronos.MainActivity
 import com.baccours.kronos.R
 import com.baccours.kronos.format.formatDuration
 import com.baccours.kronos.format.phaseLabel
@@ -29,15 +28,17 @@ class TimerNotifier(private val context: Context) {
 
     private var lastKey: Key? = null
 
-    private val openApp: PendingIntent by lazy {
-        PendingIntent.getActivity(
-            context,
-            0,
-            Intent(context, MainActivity::class.java).apply {
-                flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
-            },
-            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-        )
+    /** Opens the app through its launcher intent, so the service needs no reference to the activity. */
+    private val openApp: PendingIntent? by lazy {
+        context.packageManager.getLaunchIntentForPackage(context.packageName)?.let { launch ->
+            launch.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            PendingIntent.getActivity(
+                context,
+                0,
+                launch,
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+            )
+        }
     }
 
     private val serviceActions = HashMap<String, PendingIntent>()

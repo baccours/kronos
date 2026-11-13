@@ -165,9 +165,11 @@ private fun PhaseHeader(state: RunningUiState, modifier: Modifier = Modifier) {
 
 @Composable
 private fun nextText(state: RunningUiState): String {
-    val next = state.next ?: return stringResource(R.string.running_next_finish)
+    val next = state.next
+        ?: return stringResource(R.string.running_next, stringResource(R.string.running_next_finish).caps())
     if (state.isForTime && next.phase == Phase.WORK) {
-        return stringResource(R.string.running_next_set, next.set)
+        val label = stringResource(R.string.running_next_set, next.set).caps()
+        return stringResource(R.string.running_next, label)
     }
     val label = LocalContext.current.phaseLabel(next.phase, next.workIndex)
     return if (next.seconds > 0) {
