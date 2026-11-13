@@ -11,6 +11,7 @@ import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.map
 import java.io.IOException
 
 /** The app's single preferences file, shared by the settings and the saved setup. */
@@ -20,16 +21,16 @@ internal val Context.kronosDataStore: DataStore<Preferences> by preferencesDataS
     corruptionHandler = ReplaceFileCorruptionHandler { emptyPreferences() }
 )
 
-/** Preferences, or empty ones if the file cannot be read. */
-internal fun DataStore<Preferences>.readSafely(tag: String): Flow<Preferences> =
-    data.catch { error ->
-        if (error is IOException) {
-            Log.w(tag, "Cannot read preferences", error)
-            emit(emptyPreferences())
-        } else {
-            throw error
-        }
-    }
+/** Reads [transform] of the preferences; [default] if the file cannot be read or decoded. */
+internal fun <T> DataStore<Preferences>.readSafely(
+    tag: String,
+    default: T,
+    transform: (Preferences) -> T
+): Flow<T> = data.map(transform).catch { error ->
+    if (error !is Exception) throw error
+    Log.w(tag, "Cannot read preferences", error)
+    emit(default)
+}
 
 /** Returns true on success. */
 internal suspend fun DataStore<Preferences>.editSafely(

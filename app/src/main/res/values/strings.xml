@@ -2,18 +2,19 @@
     <string name="app_name">Kronos</string>
     <string name="timer_service_description">Maintains active timer when the app is in the background.</string>
 
+    <!-- Natural case: the UI upper-cases where the design wants capitals (see format/Caps.kt). -->
     <!-- Phases -->
-    <string name="phase_ready">GET READY</string>
-    <string name="phase_work">WORK</string>
-    <string name="phase_work_n">WORK %1$d</string>
-    <string name="phase_rest">REST</string>
-    <string name="phase_set_rest">REST BETWEEN SETS</string>
+    <string name="phase_ready">Get ready</string>
+    <string name="phase_work">Work</string>
+    <string name="phase_work_n">Work %1$d</string>
+    <string name="phase_rest">Rest</string>
+    <string name="phase_set_rest">Rest between sets</string>
 
     <!-- Setup -->
     <string name="mode_timer">Beat the beep</string>
     <string name="mode_for_time">Stop the clock</string>
     <string name="setup_total_duration">Total duration: %1$s</string>
-    <string name="setup_start">START</string>
+    <string name="setup_start">Start</string>
     <string name="setup_sets">Sets</string>
     <string name="setup_rounds">Rounds</string>
     <string name="setup_rest_label">rest:</string>
@@ -21,10 +22,10 @@
     <string name="setup_time_cap_suffix">(per set)</string>
     <string name="setup_time_cap_none">none</string>
     <string name="setup_total_time_cap">Total Time Cap</string>
-    <string name="setup_add_work">WORK</string>
-    <string name="setup_add_rest">REST</string>
-    <string name="task_work">WORK</string>
-    <string name="task_rest">REST</string>
+    <string name="setup_add_work">Work</string>
+    <string name="setup_add_rest">Rest</string>
+    <string name="task_work">Work</string>
+    <string name="task_rest">Rest</string>
     <string name="task_delete">Delete</string>
     <string name="stepper_decrease">Decrease</string>
     <string name="stepper_increase">Increase</string>
@@ -37,16 +38,16 @@
     <string name="duration_a11y">%1$d min %2$d sec</string>
 
     <!-- Running -->
-    <string name="running_set">SET</string>
-    <string name="running_round">ROUND</string>
-    <string name="running_paused">PAUSED</string>
+    <string name="running_set">Set</string>
+    <string name="running_round">Round</string>
+    <string name="running_paused">Paused</string>
     <string name="running_next">Next: %1$s</string>
     <string name="running_next_with_time">Next: %1$s · %2$s</string>
     <string name="running_next_set">Next: SET %1$d</string>
     <string name="running_next_finish">Next: FINISH</string>
-    <string name="action_round">ROUND</string>
-    <string name="action_finish_set">FINISH SET</string>
-    <string name="action_finish">FINISH</string>
+    <string name="action_round">Round</string>
+    <string name="action_finish_set">Finish set</string>
+    <string name="action_finish">Finish</string>
     <string name="action_pause">Pause</string>
     <string name="action_resume">Resume</string>
     <string name="action_skip">Skip</string>
@@ -72,10 +73,10 @@
     <string name="lap_label">Round %1$d</string>
 
     <!-- Finished -->
-    <string name="finished_title">WORKOUT COMPLETE</string>
+    <string name="finished_title">Workout complete</string>
     <string name="finished_total_time">Total time %1$s</string>
     <string name="finished_set_header">Set %1$d</string>
-    <string name="finished_exit">EXIT</string>
+    <string name="finished_exit">Exit</string>
 
     <!-- Notification -->
     <string name="notification_channel_name">Timer</string>

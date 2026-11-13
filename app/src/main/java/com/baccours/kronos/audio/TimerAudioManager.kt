@@ -1,20 +1,13 @@
-package com.baccours.kronos.service
+package com.baccours.kronos.audio
 
 import android.content.Context
 import android.media.AudioAttributes
 import android.os.Handler
 import android.os.Looper
-import com.baccours.kronos.audio.Announcer
-import com.baccours.kronos.audio.AudioFocusController
-import com.baccours.kronos.audio.ClipAnnouncer
-import com.baccours.kronos.audio.StaticTrack
-import com.baccours.kronos.audio.ToneSynth
-import com.baccours.kronos.audio.allows
 import com.baccours.kronos.engine.Cue
 import com.baccours.kronos.engine.CuePlayer
 import com.baccours.kronos.engine.Speech
 import com.baccours.kronos.model.AppSettings
-import com.baccours.kronos.repository.SettingsStore
 
 /**
  * Audio manager playing synthesized tones and spoken cues with audio ducking on the media stream.
@@ -22,11 +15,11 @@ import com.baccours.kronos.repository.SettingsStore
  */
 class TimerAudioManager(
     context: Context,
+    /** Read at play time, so settings changes apply immediately. */
+    private val settings: () -> AppSettings,
     announcerFactory: (AudioFocusController) -> Announcer = {
         ClipAnnouncer(context.applicationContext, it)
-    },
-    /** Read at play time, so settings changes apply immediately. */
-    private val settings: () -> AppSettings = { SettingsStore.current }
+    }
 ) : CuePlayer {
 
     private val handler = Handler(Looper.getMainLooper())

@@ -25,6 +25,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.baccours.kronos.R
+import com.baccours.kronos.format.caps
 import com.baccours.kronos.ui.icons.Add
 import com.baccours.kronos.ui.icons.Done
 import com.baccours.kronos.ui.icons.Icons
@@ -77,7 +78,7 @@ internal fun Controls(
                 Icon(Icons.Add, contentDescription = null, modifier = Modifier.size(32.dp))
                 Spacer(Modifier.width(8.dp))
                 Text(
-                    text = stringResource(R.string.action_round),
+                    text = stringResource(R.string.action_round).caps(),
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Black
                 )

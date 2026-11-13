@@ -10,12 +10,12 @@ import android.os.Build
 import androidx.core.app.NotificationCompat
 import com.baccours.kronos.MainActivity
 import com.baccours.kronos.R
-import com.baccours.kronos.formatDuration
+import com.baccours.kronos.format.formatDuration
+import com.baccours.kronos.format.phaseLabel
 import com.baccours.kronos.model.Phase
 import com.baccours.kronos.model.TimerMode
 import com.baccours.kronos.model.TimerState
 import com.baccours.kronos.model.TimerStatus
-import com.baccours.kronos.phaseLabel
 
 /**
  * Manages workout notifications using system chronometer rendering.
@@ -28,6 +28,19 @@ class TimerNotifier(private val context: Context) {
     private data class Key(val status: TimerStatus, val segmentIndex: Int, val lapCount: Int)
 
     private var lastKey: Key? = null
+
+    private val openApp: PendingIntent by lazy {
+        PendingIntent.getActivity(
+            context,
+            0,
+            Intent(context, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            },
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+    }
+
+    private val serviceActions = HashMap<String, PendingIntent>()
 
     private fun keyOf(state: TimerState) = Key(state.status, state.segmentIndex, state.laps.size)
 
@@ -69,15 +82,6 @@ class TimerNotifier(private val context: Context) {
     }
 
     private fun build(state: TimerState): Notification {
-        val openApp = PendingIntent.getActivity(
-            context,
-            0,
-            Intent(context, MainActivity::class.java).apply {
-                flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
-            },
-            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-        )
-
         val cfg = state.config
         val isForTime = cfg?.mode == TimerMode.FOR_TIME
         val finished = state.status == TimerStatus.FINISHED
@@ -149,12 +153,11 @@ class TimerNotifier(private val context: Context) {
         return builder.build()
     }
 
-    private fun serviceAction(action: String): PendingIntent {
-        val intent = Intent(context, TimerService::class.java).apply { this.action = action }
-        return PendingIntent.getService(
+    private fun serviceAction(action: String): PendingIntent = serviceActions.getOrPut(action) {
+        PendingIntent.getService(
             context,
             action.hashCode(),
-            intent,
+            Intent(context, TimerService::class.java).setAction(action),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
     }

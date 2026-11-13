@@ -26,6 +26,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.baccours.kronos.R
+import com.baccours.kronos.format.caps
 import com.baccours.kronos.ui.icons.Icons
 import com.baccours.kronos.ui.icons.Trophy
 
@@ -55,7 +56,7 @@ internal fun FinishedView(state: RunningUiState, landscape: Boolean, onExit: () 
                     )
                     Spacer(Modifier.height(if (landscape) 8.dp else 24.dp))
                     Text(
-                        text = stringResource(R.string.finished_title),
+                        text = stringResource(R.string.finished_title).caps(),
                         style = if (landscape) {
                             MaterialTheme.typography.headlineMedium
                         } else {
@@ -115,7 +116,7 @@ internal fun FinishedView(state: RunningUiState, landscape: Boolean, onExit: () 
             shape = RoundedCornerShape(12.dp)
         ) {
             Text(
-                text = stringResource(R.string.finished_exit),
+                text = stringResource(R.string.finished_exit).caps(),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold
             )

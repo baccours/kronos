@@ -6,7 +6,6 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import com.baccours.kronos.model.AppSettings
 import com.baccours.kronos.model.ThemeMode
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.map
 
 class SettingsRepository(private val context: Context) {
 
@@ -17,15 +16,14 @@ class SettingsRepository(private val context: Context) {
     }
 
     /** Saved settings; defaults for anything missing, unreadable or unknown. */
-    val settings: Flow<AppSettings> = context.kronosDataStore.readSafely(TAG)
-        .map { prefs ->
-            val defaults = AppSettings()
-            AppSettings(
-                beeps = prefs[Keys.BEEPS] ?: defaults.beeps,
-                voice = prefs[Keys.VOICE] ?: defaults.voice,
-                theme = ThemeMode.entries.firstOrNull { it.name == prefs[Keys.THEME] } ?: defaults.theme
-            )
-        }
+    val settings: Flow<AppSettings> = context.kronosDataStore.readSafely(TAG, AppSettings()) { prefs ->
+        val defaults = AppSettings()
+        AppSettings(
+            beeps = prefs[Keys.BEEPS] ?: defaults.beeps,
+            voice = prefs[Keys.VOICE] ?: defaults.voice,
+            theme = ThemeMode.entries.firstOrNull { it.name == prefs[Keys.THEME] } ?: defaults.theme
+        )
+    }
 
     /** Returns true on success. */
     suspend fun save(settings: AppSettings): Boolean =

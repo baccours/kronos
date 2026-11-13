@@ -54,7 +54,8 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.baccours.kronos.R
-import com.baccours.kronos.formatDuration
+import com.baccours.kronos.format.caps
+import com.baccours.kronos.format.formatDuration
 import com.baccours.kronos.model.AppSettings
 import com.baccours.kronos.model.Task
 import com.baccours.kronos.model.TaskType
@@ -207,7 +208,7 @@ internal fun SetupScreenContent(
                     ) {
                         if (!isTimerMode) {
                             TimeCapSection(
-                                fieldId = "time_cap",
+                                fieldId = SetupFields.TimeCap,
                                 title = stringResource(R.string.setup_time_cap),
                                 suffix = stringResource(R.string.setup_time_cap_suffix),
                                 timeCap = uiState.timeCap,
@@ -225,7 +226,7 @@ internal fun SetupScreenContent(
                     if (!isTimerMode) {
                         Spacer(modifier = Modifier.height(16.dp))
                         TimeCapSection(
-                            fieldId = "total_time_cap",
+                            fieldId = SetupFields.TotalTimeCap,
                             title = stringResource(R.string.setup_total_time_cap),
                             timeCap = uiState.totalTimeCap,
                             onDurationChange = actions.updateTotalTimeCap,
@@ -288,7 +289,7 @@ private fun TaskList(config: TimerConfig, actions: SetupActions) {
         numbered.forEach { (task, displayIndex) ->
             key(task.id) {
                 Box(modifier = Modifier.animateContentSize()) {
-                    val fieldId = "task_" + task.id
+                    val fieldId = SetupFields.task(task.id)
                     TaskRow(
                         fieldId = fieldId,
                         index = displayIndex,
@@ -368,7 +369,7 @@ private fun StartBar(
                 Icon(imageVector = Icons.Play, contentDescription = null)
                 Spacer(Modifier.width(8.dp))
                 Text(
-                    text = stringResource(R.string.setup_start),
+                    text = stringResource(R.string.setup_start).caps(),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold
                 )

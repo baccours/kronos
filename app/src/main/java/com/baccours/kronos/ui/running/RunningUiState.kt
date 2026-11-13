@@ -1,6 +1,6 @@
 package com.baccours.kronos.ui.running
 
-import com.baccours.kronos.formatDuration
+import com.baccours.kronos.format.formatDuration
 import com.baccours.kronos.model.Lap
 import com.baccours.kronos.model.Phase
 import com.baccours.kronos.model.TimerMode

@@ -46,7 +46,7 @@ private fun minutesToSeconds(digits: String): Int {
  */
 @Composable
 fun TimeInput(
-    fieldId: String,
+    fieldId: FieldId,
     durationSeconds: Int,
     onDurationChange: (Int) -> Unit,
     modifier: Modifier = Modifier,

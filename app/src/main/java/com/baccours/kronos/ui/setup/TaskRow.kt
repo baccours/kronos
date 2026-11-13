@@ -22,14 +22,16 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.baccours.kronos.R
+import com.baccours.kronos.format.caps
 import com.baccours.kronos.model.TaskType
+import com.baccours.kronos.ui.components.FieldId
 import com.baccours.kronos.ui.components.TimeInput
 import com.baccours.kronos.ui.icons.Delete
 import com.baccours.kronos.ui.icons.Icons
 
 @Composable
 fun TaskRow(
-    fieldId: String,
+    fieldId: FieldId,
     index: Int,
     type: TaskType,
     durationSeconds: Int,
@@ -78,7 +80,7 @@ fun TaskRow(
         Spacer(modifier = Modifier.width(16.dp))
 
         Text(
-            text = label,
+            text = label.caps(),
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold,
             modifier = Modifier.weight(1f)

@@ -11,6 +11,7 @@ import android.os.Looper
 import android.os.PowerManager
 import android.os.SystemClock
 import android.util.Log
+import com.baccours.kronos.audio.TimerAudioManager
 import com.baccours.kronos.engine.Cue
 import com.baccours.kronos.engine.WorkoutController
 import com.baccours.kronos.model.TimerConfig
@@ -105,7 +106,7 @@ class TimerService : Service(), WorkoutController.Listener {
 
     private fun controllerForStart(): WorkoutController {
         controller?.let { return it }
-        val player = audio ?: TimerAudioManager(this).also { audio = it }
+        val player = audio ?: TimerAudioManager(this, settings = { SettingsStore.current }).also { audio = it }
         return WorkoutController(
             cues = player,
             scheduler = HandlerTickScheduler(handler),

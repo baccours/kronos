@@ -40,7 +40,6 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.baccours.kronos.R
-import com.baccours.kronos.WorkoutViewModel
 import com.baccours.kronos.model.AppSettings
 import com.baccours.kronos.model.Phase
 import com.baccours.kronos.model.TimerStatus

@@ -68,23 +68,12 @@ val LocalKeypad = staticCompositionLocalOf<KeypadState?> { null }
 
 /** Saver preserving active field ID and typed digits across config changes. */
 private val KeypadStateSaver = listSaver<KeypadState, String>(
-    save = { listOf(it.activeId.orEmpty(), it.digits) },
-    restore = { KeypadState(activeId = it[0].ifEmpty { null }, digits = it[1]) }
+    save = { listOf(it.activeId?.key.orEmpty(), it.digits) },
+    restore = { KeypadState(activeId = it[0].ifEmpty { null }?.let(::FieldId), digits = it[1]) }
 )
 
 @Composable
-fun rememberKeypadState(): KeypadState {
-    val keypad = rememberSaveable(saver = KeypadStateSaver) { KeypadState() }
-
-    // Closes keypad if active field is no longer composed after rotation.
-    LaunchedEffect(keypad.activeId) {
-        if (keypad.activeId != null) {
-            repeat(3) { withFrameNanos { } }
-            if (keypad.activeField == null) keypad.cancel()
-        }
-    }
-    return keypad
-}
+fun rememberKeypadState(): KeypadState = rememberSaveable(saver = KeypadStateSaver) { KeypadState() }
 
 /** Scrolls element into view when active. */
 @Composable
@@ -141,7 +130,7 @@ internal fun Modifier.keypadField(
 }
 
 /** Digits typed into field [id]; empty unless it is the active one. */
-internal fun KeypadState?.digitsFor(id: String): String =
+internal fun KeypadState?.digitsFor(id: FieldId): String =
     this?.takeIf { it.activeId == id }?.digits.orEmpty()
 
 /** Docked numeric keypad UI. */

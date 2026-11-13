@@ -14,7 +14,7 @@ class KeypadStateTest {
     }
 
     private fun time(id: String, recorder: Recorder) = KeypadField(
-        id = id,
+        id = FieldId(id),
         kind = KeypadKind.TIME,
         maxDigits = 4,
         apply = { digits, asMinutes -> recorder.applied += "$id:$digits" to asMinutes },
@@ -22,7 +22,7 @@ class KeypadStateTest {
     )
 
     private fun number(id: String, recorder: Recorder, range: IntRange = 1..99) = KeypadField(
-        id = id,
+        id = FieldId(id),
         kind = KeypadKind.NUMBER,
         maxDigits = range.last.toString().length,
         apply = { digits, _ -> digits.toIntOrNull()?.takeIf { it in range }?.let { recorder.applied += "$id:$it" to false } },
@@ -81,7 +81,7 @@ class KeypadStateTest {
         keypad.typeAll("30")
         keypad.open(rest) // no dismissing step in between
         assertEquals(listOf("work:30" to false), rec.applied)
-        assertEquals("rest", keypad.activeId)
+        assertEquals(FieldId("rest"), keypad.activeId)
         assertEquals("", keypad.digits)
         keypad.typeAll("10")
         keypad.commitAndClose()
@@ -196,13 +196,14 @@ class KeypadStateTest {
     @Test
     fun aFieldReattachedAfterARotationCanCommit() {
         // Only the id and the digits survive a rotation; the field object is new.
-        val keypad = KeypadState(activeId = "work", digits = "45")
-        assertTrue(keypad.isOpen)
+        val keypad = KeypadState(activeId = FieldId("work"), digits = "45")
+        assertFalse(keypad.isOpen) // stays closed until the field is attached
         assertNull(keypad.activeField)
         val rec = Recorder()
         keypad.attach(time("rest", rec)) // not the active one: ignored
         assertNull(keypad.activeField)
         keypad.attach(time("work", rec))
+        assertTrue(keypad.isOpen)
         keypad.commitAndClose()
         assertEquals(listOf("work:45" to false), rec.applied)
     }
@@ -211,9 +212,9 @@ class KeypadStateTest {
     fun cancelIfOnlyClosesTheMatchingField() {
         val keypad = KeypadState()
         keypad.open(time("a", Recorder()))
-        keypad.cancelIf("b")
+        keypad.cancelIf(FieldId("b"))
         assertTrue(keypad.isOpen)
-        keypad.cancelIf("a")
+        keypad.cancelIf(FieldId("a"))
         assertFalse(keypad.isOpen)
     }
 
@@ -222,9 +223,9 @@ class KeypadStateTest {
         val keypad = KeypadState()
         keypad.open(time("a", Recorder()))
         keypad.typeAll("12")
-        keypad.discardDigits("b")
+        keypad.discardDigits(FieldId("b"))
         assertEquals("12", keypad.digits)
-        keypad.discardDigits("a")
+        keypad.discardDigits(FieldId("a"))
         assertEquals("", keypad.digits)
     }
 }

@@ -34,10 +34,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import com.baccours.kronos.R
-import com.baccours.kronos.formatDuration
+import com.baccours.kronos.format.caps
+import com.baccours.kronos.format.formatDuration
+import com.baccours.kronos.format.phaseLabel
 import com.baccours.kronos.model.Phase
 import com.baccours.kronos.model.TimerStatus
-import com.baccours.kronos.phaseLabel
 
 private val SegmentBarHeight = 12.dp
 private val OverallBarHeight = 6.dp
@@ -94,7 +95,7 @@ internal fun SetRoundStats(state: RunningUiState, compact: Boolean) {
 private fun Stat(label: String, value: String, compact: Boolean) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Text(
-            text = label,
+            text = label.caps(),
             style = if (compact) MaterialTheme.typography.titleMedium else MaterialTheme.typography.titleLarge,
             color = LocalContentColor.current.copy(alpha = SecondaryTextAlpha),
             maxLines = 1
@@ -137,7 +138,7 @@ internal fun NowGroup(
 private fun PhaseHeader(state: RunningUiState, modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val subtitle = if (state.isPaused) {
-        stringResource(R.string.running_paused)
+        stringResource(R.string.running_paused).caps()
     } else {
         nextText(state)
     }

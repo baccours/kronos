@@ -14,11 +14,14 @@ enum class KeypadKind {
     NUMBER
 }
 
+/** Identifies a keypad field. Must be stable across recompositions and rotation. */
+@JvmInline
+value class FieldId(val key: String)
+
 /** Keypad field binding contract. */
 @Stable
 class KeypadField(
-    /** Stable field identifier. */
-    val id: String,
+    val id: FieldId,
     val kind: KeypadKind,
     /** Maximum allowed digits. */
     val maxDigits: Int,
@@ -32,9 +35,9 @@ class KeypadField(
  * Keypad controller managing active field state and typed digits.
  */
 @Stable
-class KeypadState(activeId: String? = null, digits: String = "") {
+class KeypadState(activeId: FieldId? = null, digits: String = "") {
 
-    var activeId: String? by mutableStateOf(activeId)
+    var activeId: FieldId? by mutableStateOf(activeId)
         private set
 
     /** Currently typed digit string. */
@@ -44,7 +47,8 @@ class KeypadState(activeId: String? = null, digits: String = "") {
     var activeField: KeypadField? by mutableStateOf(null)
         private set
 
-    val isOpen: Boolean get() = activeId != null
+    /** Open once the active field is attached; a restored id with no field stays closed. */
+    val isOpen: Boolean get() = activeField != null
 
     /** True if empty or containing valid accepted digits. */
     val canSubmit: Boolean
@@ -83,7 +87,7 @@ class KeypadState(activeId: String? = null, digits: String = "") {
     }
 
     /** Clears typed digits if [fieldId] matches active field. */
-    fun discardDigits(fieldId: String) {
+    fun discardDigits(fieldId: FieldId) {
         if (activeId == fieldId) digits = ""
     }
 
@@ -101,7 +105,7 @@ class KeypadState(activeId: String? = null, digits: String = "") {
     fun cancel() = close()
 
     /** Cancels editing if [fieldId] is active. */
-    fun cancelIf(fieldId: String) {
+    fun cancelIf(fieldId: FieldId) {
         if (activeId == fieldId) close()
     }
 

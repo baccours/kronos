@@ -30,7 +30,7 @@ import com.baccours.kronos.ui.icons.Remove
  */
 @Composable
 fun HybridStepper(
-    fieldId: String,
+    fieldId: FieldId,
     value: Int,
     onValueChange: (Int) -> Unit,
     range: IntRange,

@@ -83,9 +83,15 @@ class ClipAnnouncer(
         val lead = if (cue.interrupt) LEAD_SILENCE else null
         worker.execute {
             if (gen != generation) return@execute // Superseded before it started.
-            val pcm = assemble(names, lead)
-            if (pcm == null) Log.w(TAG, "Dropped \"${cue.text}\": a clip could not be decoded")
-            val prepared = pcm?.takeIf { it.isNotEmpty() && gen == generation }?.let(::buildTrack)
+            // Always report back, or inFlight stays > 0 and audio focus is never released.
+            val prepared = try {
+                val pcm = assemble(names, lead)
+                if (pcm == null) Log.w(TAG, "Dropped \"${cue.text}\": a clip could not be decoded")
+                pcm?.takeIf { it.isNotEmpty() && gen == generation }?.let(::buildTrack)
+            } catch (e: Exception) {
+                Log.e(TAG, "Dropped \"${cue.text}\": cannot prepare", e)
+                null
+            }
             handler.post { onPrepared(gen, prepared) }
         }
         return true

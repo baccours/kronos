@@ -1,4 +1,4 @@
-package com.baccours.kronos
+package com.baccours.kronos.ui.settings
 
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel

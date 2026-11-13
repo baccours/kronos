@@ -1,11 +1,9 @@
-package com.baccours.kronos
+package com.baccours.kronos.ui.running
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.baccours.kronos.model.TimerStatus
 import com.baccours.kronos.repository.TimerStateStore
-import com.baccours.kronos.ui.running.RunningUiState
-import com.baccours.kronos.ui.running.RunningUiStateMapper
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged

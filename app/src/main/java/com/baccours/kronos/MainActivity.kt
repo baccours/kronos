@@ -28,6 +28,8 @@ import com.baccours.kronos.model.TimerConfigCodec
 import com.baccours.kronos.model.TimerStatus
 import com.baccours.kronos.service.WorkoutCommands
 import com.baccours.kronos.ui.running.RunningScreen
+import com.baccours.kronos.ui.running.WorkoutViewModel
+import com.baccours.kronos.ui.settings.SettingsViewModel
 import com.baccours.kronos.ui.setup.SetupScreen
 import com.baccours.kronos.ui.theme.KronosTheme
 import com.baccours.kronos.ui.theme.isDark

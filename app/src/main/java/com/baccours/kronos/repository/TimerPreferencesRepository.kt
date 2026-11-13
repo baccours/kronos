@@ -5,7 +5,6 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import com.baccours.kronos.model.TimerConfig
 import com.baccours.kronos.model.TimerConfigCodec
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.map
 
 class TimerPreferencesRepository(private val context: Context) {
 
@@ -13,9 +12,9 @@ class TimerPreferencesRepository(private val context: Context) {
         val TIMER_CONFIG = stringPreferencesKey("timer_config_json")
     }
 
-    /** Flow emitting saved configuration or defaults on error/missing data. */
-    val timerConfigFlow: Flow<TimerConfig> = context.kronosDataStore.readSafely(TAG)
-        .map { preferences ->
+    /** Saved configuration, or defaults if missing or unreadable. */
+    val timerConfigFlow: Flow<TimerConfig> =
+        context.kronosDataStore.readSafely(TAG, TimerConfig()) { preferences ->
             TimerConfigCodec.decode(preferences[PreferencesKeys.TIMER_CONFIG]) ?: TimerConfig()
         }
 

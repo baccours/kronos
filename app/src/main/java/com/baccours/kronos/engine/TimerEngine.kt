@@ -24,6 +24,13 @@ sealed interface Cue {
     data object Celebration : Cue
 }
 
+/** Says [speech] when [remainingFor] (given the segment length) seconds are left, in segments of [minSeconds]+. */
+private class CountdownSpeech(
+    val speech: Speech,
+    val minSeconds: Int,
+    val remainingFor: (segmentSeconds: Int) -> Int
+)
+
 data class EngineResult(
     val state: TimerState,
     val cues: List<Cue> = emptyList()
@@ -259,10 +266,7 @@ class TimerEngine(private val config: TimerConfig) {
         for (i in plan.indices) {
             startCues(i).forEach(::add)
             val seconds = plan[i].durationSeconds
-            if (seconds > 0) {
-                add(countdownCues(plan[i], 10))
-                add(countdownCues(plan[i], seconds / 2))
-            }
+            for (rule in COUNTDOWN_SPEECH) if (seconds >= rule.minSeconds) out += rule.speech
         }
         add(totalCapCue(10_000L))
         out += Speech.WellDone
@@ -393,17 +397,22 @@ class TimerEngine(private val config: TimerConfig) {
 
     /** Returns countdown warning cue for remaining segment seconds. */
     private fun countdownCues(seg: Segment, remaining: Int): Cue? {
+        if (remaining in 1..LAST_BEEPS) return Cue.Beep
         val d = seg.durationSeconds
-        return when {
-            remaining == 10 && d >= 30 -> Cue.Speak(Speech.TenSeconds)
-            remaining in 1..3 -> Cue.Beep
-            d >= 60 && remaining == d / 2 -> Cue.Speak(Speech.Halfway)
-            else -> null
-        }
+        return COUNTDOWN_SPEECH
+            .firstOrNull { d >= it.minSeconds && remaining == it.remainingFor(d) }
+            ?.let { Cue.Speak(it.speech) }
     }
 
     companion object {
         const val DEFAULT_READY_SECONDS = 10
+        private const val LAST_BEEPS = 3
+
+        /** Spoken countdown cues; also the source of the clips preloaded by [speechNeeded]. */
+        private val COUNTDOWN_SPEECH = listOf(
+            CountdownSpeech(Speech.TenSeconds, minSeconds = 30) { 10 },
+            CountdownSpeech(Speech.Halfway, minSeconds = 60) { it / 2 }
+        )
         private const val TICK_SLACK_MS = 10L
         private const val IDLE_TICK_MS = 1000L
         private const val MIN_CLOSING_LAP_MS = 1000L

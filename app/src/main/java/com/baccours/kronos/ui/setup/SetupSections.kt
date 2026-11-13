@@ -31,7 +31,9 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.baccours.kronos.R
+import com.baccours.kronos.format.caps
 import com.baccours.kronos.model.TimerConfig
+import com.baccours.kronos.ui.components.FieldId
 import com.baccours.kronos.ui.components.HybridStepper
 import com.baccours.kronos.ui.components.TimeInput
 import com.baccours.kronos.ui.icons.Add
@@ -60,7 +62,7 @@ internal fun TaskActionButton(
         Icon(imageVector = Icons.Add, contentDescription = null)
         Spacer(Modifier.width(2.dp))
         Text(
-            text = text,
+            text = text.caps(),
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold
         )
@@ -86,7 +88,7 @@ internal fun SetsSection(
             verticalAlignment = Alignment.CenterVertically
         ) {
             HybridStepper(
-                fieldId = "sets",
+                fieldId = SetupFields.Sets,
                 value = sets,
                 onValueChange = onSetsChange,
                 range = 1..TimerConfig.MAX_SETS,
@@ -107,7 +109,7 @@ internal fun SetsSection(
                     )
                 )
                 TimeInput(
-                    fieldId = "set_rest",
+                    fieldId = SetupFields.SetRest,
                     durationSeconds = restSeconds,
                     onDurationChange = onRestChange,
                     showRedOnZero = false,
@@ -122,7 +124,7 @@ internal fun SetsSection(
 
 @Composable
 internal fun TimeCapSection(
-    fieldId: String,
+    fieldId: FieldId,
     title: String,
     suffix: String? = null,
     timeCap: Int,
@@ -158,7 +160,7 @@ internal fun RoundsSection(
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
     ) {
         HybridStepper(
-            fieldId = "rounds",
+            fieldId = SetupFields.Rounds,
             value = rounds,
             onValueChange = onRoundsChange,
             range = 1..TimerConfig.MAX_ROUNDS,
