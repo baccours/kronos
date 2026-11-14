@@ -31,6 +31,7 @@ class WorkoutControllerTest {
         var finished: TimerState? = null
         var finishedAt = -1L
         var finishedCount = 0
+        val prepared = ArrayList<List<Speech>>()
         var stopSpeakingCalls = 0
         var failOnBeep = false
 
@@ -61,7 +62,7 @@ class WorkoutControllerTest {
             played += cue
         }
 
-        override fun prepare(speeches: List<Speech>) {}
+        override fun prepare(speeches: List<Speech>) { prepared += speeches }
         override fun stopSpeaking() { stopSpeakingCalls++ }
         override fun release() {}
 
@@ -210,5 +211,22 @@ class WorkoutControllerTest {
         world.advanceTo(10_500)
         controller.lap()
         assertEquals(1, controller.lastState.laps.size)
+    }
+
+    @Test
+    fun prepareCuesReloadsTheSpeechOfTheActiveWorkoutOnly() {
+        val world = World()
+        val controller = world.controller()
+        controller.prepareCues()
+        assertTrue(world.prepared.isEmpty())
+
+        controller.start(simple)
+        controller.prepareCues()
+        assertEquals(2, world.prepared.size)
+        assertEquals(world.prepared[0], world.prepared[1])
+
+        world.advanceTo(100_000)
+        controller.prepareCues()
+        assertEquals(2, world.prepared.size)
     }
 }

@@ -38,8 +38,6 @@ data class TimerState(
     /** Planned segment duration in seconds (0 = open-ended). */
     val segmentSeconds: Int = 0,
     val segmentElapsedMs: Long = 0,
-    val elapsedSeconds: Int = 0,
-    val remainingSeconds: Int = 0,
     /** Seconds elapsed in current lap (FOR_TIME). */
     val lapElapsedSeconds: Int = 0,
     val totalElapsedSeconds: Int = 0,
@@ -47,4 +45,8 @@ data class TimerState(
     val totalRemainingSeconds: Int? = null,
     val next: UpNext? = null,
     val laps: List<Lap> = emptyList()
-)
+) {
+    val elapsedSeconds: Int get() = (segmentElapsedMs / 1000).toInt()
+    val remainingSeconds: Int
+        get() = if (segmentSeconds > 0) (segmentSeconds - elapsedSeconds).coerceAtLeast(0) else 0
+}

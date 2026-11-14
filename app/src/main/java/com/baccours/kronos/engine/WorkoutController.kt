@@ -70,6 +70,11 @@ class WorkoutController(
         return true
     }
 
+    /** Preloads again the clips of the active workout, e.g. once the voice is switched back on. */
+    fun prepareCues() {
+        engine?.takeIf { isActive }?.let { cues.prepare(it.speechNeeded()) }
+    }
+
     fun pause() {
         val e = engine ?: return
         if (e.status != TimerStatus.RUNNING) return

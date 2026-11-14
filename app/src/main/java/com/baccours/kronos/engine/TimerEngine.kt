@@ -40,16 +40,42 @@ class TimerEngine(private val config: TimerConfig) {
         val durationSeconds: Int
     )
 
-    private val plan: List<Segment> = buildPlan()
+    /**
+     * The workout's segments, computed on demand from the config: a huge workout
+     * (99 sets x 99 rounds x 36 tasks) then costs neither setup time nor memory.
+     */
+    private inner class Plan : AbstractList<Segment>() {
+        private val active = config.tasks.numbered().filter { it.task.durationSeconds > 0 }
+        private val isTimer = config.mode == TimerMode.TIMER
+        private val perSet = if (isTimer) config.rounds * active.size else 1
+        private val hasSetRest = config.setRestSeconds > 0
 
-    /** Cumulative duration of remaining non-READY segments after index i. */
-    private val suffixSeconds: IntArray = IntArray(plan.size).also { out ->
-        var acc = 0
-        for (i in plan.indices.reversed()) {
-            out[i] = acc
-            if (plan[i].phase != Phase.READY) acc += plan[i].durationSeconds
+        /** Segments per set, including the rest after it. */
+        val stride = perSet + if (hasSetRest) 1 else 0
+
+        override val size = 1 + stride * config.sets - if (hasSetRest) 1 else 0
+
+        override fun get(index: Int): Segment {
+            if (index == 0) return Segment(Phase.READY, 1, 1, 0, DEFAULT_READY_SECONDS)
+            val set = (index - 1) / stride + 1
+            val offset = (index - 1) % stride
+            if (offset == perSet) {
+                return Segment(Phase.SET_REST, set, if (isTimer) config.rounds else 1, 0, config.setRestSeconds)
+            }
+            if (!isTimer) return Segment(Phase.WORK, set, 1, 0, config.timeCap.coerceAtLeast(0))
+            val (task, displayIndex) = active[offset % active.size]
+            val isWork = task.type == TaskType.WORK
+            return Segment(
+                phase = if (isWork) Phase.WORK else Phase.REST,
+                set = set,
+                round = offset / active.size + 1,
+                workIndex = if (isWork) displayIndex else 0,
+                durationSeconds = task.durationSeconds
+            )
         }
     }
+
+    private val plan = Plan()
 
     private val isForTime = config.mode == TimerMode.FOR_TIME
 
@@ -67,6 +93,9 @@ class TimerEngine(private val config: TimerConfig) {
     private var completedMs = 0L
     private var lastElapsedSecond = 0
 
+    /** Planned seconds of the segments after the current one (TIMER mode; READY counts for nothing). */
+    private var secondsAfter = config.totalDurationSeconds
+
     /** Start cues of a segment skipped to while paused; played on resume. */
     private var pendingCues: List<Cue> = emptyList()
     private val laps = ArrayList<Lap>()
@@ -81,6 +110,7 @@ class TimerEngine(private val config: TimerConfig) {
         lapStartMs = now
         completedMs = 0
         lastElapsedSecond = 0
+        secondsAfter = config.totalDurationSeconds
         pendingCues = emptyList()
         laps.clear()
         lapCountBySet.clear()
@@ -113,7 +143,7 @@ class TimerEngine(private val config: TimerConfig) {
                     finish(cues)
                     break
                 }
-                index++
+                advance()
                 segmentStartMs = boundary
                 lapStartMs = boundary
                 lastElapsedSecond = 0
@@ -167,7 +197,7 @@ class TimerEngine(private val config: TimerConfig) {
         if (index >= plan.lastIndex) {
             finish(cues)
         } else {
-            index++
+            advance()
             segmentStartMs = t
             lapStartMs = t
             lastElapsedSecond = 0
@@ -221,8 +251,6 @@ class TimerEngine(private val config: TimerConfig) {
             workIndex = seg.workIndex,
             segmentSeconds = d,
             segmentElapsedMs = elapsedMs,
-            elapsedSeconds = elapsedSeconds,
-            remainingSeconds = remaining,
             lapElapsedSeconds = if (isLapSegment(seg) && !finished) {
                 ((t - lapStartMs).coerceAtLeast(0) / 1000).toInt()
             } else 0,
@@ -232,7 +260,7 @@ class TimerEngine(private val config: TimerConfig) {
                 totalCapMs > 0 -> (totalCapSeconds - (totalElapsedMs / 1000).toInt())
                     .coerceAtLeast(0)
                 isForTime -> null
-                else -> (if (seg.phase == Phase.READY) 0 else remaining) + suffixSeconds[index]
+                else -> (if (seg.phase == Phase.READY) 0 else remaining) + secondsAfter
             },
             next = if (finished) null else plan.getOrNull(index + 1)?.let {
                 UpNext(it.phase, it.workIndex, it.set, it.durationSeconds)
@@ -249,10 +277,17 @@ class TimerEngine(private val config: TimerConfig) {
         fun add(cue: Cue?) {
             if (cue is Cue.Speak) out += cue.parts
         }
-        for (i in plan.indices) {
+        fun scan(i: Int) {
             startCues(i).forEach(::add)
             val seconds = plan[i].durationSeconds
             for (rule in COUNTDOWN_SPEECH) if (seconds >= rule.minSeconds) out += rule.speech
+        }
+        // Set 1 (and the rest after it) has every phrase except the set numbers,
+        // which are spoken at the first segment of each later set.
+        for (i in 0..minOf(plan.lastIndex, plan.stride)) scan(i)
+        for (set in 2..config.sets) {
+            val first = 1 + (set - 1) * plan.stride
+            if (first <= plan.lastIndex) scan(first)
         }
         add(totalCapCue(10_000L))
         out += Speech.WellDone
@@ -310,34 +345,10 @@ class TimerEngine(private val config: TimerConfig) {
         cues += Cue.Speak(Speech.WellDone, interrupt = true)
     }
 
-    private fun buildPlan(): List<Segment> {
-        val out = ArrayList<Segment>()
-        out += Segment(Phase.READY, 1, 1, 0, DEFAULT_READY_SECONDS)
-        val indexed = config.tasks.numbered()
-        for (set in 1..config.sets) {
-            if (config.mode == TimerMode.TIMER) {
-                for (round in 1..config.rounds) {
-                    for ((task, displayIndex) in indexed) {
-                        if (task.durationSeconds <= 0) continue
-                        val isWork = task.type == TaskType.WORK
-                        out += Segment(
-                            phase = if (isWork) Phase.WORK else Phase.REST,
-                            set = set,
-                            round = round,
-                            workIndex = if (isWork) displayIndex else 0,
-                            durationSeconds = task.durationSeconds
-                        )
-                    }
-                }
-            } else {
-                out += Segment(Phase.WORK, set, 1, 0, config.timeCap.coerceAtLeast(0))
-            }
-            if (set < config.sets && config.setRestSeconds > 0) {
-                val lastRound = if (config.mode == TimerMode.TIMER) config.rounds else 1
-                out += Segment(Phase.SET_REST, set, lastRound, 0, config.setRestSeconds)
-            }
-        }
-        return out
+    /** Moves to the next segment. */
+    private fun advance() {
+        index++
+        secondsAfter -= plan[index].durationSeconds
     }
 
     private fun startCues(i: Int): List<Cue> {

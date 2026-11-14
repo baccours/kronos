@@ -55,7 +55,7 @@ class TimerService : Service(), WorkoutController.Listener {
     private var audio: TimerAudioManager? = null
     private var controller: WorkoutController? = null
     private var wakeLock: PowerManager.WakeLock? = null
-    private var lockSegment = -1
+    private var lockRenewedAt = 0L
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -64,9 +64,10 @@ class TimerService : Service(), WorkoutController.Listener {
         notifier = TimerNotifier(this)
         notifier.createChannel()
         // Muting the voice cuts the phrase being spoken; later cues are filtered by the audio manager.
+        // Unmuting preloads the clips skipped at start, so the next phrase is not late.
         scope.launch {
             SettingsStore.settings.map { it?.voice }.distinctUntilChanged().collect { voice ->
-                if (voice == false) audio?.stopSpeaking()
+                if (voice == false) audio?.stopSpeaking() else if (voice == true) controller?.prepareCues()
             }
         }
     }
@@ -99,7 +100,10 @@ class TimerService : Service(), WorkoutController.Listener {
         }
         handler.removeCallbacks(finishRunnable)
         // Enter foreground immediately before background setup
-        enterForeground(TimerState(status = TimerStatus.RUNNING, config = config))
+        if (!enterForeground(TimerState(status = TimerStatus.RUNNING, config = config))) {
+            stopSelf()
+            return
+        }
         acquireWakeLock()
         controllerForStart().start(config)
     }
@@ -151,26 +155,32 @@ class TimerService : Service(), WorkoutController.Listener {
         stopSelf()
     }
 
-    private fun enterForeground(state: TimerState) {
+    /** Returns false if the system refuses (foreground start not allowed, missing permission). */
+    private fun enterForeground(state: TimerState): Boolean {
         val notification = notifier.buildForForeground(state)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            startForeground(
-                TimerNotifier.NOTIFICATION_ID,
-                notification,
-                ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
-            )
-        } else {
-            startForeground(TimerNotifier.NOTIFICATION_ID, notification)
+        return try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                startForeground(
+                    TimerNotifier.NOTIFICATION_ID,
+                    notification,
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
+                )
+            } else {
+                startForeground(TimerNotifier.NOTIFICATION_ID, notification)
+            }
+            true
+        } catch (e: RuntimeException) {
+            Log.e(TAG, "Cannot enter the foreground", e)
+            false
         }
     }
 
     override fun onStateChanged(state: TimerState) {
         store.updateState(state)
-        // Renew the wake lock's safety timeout on each new segment.
-        if (state.status == TimerStatus.RUNNING && state.segmentIndex != lockSegment) {
-            lockSegment = state.segmentIndex
-            acquireWakeLock()
-        }
+        // Renew the wake lock's safety timeout, so a long workout never outlives it.
+        if (state.status == TimerStatus.RUNNING &&
+            SystemClock.elapsedRealtime() - lockRenewedAt > WAKE_LOCK_RENEW_MS
+        ) acquireWakeLock()
         if (state.status != TimerStatus.FINISHED) {
             notifier.updateIfChanged(state)
         }
@@ -204,6 +214,7 @@ class TimerService : Service(), WorkoutController.Listener {
             .also { wakeLock = it }
         // Safety net so a bug can never keep the CPU awake forever.
         lock.acquire(WAKE_LOCK_TIMEOUT_MS)
+        lockRenewedAt = SystemClock.elapsedRealtime()
     }
 
     private fun releaseWakeLock() {
@@ -236,7 +247,8 @@ class TimerService : Service(), WorkoutController.Listener {
 
         private const val TAG = "TimerService"
         private const val FINISH_LINGER_MS = 4_000L
-        private const val PAUSE_TIMEOUT_MS = 30L * 60 * 1000
+        private const val PAUSE_TIMEOUT_MS = 60L * 60 * 1000
         private const val WAKE_LOCK_TIMEOUT_MS = 6L * 60 * 60 * 1000
+        private const val WAKE_LOCK_RENEW_MS = 60L * 60 * 1000
     }
 }
