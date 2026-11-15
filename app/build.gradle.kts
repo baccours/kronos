@@ -35,6 +35,9 @@ android {
     buildFeatures {
         compose = true
     }
+    androidResources {
+        noCompress += "ogg"
+    }
     dependenciesInfo {
         includeInApk = false
         includeInBundle = false

@@ -24,6 +24,7 @@ import com.baccours.kronos.model.TimerConfig
 import com.baccours.kronos.model.TimerConfigCodec
 import com.baccours.kronos.model.TimerStatus
 import com.baccours.kronos.service.WorkoutCommands
+import com.baccours.kronos.ui.running.RunningActions
 import com.baccours.kronos.ui.running.RunningScreen
 import com.baccours.kronos.ui.running.WorkoutViewModel
 import com.baccours.kronos.ui.settings.SettingsViewModel
@@ -35,6 +36,9 @@ class MainActivity : ComponentActivity() {
     private val viewModel: WorkoutViewModel by viewModels()
     private val settingsViewModel: SettingsViewModel by viewModels()
     private val commands by lazy { WorkoutCommands(this) }
+    private val runningActions by lazy {
+        RunningActions(commands::pause, commands::resume, commands::stop, commands::skip, commands::lap)
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -87,11 +91,7 @@ class MainActivity : ComponentActivity() {
                 } else {
                     RunningScreen(
                         viewModel = viewModel,
-                        onPause = { commands.pause() },
-                        onResume = { commands.resume() },
-                        onStop = { commands.stop() },
-                        onSkip = { commands.skip() },
-                        onLap = { commands.lap() },
+                        actions = runningActions,
                         settings = settings,
                         onSettingsChange = settingsViewModel::update
                     )

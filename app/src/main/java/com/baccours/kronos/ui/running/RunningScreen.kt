@@ -63,13 +63,19 @@ private fun phaseColors(state: RunningUiState): PhaseColors {
     }
 }
 
+/** Workout commands the running screen can trigger. */
+@Immutable
+class RunningActions(
+    val onPause: () -> Unit = {},
+    val onResume: () -> Unit = {},
+    val onStop: () -> Unit = {},
+    val onSkip: () -> Unit = {},
+    val onLap: () -> Unit = {}
+)
+
 @Composable
 fun RunningScreen(
-    onPause: () -> Unit,
-    onResume: () -> Unit,
-    onStop: () -> Unit,
-    onSkip: () -> Unit = {},
-    onLap: () -> Unit = {},
+    actions: RunningActions,
     settings: AppSettings = AppSettings(),
     onSettingsChange: (AppSettings) -> Unit = {},
     viewModel: WorkoutViewModel = viewModel()
@@ -89,7 +95,7 @@ fun RunningScreen(
 
     val requestStop = {
         if (state.status == TimerStatus.RUNNING) {
-            onPause()
+            actions.onPause()
             pausedByDialog = true
         }
         showStopDialog = true
@@ -98,15 +104,15 @@ fun RunningScreen(
         showStopDialog = false
         if (pausedByDialog) {
             pausedByDialog = false
-            onResume()
+            actions.onResume()
         }
     }
 
     BackHandler {
         when (state.status) {
-            TimerStatus.RUNNING -> onPause()
+            TimerStatus.RUNNING -> actions.onPause()
             TimerStatus.PAUSED -> requestStop()
-            else -> onStop()
+            else -> actions.onStop()
         }
     }
 
@@ -128,14 +134,12 @@ fun RunningScreen(
         ) {
             val landscape = maxWidth > maxHeight
             when {
-                state.isFinished -> FinishedView(state, landscape, onExit = onStop)
+                state.isFinished -> FinishedView(state, landscape, onExit = actions.onStop)
                 landscape -> LandscapeContent(
-                    state, animatedColors, requestStop, onPause, onResume, onSkip, onLap,
-                    settings, onSettingsChange
+                    state, animatedColors, requestStop, actions, settings, onSettingsChange
                 )
                 else -> PortraitContent(
-                    state, animatedColors, requestStop, onPause, onResume, onSkip, onLap,
-                    settings, onSettingsChange
+                    state, animatedColors, requestStop, actions, settings, onSettingsChange
                 )
             }
         }
@@ -150,7 +154,7 @@ fun RunningScreen(
                 TextButton(onClick = {
                     showStopDialog = false
                     pausedByDialog = false
-                    onStop()
+                    actions.onStop()
                 }) { Text(stringResource(R.string.stop_dialog_confirm)) }
             },
             dismissButton = {
@@ -169,10 +173,7 @@ private fun PortraitContent(
     state: RunningUiState,
     colors: PhaseColors,
     onClose: () -> Unit,
-    onPause: () -> Unit,
-    onResume: () -> Unit,
-    onSkip: () -> Unit,
-    onLap: () -> Unit,
+    actions: RunningActions,
     settings: AppSettings,
     onSettingsChange: (AppSettings) -> Unit
 ) {
@@ -197,7 +198,7 @@ private fun PortraitContent(
             Spacer(Modifier.height(16.dp))
             OverallProgress(state)
             Spacer(Modifier.height(16.dp))
-            Controls(state.isPaused, state.canLap, state.isLastSet, colors, compact = false, onPause, onResume, onSkip, onLap)
+            Controls(state, colors, compact = false, actions)
         }
         CloseButton(onClose, Modifier.align(Alignment.TopStart))
         SettingsMenuButton(settings, onSettingsChange, Modifier.align(Alignment.TopEnd))
@@ -209,10 +210,7 @@ private fun LandscapeContent(
     state: RunningUiState,
     colors: PhaseColors,
     onClose: () -> Unit,
-    onPause: () -> Unit,
-    onResume: () -> Unit,
-    onSkip: () -> Unit,
-    onLap: () -> Unit,
+    actions: RunningActions,
     settings: AppSettings,
     onSettingsChange: (AppSettings) -> Unit
 ) {
@@ -256,7 +254,7 @@ private fun LandscapeContent(
                     OverallProgress(state)
                 }
                 Spacer(Modifier.height(8.dp))
-                Controls(state.isPaused, state.canLap, state.isLastSet, colors, compact = true, onPause, onResume, onSkip, onLap)
+                Controls(state, colors, compact = true, actions)
             }
         }
         CloseButton(onClose, Modifier.align(Alignment.TopStart))

@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.util.UUID
 import kotlin.time.Duration.Companion.milliseconds
 
 @OptIn(FlowPreview::class)
@@ -69,7 +70,7 @@ class SetupViewModel @JvmOverloads constructor(
         val duration = current.tasks.findLast { it.type == type }?.durationSeconds
             ?: current.tasks.lastOrNull()?.durationSeconds
             ?: 30
-        current.copy(tasks = current.tasks + Task(type = type, durationSeconds = duration))
+        current.copy(tasks = current.tasks + Task(UUID.randomUUID().toString(), type, duration))
     }
 
     fun removeTask(id: String) = edit {

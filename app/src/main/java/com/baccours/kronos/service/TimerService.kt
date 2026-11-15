@@ -1,6 +1,5 @@
 package com.baccours.kronos.service
 
-import android.app.AlarmManager
 import android.app.Service
 import android.content.Intent
 import android.content.pm.ServiceInfo
@@ -8,7 +7,6 @@ import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
-import android.os.PowerManager
 import android.os.SystemClock
 import android.util.Log
 import com.baccours.kronos.audio.TimerAudioManager
@@ -35,27 +33,23 @@ class TimerService : Service(), WorkoutController.Listener {
     private val store: TimerStateStore = TimerStateStore
     private val handler = Handler(Looper.getMainLooper())
     private val scope = MainScope()
-    private val alarms by lazy { getSystemService(AlarmManager::class.java) }
+
+    private lateinit var notifier: TimerNotifier
+    private lateinit var wakeLock: WakeLockHolder
+    private lateinit var pauseTimeout: PauseTimeout
+    private var audio: TimerAudioManager? = null
+    private var controller: WorkoutController? = null
 
     private var finishedState: TimerState? = null
 
     /** Ends the service after the closing audio; the completion notification stays. */
     private val finishRunnable = Runnable {
-        releaseWakeLock()
+        wakeLock.release()
         stopForeground(STOP_FOREGROUND_DETACH)
         // Re-post once detached so it is a normal, dismissible notification.
         finishedState?.let { notifier.show(it) }
         stopSelf()
     }
-
-    /** Fires (on [handler]) when a workout has been paused too long. */
-    private val pauseTimeout = AlarmManager.OnAlarmListener { stopTimer() }
-
-    private lateinit var notifier: TimerNotifier
-    private var audio: TimerAudioManager? = null
-    private var controller: WorkoutController? = null
-    private var wakeLock: PowerManager.WakeLock? = null
-    private var lockRenewedAt = 0L
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -63,6 +57,8 @@ class TimerService : Service(), WorkoutController.Listener {
         super.onCreate()
         notifier = TimerNotifier(this)
         notifier.createChannel()
+        wakeLock = WakeLockHolder(this, "kronos:timer")
+        pauseTimeout = PauseTimeout(this, handler, onTimeout = ::stopTimer)
         // Muting the voice cuts the phrase being spoken; later cues are filtered by the audio manager.
         // Unmuting preloads the clips skipped at start, so the next phrase is not late.
         scope.launch {
@@ -104,7 +100,7 @@ class TimerService : Service(), WorkoutController.Listener {
             stopSelf()
             return
         }
-        acquireWakeLock()
+        wakeLock.acquire()
         controllerForStart().start(config)
     }
 
@@ -122,33 +118,23 @@ class TimerService : Service(), WorkoutController.Listener {
     private fun pauseTimer() {
         val c = controller ?: return
         c.pause()
-        releaseWakeLock()
-        // Don't keep a forgotten paused workout (and its notification) alive forever.
-        // An alarm, unlike a handler delay, still counts time while the device sleeps.
-        if (c.status == TimerStatus.PAUSED) {
-            alarms.set(
-                AlarmManager.ELAPSED_REALTIME_WAKEUP,
-                SystemClock.elapsedRealtime() + PAUSE_TIMEOUT_MS,
-                "kronos:pause-timeout",
-                pauseTimeout,
-                handler
-            )
-        }
+        wakeLock.release()
+        if (c.status == TimerStatus.PAUSED) pauseTimeout.start()
     }
 
     private fun resumeTimer() {
         val c = controller ?: return
         if (c.status != TimerStatus.PAUSED) return
-        alarms.cancel(pauseTimeout)
-        acquireWakeLock()
+        pauseTimeout.cancel()
+        wakeLock.acquire()
         c.resume()
     }
 
     private fun stopTimer() {
         handler.removeCallbacks(finishRunnable)
-        alarms.cancel(pauseTimeout)
+        pauseTimeout.cancel()
         controller?.stop()
-        releaseWakeLock()
+        wakeLock.release()
         store.reset()
         stopForeground(STOP_FOREGROUND_REMOVE)
         notifier.cancel()
@@ -177,17 +163,14 @@ class TimerService : Service(), WorkoutController.Listener {
 
     override fun onStateChanged(state: TimerState) {
         store.updateState(state)
-        // Renew the wake lock's safety timeout, so a long workout never outlives it.
-        if (state.status == TimerStatus.RUNNING &&
-            SystemClock.elapsedRealtime() - lockRenewedAt > WAKE_LOCK_RENEW_MS
-        ) acquireWakeLock()
+        if (state.status == TimerStatus.RUNNING) wakeLock.renewIfDue()
         if (state.status != TimerStatus.FINISHED) {
             notifier.updateIfChanged(state)
         }
     }
 
     override fun onFinished(state: TimerState) {
-        alarms.cancel(pauseTimeout)
+        pauseTimeout.cancel()
         finishedState = state
         notifier.show(state)
         // Stay foreground (wake lock held) until the closing audio has played: from Android 17
@@ -205,29 +188,13 @@ class TimerService : Service(), WorkoutController.Listener {
         Log.e(TAG, "Cannot play $cue", error)
     }
 
-    // ------------------------------------------------------------------ wake lock
-
-    private fun acquireWakeLock() {
-        val lock = wakeLock ?: (getSystemService(POWER_SERVICE) as PowerManager)
-            .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "kronos:timer")
-            .apply { setReferenceCounted(false) }
-            .also { wakeLock = it }
-        // Safety net so a bug can never keep the CPU awake forever.
-        lock.acquire(WAKE_LOCK_TIMEOUT_MS)
-        lockRenewedAt = SystemClock.elapsedRealtime()
-    }
-
-    private fun releaseWakeLock() {
-        wakeLock?.takeIf { it.isHeld }?.release()
-    }
-
     override fun onDestroy() {
         scope.cancel()
         handler.removeCallbacksAndMessages(null)
-        alarms.cancel(pauseTimeout)
+        pauseTimeout.cancel()
         controller?.stop()
         controller = null
-        releaseWakeLock()
+        wakeLock.release()
         audio?.release()
         audio = null
         // If the service goes away while the process lives (and not after a finished workout, whose
@@ -247,8 +214,5 @@ class TimerService : Service(), WorkoutController.Listener {
 
         private const val TAG = "TimerService"
         private const val FINISH_LINGER_MS = 4_000L
-        private const val PAUSE_TIMEOUT_MS = 60L * 60 * 1000
-        private const val WAKE_LOCK_TIMEOUT_MS = 6L * 60 * 60 * 1000
-        private const val WAKE_LOCK_RENEW_MS = 60L * 60 * 1000
     }
 }

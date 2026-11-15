@@ -396,8 +396,8 @@ fun SetupScreenPreview() {
                 rounds = 3,
                 setRestSeconds = 60,
                 tasks = listOf(
-                    Task(type = TaskType.WORK, durationSeconds = 30),
-                    Task(type = TaskType.REST, durationSeconds = 10)
+                    Task("a", TaskType.WORK, 30),
+                    Task("b", TaskType.REST, 10)
                 )
             ),
             totalDuration = "12:00",

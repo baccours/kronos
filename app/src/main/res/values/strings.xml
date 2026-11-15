@@ -51,6 +51,9 @@
     <string name="action_pause">Pause</string>
     <string name="action_resume">Resume</string>
     <string name="action_skip">Skip</string>
+    <string name="hint_hold_skip">Hold to skip</string>
+    <string name="hint_hold_finish">Hold to finish</string>
+    <string name="hint_hold_finish_set">Hold to finish set</string>
     <string name="action_stop">Stop</string>
     <string name="action_close">End workout</string>
     <string name="stop_dialog_title">End workout?</string>

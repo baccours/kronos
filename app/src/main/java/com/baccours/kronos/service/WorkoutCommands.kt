@@ -32,29 +32,32 @@ class WorkoutCommands(
         false
     }
 
-    fun pause() = send(TimerService.ACTION_PAUSE)
-    fun resume() = send(TimerService.ACTION_RESUME)
-    fun skip() = send(TimerService.ACTION_SKIP)
-    fun lap() = send(TimerService.ACTION_LAP)
+    fun pause() { send(TimerService.ACTION_PAUSE) }
+    fun resume() { send(TimerService.ACTION_RESUME) }
+    fun skip() { send(TimerService.ACTION_SKIP) }
+    fun lap() { send(TimerService.ACTION_LAP) }
 
-    /** Stops the workout, resets state, and dismisses notifications immediately. */
+    /**
+     * Stops the workout. The service resets the state and the notification itself, so a tick
+     * still queued cannot repaint the screen afterward; without a service to do it, we do.
+     */
     fun stop() {
-        if (store.timerState.value.status == TimerStatus.FINISHED) {
-            // Nothing left to stop but a possibly lingering service; never start one just for this.
-            context.stopService(Intent(context, TimerService::class.java))
-        } else {
-            send(TimerService.ACTION_STOP)
+        val finished = store.timerState.value.status == TimerStatus.FINISHED
+        // A finished workout has nothing left to stop, but a lingering service may remain.
+        if (finished) context.stopService(Intent(context, TimerService::class.java))
+        if (finished || !send(TimerService.ACTION_STOP)) {
+            store.reset()
+            NotificationManagerCompat.from(context).cancel(TimerNotifier.NOTIFICATION_ID)
         }
-        store.reset()
-        NotificationManagerCompat.from(context).cancel(TimerNotifier.NOTIFICATION_ID)
     }
 
-    private fun send(action: String) {
-        try {
-            context.startService(Intent(context, TimerService::class.java).setAction(action))
-        } catch (e: IllegalStateException) {
-            Log.w(TAG, "Cannot send $action to the workout service", e)
-        }
+    /** Returns false if the system refuses the command. */
+    private fun send(action: String): Boolean = try {
+        context.startService(Intent(context, TimerService::class.java).setAction(action))
+        true
+    } catch (e: IllegalStateException) {
+        Log.w(TAG, "Cannot send $action to the workout service", e)
+        false
     }
 
     private companion object {

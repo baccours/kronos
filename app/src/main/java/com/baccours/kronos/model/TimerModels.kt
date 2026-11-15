@@ -14,7 +14,8 @@ enum class TaskType {
 
 @Serializable
 data class Task(
-    val id: String = java.util.UUID.randomUUID().toString(),
+    /** Identifies the row in the setup editor, which assigns unique ids; the engine ignores it. */
+    val id: String = "",
     val type: TaskType = TaskType.WORK,
     val durationSeconds: Int = 30
 )
@@ -41,7 +42,7 @@ data class TimerConfig(
     /** Total workout time cap in seconds (0 = disabled). */
     val totalTimeCap: Int = 0,
     val rounds: Int = 1,
-    val tasks: List<Task> = listOf(Task(type = TaskType.WORK), Task(type = TaskType.REST)),
+    val tasks: List<Task> = listOf(Task("work", TaskType.WORK), Task("rest", TaskType.REST)),
 ) {
     /** Planned total duration in seconds (excluding get-ready). */
     val totalDurationSeconds: Int
