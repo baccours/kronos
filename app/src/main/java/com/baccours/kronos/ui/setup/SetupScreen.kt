@@ -258,7 +258,7 @@ private fun TitleRow(
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
-            text = stringResource(R.string.app_name).uppercase(),
+            text = stringResource(R.string.app_name).caps(),
             modifier = Modifier.weight(1f),
             style = MaterialTheme.typography.titleMedium.copy(letterSpacing = 3.sp),
             fontWeight = FontWeight.Bold,

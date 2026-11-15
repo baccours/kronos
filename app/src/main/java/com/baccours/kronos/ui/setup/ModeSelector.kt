@@ -23,6 +23,7 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.baccours.kronos.R
+import com.baccours.kronos.format.caps
 import com.baccours.kronos.model.TimerMode
 
 /** Timer / For Time selector; the selected segment is widened. */
@@ -63,7 +64,7 @@ internal fun ModeSelector(
                 border = BorderStroke(0.dp, Color.Transparent),
                 icon = {},
                 label = {
-                    val upperText = labelText.uppercase()
+                    val upperText = labelText.caps()
                     val baseFontSize = if (selected) 20.sp else 12.sp
                     val leadingFontSize = if (selected) 26.sp else 16.sp
                     val annotatedString = buildAnnotatedString {

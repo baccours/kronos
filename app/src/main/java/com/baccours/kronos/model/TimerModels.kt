@@ -32,6 +32,17 @@ fun List<Task>.numbered(): List<IndexedTask> {
     return map { IndexedTask(it, if (it.type == TaskType.WORK) ++work else ++rest) }
 }
 
+/** Gives blank or repeated ids a fresh one: the setup editor identifies rows by id. */
+private fun List<Task>.withUniqueIds(): List<Task> {
+    val seen = HashSet<String>()
+    return mapIndexed { i, task ->
+        if (task.id.isNotEmpty() && seen.add(task.id)) return@mapIndexed task
+        var n = i
+        while (!seen.add("task-$n")) n++
+        task.copy(id = "task-$n")
+    }
+}
+
 @Serializable
 data class TimerConfig(
     val mode: TimerMode = TimerMode.TIMER,
@@ -55,7 +66,7 @@ data class TimerConfig(
         }
 
     /**
-     * Returns a copy with all values clamped within allowed ranges.
+     * Returns a copy with all values clamped within allowed ranges and unique task ids.
      */
     fun sanitized(): TimerConfig = copy(
         sets = sets.coerceIn(1, MAX_SETS),
@@ -69,7 +80,7 @@ data class TimerConfig(
             } else {
                 task.copy(durationSeconds = task.durationSeconds.coerceIn(0, MAX_DURATION_SECONDS))
             }
-        }
+        }.withUniqueIds()
     )
 
     companion object {

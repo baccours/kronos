@@ -28,6 +28,13 @@ class TimerConfigCodecTest {
     }
 
     @Test
+    fun tasksSavedWithoutIdsGetUniqueOnes() {
+        val decoded = TimerConfigCodec.decode("""{"tasks":[{"type":"WORK"},{"type":"REST"}]}""")
+        val ids = decoded?.tasks?.map { it.id }.orEmpty()
+        assertEquals(2, ids.toSet().size)
+    }
+
+    @Test
     fun aDecodedConfigIsSanitized() {
         val decoded = TimerConfigCodec.decode("""{"sets":0,"rounds":-3}""")
         assertEquals(1, decoded?.sets)

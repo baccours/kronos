@@ -29,8 +29,27 @@ class TimerConfigTest {
 
     @Test
     fun sanitizedLeavesAValidConfigUntouched() {
-        val config = TimerConfig(sets = 3, rounds = 4, setRestSeconds = 60, tasks = listOf(task(30), task(10, TaskType.REST)))
+        val config = TimerConfig(
+            sets = 3, rounds = 4, setRestSeconds = 60,
+            tasks = listOf(Task("a", TaskType.WORK, 30), Task("b", TaskType.REST, 10))
+        )
         assertEquals(config, config.sanitized())
+    }
+
+    @Test
+    fun sanitizedGivesBlankAndRepeatedTaskIdsAFreshOne() {
+        val clean = TimerConfig(
+            tasks = listOf(
+                Task("a", TaskType.WORK, 30),
+                Task("a", TaskType.REST, 10),
+                task(20),
+                Task("task-2", TaskType.WORK, 5)
+            )
+        ).sanitized()
+        val ids = clean.tasks.map { it.id }
+        assertEquals("a", ids[0])
+        assertEquals(ids.size, ids.toSet().size)
+        assertTrue(ids.none { it.isEmpty() })
     }
 
     @Test
