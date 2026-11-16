@@ -3,7 +3,10 @@ package com.baccours.kronos.service
 import android.os.Handler
 import com.baccours.kronos.engine.TickScheduler
 
-/** Handler-backed implementation of [TickScheduler]. */
+/**
+ * Handler-backed implementation of [TickScheduler]. Delays count uptime, so this relies on the
+ * service's wake lock; a late tick is harmless, as the engine recomputes from the real clock.
+ */
 class HandlerTickScheduler(private val handler: Handler) : TickScheduler {
 
     private var pending: Runnable? = null

@@ -11,7 +11,6 @@ import androidx.core.app.NotificationCompat
 import com.baccours.kronos.R
 import com.baccours.kronos.format.formatDuration
 import com.baccours.kronos.format.phaseLabel
-import com.baccours.kronos.model.Phase
 import com.baccours.kronos.model.TimerMode
 import com.baccours.kronos.model.TimerState
 import com.baccours.kronos.model.TimerStatus
@@ -87,7 +86,7 @@ class TimerNotifier(private val context: Context) {
         val isForTime = cfg?.mode == TimerMode.FOR_TIME
         val finished = state.status == TimerStatus.FINISHED
         val paused = state.status == TimerStatus.PAUSED
-        val countsDown = state.segmentSeconds > 0 && !(isForTime && state.phase == Phase.WORK)
+        val countsDown = state.segmentSeconds > 0 && !state.countsUp
 
         val title = if (finished) {
             context.getString(R.string.notification_finished_title)
@@ -98,7 +97,7 @@ class TimerNotifier(private val context: Context) {
         val sets = cfg?.sets ?: 1
         val rounds = cfg?.rounds ?: 1
         val progress = if (isForTime) {
-            context.getString(R.string.notification_progress_for_time, state.currentSet, sets, state.currentRound)
+            context.getString(R.string.notification_progress_for_time, state.currentSet, sets, state.currentLap)
         } else {
             context.getString(R.string.notification_progress_timer, state.currentSet, sets, state.currentRound, rounds)
         }
@@ -139,7 +138,7 @@ class TimerNotifier(private val context: Context) {
 
         when (state.status) {
             TimerStatus.RUNNING -> {
-                if (isForTime && state.phase == Phase.WORK) {
+                if (state.countsUp) {
                     builder.addAction(0, context.getString(R.string.action_round), serviceAction(TimerService.ACTION_LAP))
                 }
                 builder.addAction(0, context.getString(R.string.action_pause), serviceAction(TimerService.ACTION_PAUSE))

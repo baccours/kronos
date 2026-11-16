@@ -32,6 +32,7 @@ data class RunningUiState(
     val currentSet: Int = 1,
     val totalSets: Int = 1,
     val currentRound: Int = 1,
+    val currentLap: Int = 1,
     val totalRounds: Int = 1,
     val isLastSet: Boolean = true,
     val displayTime: String = "00:00",
@@ -42,7 +43,7 @@ data class RunningUiState(
     /** Progress fraction at the next whole second, reached in [progressStepMs]. */
     val segmentProgressNext: Float? = null,
     val progressStepMs: Int = 1000,
-    /** Overall workout progress fraction (TIMER mode only). */
+    /** Overall workout progress fraction (TIMER, or FOR_TIME with a total cap; null if open-ended). */
     val overallProgress: Float? = null,
     val totalRemaining: String? = null,
     val totalElapsed: String? = null,
@@ -77,7 +78,6 @@ class RunningUiStateMapper {
     fun map(state: TimerState): RunningUiState = with(state) {
         val cfg = config ?: return RunningUiState(status = status)
         val isForTime = cfg.mode == TimerMode.FOR_TIME
-        val countsUp = isForTime && phase == Phase.WORK
 
         val progress = if (segmentSeconds > 0) {
             (segmentElapsedMs / (segmentSeconds * 1000f)).coerceIn(0f, 1f)
@@ -99,6 +99,7 @@ class RunningUiStateMapper {
             currentSet = currentSet,
             totalSets = cfg.sets,
             currentRound = currentRound,
+            currentLap = currentLap,
             totalRounds = cfg.rounds,
             isLastSet = currentSet >= cfg.sets,
             displayTime = (if (countsUp) elapsedSeconds else remainingSeconds).formatDuration(),

@@ -188,7 +188,7 @@ private fun PortraitContent(
                 Spacer(Modifier.height(12.dp))
                 LapSection(
                     lapTime = state.lapTime,
-                    currentRound = state.currentRound,
+                    currentLap = state.currentLap,
                     laps = state.laps,
                     modifier = Modifier
                         .weight(0.8f)
@@ -243,7 +243,7 @@ private fun LandscapeContent(
                 if (state.isForTime) {
                     LapSection(
                         lapTime = state.lapTime,
-                        currentRound = state.currentRound,
+                        currentLap = state.currentLap,
                         laps = state.laps,
                         modifier = Modifier
                             .weight(1f)

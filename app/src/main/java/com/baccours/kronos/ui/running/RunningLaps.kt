@@ -29,14 +29,14 @@ import com.baccours.kronos.R
 @Composable
 internal fun LapSection(
     lapTime: String?,
-    currentRound: Int,
+    currentLap: Int,
     laps: List<LapUi>,
     modifier: Modifier = Modifier
 ) {
     Column(modifier = modifier) {
         lapTime?.let {
             LapRow(
-                number = currentRound,
+                number = currentLap,
                 time = it,
                 active = true
             )

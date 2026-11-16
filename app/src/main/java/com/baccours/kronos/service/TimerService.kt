@@ -91,12 +91,14 @@ class TimerService : Service(), WorkoutController.Listener {
         }
         if (config == null) {
             enterForeground(TimerState())
+            store.reportStartFailure()
             stopSelf()
             return
         }
         handler.removeCallbacks(finishRunnable)
         // Enter foreground immediately before background setup
         if (!enterForeground(TimerState(status = TimerStatus.RUNNING, config = config))) {
+            store.reportStartFailure()
             stopSelf()
             return
         }

@@ -81,7 +81,7 @@ internal fun SetRoundStats(state: RunningUiState, compact: Boolean) {
             Stat(
                 label = stringResource(R.string.running_round),
                 value = if (state.isForTime) {
-                    "${state.currentRound}"
+                    "${state.currentLap}"
                 } else {
                     "${state.currentRound}/${state.totalRounds}"
                 },

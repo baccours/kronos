@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.baccours.kronos.model.TimerStatus
 import com.baccours.kronos.repository.TimerStateStore
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -16,6 +17,8 @@ import kotlinx.coroutines.flow.stateIn
 class WorkoutViewModel(
     store: TimerStateStore = TimerStateStore
 ) : ViewModel() {
+
+    val startFailures: Flow<Unit> = store.startFailures
 
     val status: StateFlow<TimerStatus> = store.timerState
         .map { it.status }

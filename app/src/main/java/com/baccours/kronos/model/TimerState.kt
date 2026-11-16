@@ -31,8 +31,10 @@ data class TimerState(
     /** Zero-based index of current segment. */
     val segmentIndex: Int = 0,
     val currentSet: Int = 1,
-    /** Current round (TIMER) or active lap number (FOR_TIME). */
+    /** Current round within the set (TIMER mode; always 1 in FOR_TIME). */
     val currentRound: Int = 1,
+    /** Number of the active lap within the set (FOR_TIME mode). */
+    val currentLap: Int = 1,
     /** 1-based index of active WORK task within round (0 if inapplicable). */
     val workIndex: Int = 0,
     /** Planned segment duration in seconds (0 = open-ended). */
@@ -41,11 +43,13 @@ data class TimerState(
     /** Seconds elapsed in current lap (FOR_TIME). */
     val lapElapsedSeconds: Int = 0,
     val totalElapsedSeconds: Int = 0,
-    /** Total remaining workout seconds (TIMER mode). */
+    /** Seconds left in the whole workout; null when open-ended (FOR_TIME without a total cap). */
     val totalRemainingSeconds: Int? = null,
     val next: UpNext? = null,
     val laps: List<Lap> = emptyList()
 ) {
+    /** True while a FOR_TIME work segment counts up and laps can be logged. */
+    val countsUp: Boolean get() = config?.mode == TimerMode.FOR_TIME && phase == Phase.WORK
     val elapsedSeconds: Int get() = (segmentElapsedMs / 1000).toInt()
     val remainingSeconds: Int
         get() = if (segmentSeconds > 0) (segmentSeconds - elapsedSeconds).coerceAtLeast(0) else 0

@@ -49,7 +49,7 @@ app/src/main/java/com/baccours/kronos/
 
 ### Dependencies
 
-Arrows read "depends on"; the graph has no cycles and must stay that way.
+Arrows read "depends on"; the graph has no cycles and must stay that way (enforced by `LayeringTest`).
 
 ```
 KronosApp, MainActivity  ->  ui, service, repository, audio (composition root)

@@ -7,6 +7,7 @@ import com.baccours.kronos.model.TimerConfig
 import com.baccours.kronos.model.TimerMode
 import com.baccours.kronos.model.TimerStatus
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -54,7 +55,7 @@ class TimerEngineTest {
         engine.start(0)
         var t = 0L
         while (engine.status == TimerStatus.RUNNING) { engine.tick(t); t += 10 }
-        val expected = (TimerEngine.DEFAULT_READY_SECONDS + config.totalDurationSeconds) * 1000L
+        val expected = (WorkoutPlan.READY_SECONDS + config.totalDurationSeconds) * 1000L
         assertTrue("finished at $t, expected ~$expected", t in expected..(expected + 20))
     }
 
@@ -86,6 +87,16 @@ class TimerEngineTest {
     }
 
     @Test
+    fun countsUpOnlyDuringForTimeWork() {
+        val forTime = TimerEngine(TimerConfig(mode = TimerMode.FOR_TIME))
+        assertFalse(forTime.start(0).state.countsUp) // READY
+        assertTrue(forTime.tick(10_000).state.countsUp) // WORK
+        val timer = TimerEngine(TimerConfig())
+        timer.start(0)
+        assertFalse(timer.tick(10_000).state.countsUp)
+    }
+
+    @Test
     fun forTime_lapsAndFinishSet() {
         val engine = TimerEngine(
             TimerConfig(mode = TimerMode.FOR_TIME, sets = 2, setRestSeconds = 5)
@@ -94,7 +105,8 @@ class TimerEngineTest {
         engine.tick(10_000)
         engine.lap(70_000)
         engine.lap(130_000)
-        assertEquals(3, engine.snapshot(131_000).currentRound)
+        assertEquals(3, engine.snapshot(131_000).currentLap)
+        assertEquals(1, engine.snapshot(131_000).currentRound)
         val finished = engine.skip(140_000)
         assertEquals(Phase.SET_REST, finished.state.phase)
         assertEquals(listOf(60_000L, 60_000L, 10_000L), finished.state.laps.map { it.durationMs })

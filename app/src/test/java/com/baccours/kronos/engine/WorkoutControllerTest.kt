@@ -78,7 +78,7 @@ class WorkoutControllerTest {
     private fun rest(s: Int) = Task(type = TaskType.REST, durationSeconds = s)
 
     private val simple = TimerConfig(tasks = listOf(work(3), rest(2)))
-    private val plannedMs = (TimerEngine.DEFAULT_READY_SECONDS + simple.totalDurationSeconds) * 1000L
+    private val plannedMs = (WorkoutPlan.READY_SECONDS + simple.totalDurationSeconds) * 1000L
 
     @Test
     fun aWorkoutRunsToTheEndOnItsOwn() {

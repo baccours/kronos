@@ -43,6 +43,10 @@ private fun List<Task>.withUniqueIds(): List<Task> {
     }
 }
 
+/**
+ * One flat config for both modes: fields a mode does not use are ignored by the engine but kept,
+ * so the setup screen preserves them when the user switches mode.
+ */
 @Serializable
 data class TimerConfig(
     val mode: TimerMode = TimerMode.TIMER,

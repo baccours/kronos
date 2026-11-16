@@ -45,6 +45,10 @@ class MainActivity : ComponentActivity() {
         // Default bars until the settings are loaded; re-applied with the theme below.
         enableEdgeToEdge()
         setContent {
+            // The service reports start failures asynchronously (commands.start() only sees the intent).
+            LaunchedEffect(Unit) {
+                viewModel.startFailures.collect { showStartFailed() }
+            }
             val saved by settingsViewModel.settings.collectAsStateWithLifecycle()
             // Draw nothing until the saved settings are loaded, so the first frame has the right theme.
             val settings = saved ?: return@setContent
@@ -101,9 +105,11 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun startWorkout(config: TimerConfig) {
-        if (!commands.start(config)) {
-            Toast.makeText(this, R.string.start_failed, Toast.LENGTH_LONG).show()
-        }
+        if (!commands.start(config)) showStartFailed()
+    }
+
+    private fun showStartFailed() {
+        Toast.makeText(this, R.string.start_failed, Toast.LENGTH_LONG).show()
     }
 
     private companion object {
