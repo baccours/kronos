@@ -47,6 +47,9 @@ class WorkoutController(
 
         /** Callback on cue playback errors. */
         fun onCueError(cue: Cue, error: Exception) {}
+
+        /** A listener callback threw; the clock keeps running. */
+        fun onListenerError(callback: String, error: Exception) {}
     }
 
     private var engine: TimerEngine? = null
@@ -116,9 +119,12 @@ class WorkoutController(
         val e = engine ?: return
         val now = clock()
         val late = now - expectedTickAtMs
-        if (late > LATE_TICK_MS) listener.onLateTick(late)
-        publish(e.tick(now))
-        scheduleNextTick()
+        if (late > LATE_TICK_MS) guarded("onLateTick") { listener.onLateTick(late) }
+        try {
+            publish(e.tick(now))
+        } finally {
+            scheduleNextTick() // no-op once paused/finished
+        }
     }
 
     private fun scheduleNextTick() {
@@ -142,11 +148,16 @@ class WorkoutController(
             }
         }
         lastState = result.state
-        listener.onStateChanged(result.state)
+        guarded("onStateChanged") { listener.onStateChanged(result.state) }
         if (result.state.status == TimerStatus.FINISHED) {
             scheduler.cancel()
-            listener.onFinished(result.state)
+            guarded("onFinished") { listener.onFinished(result.state) }
         }
+    }
+
+    /** Side effects (notification, UI store) must never be able to stop the clock. */
+    private inline fun guarded(callback: String, block: () -> Unit) {
+        try { block() } catch (e: Exception) { listener.onListenerError(callback, e) }
     }
 
     private companion object {

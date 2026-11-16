@@ -26,6 +26,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -39,6 +41,7 @@ import com.baccours.kronos.format.formatDuration
 import com.baccours.kronos.format.phaseLabel
 import com.baccours.kronos.model.Phase
 import com.baccours.kronos.model.TimerStatus
+import com.baccours.kronos.model.UpNext
 
 private val SegmentBarHeight = 12.dp
 private val OverallBarHeight = 6.dp
@@ -52,8 +55,31 @@ private const val SecondaryTextAlpha = 0.85f
 /** Displays set and round indicators. Hidden when total count is 1. */
 @Composable
 internal fun SetRoundStats(state: RunningUiState, compact: Boolean) {
-    val showSet = state.totalSets > 1
-    val showRound = if (state.isForTime) state.phase == Phase.WORK else state.totalRounds > 1
+    SetRoundStats(
+        currentSet = state.currentSet,
+        totalSets = state.totalSets,
+        currentRound = state.currentRound,
+        totalRounds = state.totalRounds,
+        currentLap = state.currentLap,
+        phase = state.phase,
+        isForTime = state.isForTime,
+        compact = compact
+    )
+}
+
+@Composable
+internal fun SetRoundStats(
+    currentSet: Int,
+    totalSets: Int,
+    currentRound: Int,
+    totalRounds: Int,
+    currentLap: Int,
+    phase: Phase,
+    isForTime: Boolean,
+    compact: Boolean
+) {
+    val showSet = totalSets > 1
+    val showRound = if (isForTime) phase == Phase.WORK else totalRounds > 1
     if (!showSet && !showRound) return
 
     Row(
@@ -66,7 +92,7 @@ internal fun SetRoundStats(state: RunningUiState, compact: Boolean) {
         if (showSet) {
             Stat(
                 label = stringResource(R.string.running_set),
-                value = "${state.currentSet}/${state.totalSets}",
+                value = "$currentSet/$totalSets",
                 compact = compact
             )
         }
@@ -80,10 +106,10 @@ internal fun SetRoundStats(state: RunningUiState, compact: Boolean) {
         if (showRound) {
             Stat(
                 label = stringResource(R.string.running_round),
-                value = if (state.isForTime) {
-                    "${state.currentLap}"
+                value = if (isForTime) {
+                    "$currentLap"
                 } else {
-                    "${state.currentRound}/${state.totalRounds}"
+                    "$currentRound/$totalRounds"
                 },
                 compact = compact
             )
@@ -121,7 +147,14 @@ internal fun NowGroup(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        PhaseHeader(state, modifier = Modifier.padding(horizontal = headerInset))
+        PhaseHeader(
+            phase = state.phase,
+            workIndex = state.workIndex,
+            isPaused = state.isPaused,
+            next = state.next,
+            isForTime = state.isForTime,
+            modifier = Modifier.padding(horizontal = headerInset)
+        )
         Spacer(Modifier.height(8.dp))
         TimerReadout(
             text = state.displayTime,
@@ -130,24 +163,39 @@ internal fun NowGroup(
                 .fillMaxWidth()
         )
         Spacer(Modifier.height(12.dp))
-        SegmentProgress(state)
+        SegmentProgress(
+            now = state.segmentProgress,
+            next = state.segmentProgressNext,
+            segmentIndex = state.segmentIndex,
+            elapsedSeconds = state.elapsedSeconds,
+            running = state.status == TimerStatus.RUNNING,
+            stepMs = state.progressStepMs,
+            timeCap = state.timeCap
+        )
     }
 }
 
 @Composable
-private fun PhaseHeader(state: RunningUiState, modifier: Modifier = Modifier) {
+private fun PhaseHeader(
+    phase: Phase,
+    workIndex: Int,
+    isPaused: Boolean,
+    next: UpNext?,
+    isForTime: Boolean,
+    modifier: Modifier = Modifier
+) {
     val context = LocalContext.current
-    val subtitle = if (state.isPaused) {
+    val subtitle = if (isPaused) {
         stringResource(R.string.running_paused).caps()
     } else {
-        nextText(state)
+        nextText(next, isForTime)
     }
     Column(
         modifier = modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(
-            text = context.phaseLabel(state.phase, state.workIndex),
+            text = context.phaseLabel(phase, workIndex),
             style = MaterialTheme.typography.headlineLarge,
             fontWeight = FontWeight.Black,
             textAlign = TextAlign.Center,
@@ -164,16 +212,16 @@ private fun PhaseHeader(state: RunningUiState, modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun nextText(state: RunningUiState): String {
-    val next = state.next
+private fun nextText(next: UpNext?, isForTime: Boolean): String {
+    val n = next
         ?: return stringResource(R.string.running_next, stringResource(R.string.running_next_finish).caps())
-    if (state.isForTime && next.phase == Phase.WORK) {
-        val label = stringResource(R.string.running_next_set, next.set).caps()
+    if (isForTime && n.phase == Phase.WORK) {
+        val label = stringResource(R.string.running_next_set, n.set).caps()
         return stringResource(R.string.running_next, label)
     }
-    val label = LocalContext.current.phaseLabel(next.phase, next.workIndex)
-    return if (next.seconds > 0) {
-        stringResource(R.string.running_next_with_time, label, next.seconds.formatDuration())
+    val label = LocalContext.current.phaseLabel(n.phase, n.workIndex)
+    return if (n.seconds > 0) {
+        stringResource(R.string.running_next_with_time, label, n.seconds.formatDuration())
     } else {
         stringResource(R.string.running_next, label)
     }
@@ -183,14 +231,24 @@ private fun nextText(state: RunningUiState): String {
 @Composable
 private fun TimerReadout(text: String, modifier: Modifier = Modifier) {
     val maxFontSize = with(LocalDensity.current) { MaxTimeFontSize.toSp() }
+    val annotatedText = remember(text) {
+        buildAnnotatedString {
+            append(text)
+            text.forEachIndexed { index, char ->
+                if (char == ':') {
+                    addStyle(SpanStyle(fontFamily = FontFamily.Default), index, index + 1)
+                }
+            }
+        }
+    }
     Box(modifier = modifier, contentAlignment = Alignment.Center) {
         Text(
-            text = text,
+            text = annotatedText,
             autoSize = TextAutoSize.StepBased(minFontSize = MinTimeFontSize, maxFontSize = maxFontSize),
             style = MaterialTheme.typography.displayLarge.copy(
                 lineHeight = 1.1.em,
                 fontFamily = FontFamily.Monospace,
-                fontWeight = FontWeight.Black,
+                fontWeight = FontWeight.Bold,
                 letterSpacing = 0.sp
             ),
             maxLines = 1,
@@ -201,17 +259,21 @@ private fun TimerReadout(text: String, modifier: Modifier = Modifier) {
 
 /** Progress bar for active segment smoothly animated over time. */
 @Composable
-private fun SegmentProgress(state: RunningUiState) {
-    val now = state.segmentProgress
-    val next = state.segmentProgressNext
+private fun SegmentProgress(
+    now: Float?,
+    next: Float?,
+    segmentIndex: Int,
+    elapsedSeconds: Int,
+    running: Boolean,
+    stepMs: Int,
+    timeCap: String?
+) {
     if (now == null || next == null) {
         Spacer(Modifier.height(SegmentBarHeight))
         return
     }
-    val animated = remember(state.segmentIndex) { Animatable(now) }
-    val running = state.status == TimerStatus.RUNNING
-    val stepMs = state.progressStepMs
-    LaunchedEffect(state.segmentIndex, state.elapsedSeconds, running) {
+    val animated = remember(segmentIndex) { Animatable(now) }
+    LaunchedEffect(segmentIndex, elapsedSeconds, running) {
         animated.snapTo(now)
         if (running) animated.animateTo(next, tween(stepMs, easing = LinearEasing))
     }
@@ -232,9 +294,9 @@ private fun SegmentProgress(state: RunningUiState) {
             gapSize = 0.dp,
             drawStopIndicator = {}
         )
-        if (!state.timeCap.isNullOrEmpty()) {
+        if (!timeCap.isNullOrEmpty()) {
             Text(
-                text = state.timeCap,
+                text = timeCap,
                 style = MaterialTheme.typography.titleLarge,
                 fontFamily = FontFamily.Monospace,
                 color = LocalContentColor.current.copy(alpha = SecondaryTextAlpha)

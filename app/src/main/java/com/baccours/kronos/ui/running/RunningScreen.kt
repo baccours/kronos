@@ -29,6 +29,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -93,18 +94,31 @@ fun RunningScreen(
     var showStopDialog by rememberSaveable { mutableStateOf(false) }
     var pausedByDialog by rememberSaveable { mutableStateOf(false) }
 
-    val requestStop = {
-        if (state.status == TimerStatus.RUNNING) {
-            actions.onPause()
-            pausedByDialog = true
+    val requestStop = remember(state.status, actions) {
+        {
+            if (state.status == TimerStatus.RUNNING) {
+                actions.onPause()
+                pausedByDialog = true
+            }
+            showStopDialog = true
         }
-        showStopDialog = true
     }
-    val dismissStop = {
-        showStopDialog = false
-        if (pausedByDialog) {
+
+    val dismissStop = remember(pausedByDialog, actions) {
+        {
+            showStopDialog = false
+            if (pausedByDialog) {
+                pausedByDialog = false
+                actions.onResume()
+            }
+        }
+    }
+
+    val confirmStop = remember(actions) {
+        {
+            showStopDialog = false
             pausedByDialog = false
-            actions.onResume()
+            actions.onStop()
         }
     }
 
@@ -151,11 +165,9 @@ fun RunningScreen(
             title = { Text(stringResource(R.string.stop_dialog_title)) },
             text = { Text(stringResource(R.string.stop_dialog_text)) },
             confirmButton = {
-                TextButton(onClick = {
-                    showStopDialog = false
-                    pausedByDialog = false
-                    actions.onStop()
-                }) { Text(stringResource(R.string.stop_dialog_confirm)) }
+                TextButton(onClick = confirmStop) {
+                    Text(stringResource(R.string.stop_dialog_confirm))
+                }
             },
             dismissButton = {
                 TextButton(onClick = dismissStop) {

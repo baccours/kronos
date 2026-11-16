@@ -34,7 +34,7 @@ class TimerEngine(private val config: TimerConfig) {
     private val isForTime = config.mode == TimerMode.FOR_TIME
 
     /** Overall time cap, only for multi-set FOR_TIME workouts (0 = disabled). */
-    private val totalCapSeconds = if (isForTime && config.sets > 1) config.totalTimeCap else 0
+    private val totalCapSeconds = config.effectiveTotalCapSeconds
     private val totalCapMs = totalCapSeconds * 1000L
 
     var status: TimerStatus = TimerStatus.NOT_STARTED

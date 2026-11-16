@@ -190,6 +190,10 @@ class TimerService : Service(), WorkoutController.Listener {
         Log.e(TAG, "Cannot play $cue", error)
     }
 
+    override fun onListenerError(callback: String, error: Exception) {
+        Log.e(TAG, "$callback failed", error)
+    }
+
     override fun onDestroy() {
         scope.cancel()
         handler.removeCallbacksAndMessages(null)

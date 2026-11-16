@@ -88,6 +88,13 @@ internal fun Controls(
     val context = LocalContext.current
     var toast by remember { mutableStateOf<Toast?>(null) }
 
+    val onEarlyRelease = remember(context, skipHint) {
+        {
+            toast?.cancel()
+            toast = Toast.makeText(context, skipHint, Toast.LENGTH_SHORT).also { it.show() }
+        }
+    }
+
     Column(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -146,10 +153,7 @@ internal fun Controls(
                 content = colors.content,
                 buttonSize = smallSize,
                 onHold = actions.onSkip,
-                onEarlyRelease = {
-                    toast?.cancel()
-                    toast = Toast.makeText(context, skipHint, Toast.LENGTH_SHORT).also { it.show() }
-                }
+                onEarlyRelease = onEarlyRelease
             )
         }
     }

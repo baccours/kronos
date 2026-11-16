@@ -72,6 +72,7 @@ internal fun TaskActionButton(
 @Composable
 internal fun SetsSection(
     sets: Int,
+    restEnabled: Boolean,
     restSeconds: Int,
     onSetsChange: (Int) -> Unit,
     onRestChange: (Int) -> Unit,
@@ -99,8 +100,6 @@ internal fun SetsSection(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.Center
             ) {
-                // Rest between sets requires multiple sets
-                val restEnabled = sets > 1
                 Text(
                     text = stringResource(R.string.setup_rest_label),
                     style = MaterialTheme.typography.titleMedium,

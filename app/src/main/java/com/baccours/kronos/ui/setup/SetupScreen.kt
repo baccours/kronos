@@ -143,7 +143,7 @@ internal fun SetupScreenContent(
 
     val isTimerMode = uiState.mode == TimerMode.TIMER
 
-    val isStartEnabled = !isTimerMode || uiState.totalDurationSeconds > 0
+    val isStartEnabled = uiState.canStart
 
     Box(
         modifier = Modifier
@@ -202,6 +202,7 @@ internal fun SetupScreenContent(
                 ) {
                     SetsSection(
                         sets = uiState.sets,
+                        restEnabled = uiState.supportsSetRest,
                         restSeconds = uiState.setRestSeconds,
                         onSetsChange = actions.updateSets,
                         onRestChange = actions.updateSetRest
@@ -230,7 +231,7 @@ internal fun SetupScreenContent(
                             title = stringResource(R.string.setup_total_time_cap),
                             timeCap = uiState.totalTimeCap,
                             onDurationChange = actions.updateTotalTimeCap,
-                            enabled = uiState.sets > 1
+                            enabled = uiState.supportsTotalCap
                         )
                     }
                 }

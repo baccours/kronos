@@ -3,31 +3,47 @@ package com.baccours.kronos.service
 import android.content.Context
 import android.os.PowerManager
 import android.os.SystemClock
+import android.util.Log
 
-/** Partial wake lock with a safety timeout, so a bug can never keep the CPU awake forever. */
+/**
+ * Partial wake lock with adaptive renewal window to prevent battery drain on crashes.
+ */
 class WakeLockHolder(context: Context, tag: String) {
 
     private val lock = context.getSystemService(PowerManager::class.java)
         .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, tag)
         .apply { setReferenceCounted(false) }
+
     private var acquiredAt = 0L
 
     fun acquire() {
-        lock.acquire(TIMEOUT_MS)
-        acquiredAt = SystemClock.elapsedRealtime()
+        try {
+            lock.acquire(ACTIVE_TIMEOUT_MS)
+            acquiredAt = SystemClock.elapsedRealtime()
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to acquire wake lock", e)
+        }
     }
 
-    /** Extends the timeout hourly while running, so a long workout never outlives it. */
     fun renewIfDue() {
-        if (SystemClock.elapsedRealtime() - acquiredAt > RENEW_MS) acquire()
+        if (lock.isHeld && SystemClock.elapsedRealtime() - acquiredAt > RENEW_THRESHOLD_MS) {
+            acquire()
+        }
     }
 
     fun release() {
-        if (lock.isHeld) lock.release()
+        try {
+            if (lock.isHeld) lock.release()
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to release wake lock", e)
+        }
     }
 
     private companion object {
-        const val TIMEOUT_MS = 6L * 60 * 60 * 1000
-        const val RENEW_MS = 60L * 60 * 1000
+        const val TAG = "WakeLockHolder"
+        // 15-minute safety timeout
+        const val ACTIVE_TIMEOUT_MS = 15L * 60 * 1000
+        // Renew every 10 minutes while workout runs
+        const val RENEW_THRESHOLD_MS = 10L * 60 * 1000
     }
 }

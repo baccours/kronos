@@ -59,6 +59,16 @@ data class TimerConfig(
     val rounds: Int = 1,
     val tasks: List<Task> = listOf(Task("work", TaskType.WORK), Task("rest", TaskType.REST)),
 ) {
+    /** Rest between sets only exists with more than one set. */
+    val supportsSetRest: Boolean get() = sets > 1
+
+    /** The overall cap applies only to multi-set For Time workouts. */
+    val supportsTotalCap: Boolean get() = mode == TimerMode.FOR_TIME && sets > 1
+    val effectiveTotalCapSeconds: Int get() = if (supportsTotalCap) totalTimeCap else 0
+
+    /** TIMER needs at least one timed task; FOR_TIME is open-ended and can always start. */
+    val canStart: Boolean get() = mode == TimerMode.FOR_TIME || tasks.any { it.durationSeconds > 0 }
+
     /** Planned total duration in seconds (excluding get-ready). */
     val totalDurationSeconds: Int
         get() {
