@@ -387,7 +387,7 @@ private fun StartBar(
     uiMode = android.content.res.Configuration.UI_MODE_NIGHT_YES
 )
 @Composable
-fun SetupScreenPreview() {
+private fun SetupScreenPreview() {
     KronosTheme {
         SetupScreenContent(
             uiState = TimerConfig(

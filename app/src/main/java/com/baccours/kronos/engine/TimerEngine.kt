@@ -8,13 +8,6 @@ import com.baccours.kronos.model.TimerState
 import com.baccours.kronos.model.TimerStatus
 import com.baccours.kronos.model.UpNext
 
-/** Says [speech] when [remainingFor] (given the segment length) seconds are left, in segments of [minSeconds]+. */
-private class CountdownSpeech(
-    val speech: Speech,
-    val minSeconds: Int,
-    val remainingFor: (segmentSeconds: Int) -> Int
-)
-
 data class EngineResult(
     val state: TimerState,
     val cues: List<Cue> = emptyList()
@@ -36,6 +29,8 @@ class TimerEngine(private val config: TimerConfig) {
     /** Overall time cap, only for multi-set FOR_TIME workouts (0 = disabled). */
     private val totalCapSeconds = config.effectiveTotalCapSeconds
     private val totalCapMs = totalCapSeconds * 1000L
+
+    private val cuePolicy = CuePolicy(plan, isForTime, totalCapMs)
 
     var status: TimerStatus = TimerStatus.NOT_STARTED
         private set
@@ -70,7 +65,7 @@ class TimerEngine(private val config: TimerConfig) {
         lapCountBySet.clear()
         lapsSnapshot = emptyList()
         status = TimerStatus.RUNNING
-        return EngineResult(snapshot(now), startCues(index))
+        return EngineResult(snapshot(now), cuePolicy.startCues(index))
     }
 
     fun tick(now: Long): EngineResult {
@@ -101,14 +96,14 @@ class TimerEngine(private val config: TimerConfig) {
                 segmentStartMs = boundary
                 lapStartMs = boundary
                 lastElapsedSecond = 0
-                cues += startCues(index)
+                cues += cuePolicy.startCues(index)
                 continue
             }
             val elapsedSecond = (elapsedMs / 1000).toInt()
             // Only the current second is announced: after a stall, older cues would be stale.
             if ((d > 0 || capLeftMs != null) && elapsedSecond > lastElapsedSecond) {
-                val cue = (if (d > 0) countdownCues(seg, d - elapsedSecond) else null)
-                    ?: capLeftMs?.let { totalCapCue(it - elapsedSecond * 1000L) }
+                val cue = (if (d > 0) cuePolicy.countdownCues(seg, d - elapsedSecond) else null)
+                    ?: capLeftMs?.let { cuePolicy.totalCapCue(it - elapsedSecond * 1000L) }
                 cue?.let { cues += it }
             }
             lastElapsedSecond = maxOf(lastElapsedSecond, elapsedSecond)
@@ -156,7 +151,8 @@ class TimerEngine(private val config: TimerConfig) {
             lapStartMs = t
             lastElapsedSecond = 0
             // While paused, announce on resume instead; finishing still announces the end.
-            if (status == TimerStatus.RUNNING) cues += startCues(index) else pendingCues = startCues(index)
+            val start = cuePolicy.startCues(index)
+            if (status == TimerStatus.RUNNING) cues += start else pendingCues = start
         }
         return EngineResult(snapshot(now), cues)
     }
@@ -227,27 +223,7 @@ class TimerEngine(private val config: TimerConfig) {
     /**
      * Returns all unique speech directives required for preloading.
      */
-    fun speechNeeded(): List<Speech> {
-        val out = LinkedHashSet<Speech>()
-        fun add(cue: Cue?) {
-            if (cue is Cue.Speak) out += cue.parts
-        }
-        fun scan(i: Int) {
-            startCues(i).forEach(::add)
-            val seconds = plan[i].durationSeconds
-            for (rule in COUNTDOWN_SPEECH) if (seconds >= rule.minSeconds) out += rule.speech
-        }
-        // Set 1 (and the rest after it) has every phrase except the set numbers,
-        // which are spoken at the first segment of each later set.
-        for (i in 0..minOf(plan.lastIndex, plan.stride)) scan(i)
-        for (set in 2..config.sets) {
-            val first = 1 + (set - 1) * plan.stride
-            if (first <= plan.lastIndex) scan(first)
-        }
-        add(totalCapCue(10_000L))
-        out += Speech.WellDone
-        return out.toList()
-    }
+    fun speechNeeded(): List<Speech> = cuePolicy.speechNeeded(config.sets)
 
     /** Reference timestamp accounting for pause state. */
     private fun reference(now: Long): Long =
@@ -258,17 +234,6 @@ class TimerEngine(private val config: TimerConfig) {
         if (totalCapMs > 0 && seg.phase != Phase.READY) {
             (totalCapMs - completedMs).coerceAtLeast(0)
         } else null
-
-    /** Returns warning cue when approaching total time cap limit. */
-    private fun totalCapCue(leftMs: Long): Cue? {
-        if (leftMs <= 0) return null
-        val remaining = ((leftMs + 999) / 1000).toInt()
-        return when (remaining) {
-            10 if totalCapMs >= 30_000L -> Cue.Speak(Speech.TenSeconds)
-            in 1..3 -> Cue.Beep
-            else -> null
-        }
-    }
 
     private fun isLapSegment(seg: Segment) = isForTime && seg.phase == Phase.WORK
 
@@ -306,64 +271,7 @@ class TimerEngine(private val config: TimerConfig) {
         secondsAfter -= plan[index].durationSeconds
     }
 
-    private fun startCues(i: Int): List<Cue> {
-        val seg = plan[i]
-        val setIntro: List<Speech> =
-            if (seg.set > 1 && isFirstOfSet(i)) listOf(Speech.SetNumber(seg.set)) else emptyList()
-        val roundIntro: List<Speech> =
-            if (seg.round > 1 && isFirstOfRound(i)) listOf(Speech.RoundNumber(seg.round)) else emptyList()
-        return when (seg.phase) {
-            Phase.READY -> listOf(Cue.Speak(Speech.GetReady))
-            Phase.WORK -> listOf(
-                Cue.StartBuzzer,
-                // Interrupt active audio on segment start to remain synchronized with UI.
-                Cue.Speak(
-                    if (isForTime) setIntro + Speech.Go
-                    else setIntro + roundIntro + Speech.Work(seg.workIndex),
-                    interrupt = true
-                )
-            )
-            Phase.REST -> listOf(
-                Cue.StartBuzzer,
-                Cue.Speak(setIntro + roundIntro + Speech.Rest, interrupt = true)
-            )
-            Phase.SET_REST -> listOf(
-                Cue.StartBuzzer,
-                Cue.Speak(listOf(Speech.RestBetweenSets), interrupt = true)
-            )
-        }
-    }
-
-    private fun isFirstOfSet(i: Int): Boolean {
-        val seg = plan[i]
-        val prev = plan.getOrNull(i - 1) ?: return true
-        return prev.set != seg.set || prev.phase == Phase.SET_REST || prev.phase == Phase.READY
-    }
-
-    private fun isFirstOfRound(i: Int): Boolean {
-        val seg = plan[i]
-        val prev = plan.getOrNull(i - 1) ?: return true
-        return prev.round != seg.round || prev.phase == Phase.SET_REST || prev.phase == Phase.READY
-    }
-
-
-    /** Returns countdown warning cue for remaining segment seconds. */
-    private fun countdownCues(seg: Segment, remaining: Int): Cue? {
-        if (remaining in 1..LAST_BEEPS) return Cue.Beep
-        val d = seg.durationSeconds
-        return COUNTDOWN_SPEECH
-            .firstOrNull { d >= it.minSeconds && remaining == it.remainingFor(d) }
-            ?.let { Cue.Speak(it.speech) }
-    }
-
     companion object {
-        private const val LAST_BEEPS = 3
-
-        /** Spoken countdown cues; also the source of the clips preloaded by [speechNeeded]. */
-        private val COUNTDOWN_SPEECH = listOf(
-            CountdownSpeech(Speech.TenSeconds, minSeconds = 30) { 10 },
-            CountdownSpeech(Speech.Halfway, minSeconds = 60) { it / 2 }
-        )
         private const val TICK_SLACK_MS = 10L
         private const val IDLE_TICK_MS = 1000L
         private const val MIN_CLOSING_LAP_MS = 1000L

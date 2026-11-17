@@ -149,7 +149,10 @@ class ClipAnnouncer(
             override fun onPeriodicNotification(t: AudioTrack?) = Unit
         }, handler)
         track.notificationMarkerPosition = playing.frames
-        focus.request()
+        if (!focus.request()) { // Focus lost since enqueue (e.g. a call started).
+            finish(playing.id)
+            return
+        }
         try {
             track.play()
         } catch (e: IllegalStateException) {

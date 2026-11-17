@@ -58,7 +58,7 @@ class TimerService : Service(), WorkoutController.Listener {
         notifier = TimerNotifier(this)
         notifier.createChannel()
         wakeLock = WakeLockHolder(this, "kronos:timer")
-        pauseTimeout = PauseTimeout(this, handler, onTimeout = ::stopTimer)
+        pauseTimeout = PauseTimeout(this, handler, onTimeout = ::endForgottenPause)
         // Muting the voice cuts the phrase being spoken; later cues are filtered by the audio manager.
         // Unmuting preloads the clips skipped at start, so the next phrase is not late.
         scope.launch {
@@ -130,6 +130,12 @@ class TimerService : Service(), WorkoutController.Listener {
         pauseTimeout.cancel()
         wakeLock.acquire()
         c.resume()
+    }
+
+    /** A forgotten pause ends the workout; say so, since the app silently returns to Set up. */
+    private fun endForgottenPause() {
+        stopTimer()
+        notifier.showPauseTimeout()
     }
 
     private fun stopTimer() {

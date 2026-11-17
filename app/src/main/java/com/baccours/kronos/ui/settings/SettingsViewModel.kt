@@ -6,8 +6,10 @@ import androidx.lifecycle.viewModelScope
 import com.baccours.kronos.model.AppSettings
 import com.baccours.kronos.repository.SettingsRepository
 import com.baccours.kronos.repository.SettingsStore
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class SettingsViewModel @JvmOverloads constructor(
     application: Application,
@@ -20,6 +22,11 @@ class SettingsViewModel @JvmOverloads constructor(
 
     fun update(settings: AppSettings) {
         store.set(settings)
-        viewModelScope.launch { repository.save(settings) }
+        // NonCancellable: a toggle right before the screen closes must still be saved.
+        viewModelScope.launch {
+            withContext(NonCancellable) {
+                repository.save(settings)
+            }
+        }
     }
 }

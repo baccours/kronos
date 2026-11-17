@@ -26,10 +26,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -86,12 +84,13 @@ internal fun Controls(
     val skipDescription = stringResource(descriptionRes)
     val skipHint = stringResource(hintRes)
     val context = LocalContext.current
-    var toast by remember { mutableStateOf<Toast?>(null) }
+    // Plain holder, not Compose state: nothing renders the toast, so setting it must not recompose.
+    val toast = remember { ToastSlot() }
 
     val onEarlyRelease = remember(context, skipHint) {
         {
-            toast?.cancel()
-            toast = Toast.makeText(context, skipHint, Toast.LENGTH_SHORT).also { it.show() }
+            toast.current?.cancel()
+            toast.current = Toast.makeText(context, skipHint, Toast.LENGTH_SHORT).also { it.show() }
         }
     }
 
@@ -224,3 +223,5 @@ private fun HoldButton(
         Icon(icon, contentDescription = description, tint = content, modifier = Modifier.size(32.dp))
     }
 }
+
+private class ToastSlot { var current: Toast? = null }

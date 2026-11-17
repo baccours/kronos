@@ -81,6 +81,20 @@ class TimerNotifier(private val context: Context) {
         manager.cancel(NOTIFICATION_ID)
     }
 
+    /** Tells the user that a forgotten pause ended the workout. */
+    fun showPauseTimeout() {
+        manager.notify(
+            TIMEOUT_NOTIFICATION_ID,
+            NotificationCompat.Builder(context, CHANNEL_ID)
+                .setSmallIcon(R.drawable.ic_stat_timer)
+                .setContentTitle(context.getString(R.string.notification_timeout_title))
+                .setContentText(context.getString(R.string.notification_timeout_text))
+                .setContentIntent(openApp)
+                .setAutoCancel(true)
+                .build()
+        )
+    }
+
     private fun build(state: TimerState): Notification {
         val cfg = state.config
         val isForTime = cfg?.mode == TimerMode.FOR_TIME
@@ -164,6 +178,7 @@ class TimerNotifier(private val context: Context) {
 
     companion object {
         const val NOTIFICATION_ID = 1
+        private const val TIMEOUT_NOTIFICATION_ID = 2
         private const val CHANNEL_ID = "timer_channel"
     }
 }
