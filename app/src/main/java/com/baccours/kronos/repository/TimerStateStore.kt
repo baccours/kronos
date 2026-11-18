@@ -8,8 +8,13 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 
-/** Process-wide in-memory state store, shared by the service (writer) and the UI (reader). */
-object TimerStateStore {
+/**
+ * In-memory workout state, shared by the service (writer) and the UI (reader).
+ *
+ * The app uses the process-wide instance, reached through the companion (`TimerStateStore.timerState`).
+ * It is a plain class so that tests can create their own isolated instance with `TimerStateStore()`.
+ */
+open class TimerStateStore {
     private val _timerState = MutableStateFlow(TimerState())
     val timerState: StateFlow<TimerState> = _timerState.asStateFlow()
 
@@ -29,4 +34,7 @@ object TimerStateStore {
     fun reset() {
         _timerState.value = TimerState()
     }
+
+    /** The process-wide instance. */
+    companion object : TimerStateStore()
 }

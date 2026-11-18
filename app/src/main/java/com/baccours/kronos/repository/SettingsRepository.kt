@@ -7,7 +7,7 @@ import com.baccours.kronos.model.AppSettings
 import com.baccours.kronos.model.ThemeMode
 import kotlinx.coroutines.flow.Flow
 
-class SettingsRepository(private val context: Context) {
+class SettingsRepository(private val context: Context) : SettingsStorage {
 
     private object Keys {
         val BEEPS = booleanPreferencesKey("beeps")
@@ -15,8 +15,7 @@ class SettingsRepository(private val context: Context) {
         val THEME = stringPreferencesKey("theme")
     }
 
-    /** Saved settings; defaults for anything missing, unreadable or unknown. */
-    val settings: Flow<AppSettings> = context.kronosDataStore.readSafely(TAG, AppSettings()) { prefs ->
+    override val settings: Flow<AppSettings> = context.kronosDataStore.readSafely(TAG, AppSettings()) { prefs ->
         val defaults = AppSettings()
         AppSettings(
             beeps = prefs[Keys.BEEPS] ?: defaults.beeps,
@@ -25,8 +24,7 @@ class SettingsRepository(private val context: Context) {
         )
     }
 
-    /** Returns true on success. */
-    suspend fun save(settings: AppSettings): Boolean =
+    override suspend fun save(settings: AppSettings): Boolean =
         context.kronosDataStore.editSafely(TAG) { prefs ->
             prefs[Keys.BEEPS] = settings.beeps
             prefs[Keys.VOICE] = settings.voice

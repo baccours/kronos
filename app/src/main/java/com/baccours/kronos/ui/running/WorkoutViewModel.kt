@@ -13,6 +13,10 @@ import kotlinx.coroutines.flow.stateIn
 
 /**
  * Exposes workout UI state: [status] for top-level screen switching and [uiState] for the running view.
+ *
+ * Both flows are shared [SharingStarted.Eagerly]: with WhileSubscribed, the cached value goes stale
+ * while the UI is stopped (> 5 s) and can be drawn for a frame on return, e.g. the setup screen after
+ * the workout was stopped from the notification. The mapping is cheap, so keeping it hot costs nothing.
  */
 class WorkoutViewModel(
     store: TimerStateStore = TimerStateStore
@@ -25,7 +29,7 @@ class WorkoutViewModel(
         .distinctUntilChanged()
         .stateIn(
             scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5000),
+            started = SharingStarted.Eagerly,
             initialValue = store.timerState.value.status
         )
 
@@ -35,7 +39,7 @@ class WorkoutViewModel(
         .map { mapper.map(it) }
         .stateIn(
             scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5000),
+            started = SharingStarted.Eagerly,
             initialValue = mapper.map(store.timerState.value)
         )
 }

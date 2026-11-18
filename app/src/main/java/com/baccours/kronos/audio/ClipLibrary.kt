@@ -3,8 +3,6 @@ package com.baccours.kronos.audio
 import android.content.Context
 import android.os.SystemClock
 import android.util.Log
-import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.FutureTask
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.ThreadPoolExecutor
 import java.util.concurrent.TimeUnit
@@ -25,8 +23,12 @@ class ClipLibrary private constructor(context: Context) {
         emptySet()
     }
 
-    /** Concurrent decoding tasks deduplicated per clip name. */
-    private val decoded = ConcurrentHashMap<String, FutureTask<ShortArray?>>()
+    /** Decodes each clip once, however many threads ask; retries failures after a cool-off. */
+    private val cache = DecodeCache(
+        now = SystemClock::elapsedRealtime,
+        retryAfterMs = RETRY_AFTER_MS,
+        decode = ::decode
+    )
 
     /** Single-thread executor for preloading audio clips. */
     private val preloader = ThreadPoolExecutor(
@@ -34,49 +36,18 @@ class ClipLibrary private constructor(context: Context) {
     ) { r -> Thread(r, "clip-preloader").apply { isDaemon = true } }
         .apply { allowCoreThreadTimeOut(true) }
 
-    /** Timestamp (elapsedRealtime) of last decoding failure per clip. */
-    private val failedAt = ConcurrentHashMap<String, Long>()
-
     /** True if the asset file for [name] exists. */
     fun has(name: String): Boolean = name + ClipCatalog.EXTENSION in available
 
     /** True if [name] exists and has not recently failed decoding. */
-    fun isUsable(name: String): Boolean = has(name) && !recentlyFailed(name)
-
-    private fun recentlyFailed(name: String): Boolean {
-        val failed = failedAt[name] ?: return false
-        if (SystemClock.elapsedRealtime() - failed >= RETRY_AFTER_MS) {
-            failedAt.remove(name, failed)
-            return false
-        }
-        return true
-    }
+    fun isUsable(name: String): Boolean = has(name) && !cache.recentlyFailed(name)
 
     /** Returns decoded PCM for [name], decoding on demand. Returns null on failure. */
-    fun pcm(name: String): ShortArray? {
-        if (!isUsable(name)) return null
-        var owned: FutureTask<ShortArray?>? = null
-        val task = decoded.computeIfAbsent(name) { FutureTask { decode(name) }.also { owned = it } }
-        owned?.run() // Execute decoding outside lock if task was created here
-        val result = try {
-            task.get()
-        } catch (_: InterruptedException) {
-            Thread.currentThread().interrupt()
-            return null
-        } catch (_: Exception) {
-            null
-        }
-        if (result == null) {
-            // Mark failed so it can be retried after cooldown.
-            decoded.remove(name, task)
-            failedAt[name] = SystemClock.elapsedRealtime()
-        }
-        return result
-    }
+    fun pcm(name: String): ShortArray? = if (has(name)) cache.get(name) else null
 
     /** Preloads [names] asynchronously in background. */
     fun preload(names: Collection<String>) {
-        val todo = names.filter { isUsable(it) && !decoded.containsKey(it) }
+        val todo = names.filter { isUsable(it) && !cache.contains(it) }
         if (todo.isEmpty()) return
         preloader.execute { for (name in todo) pcm(name) }
     }

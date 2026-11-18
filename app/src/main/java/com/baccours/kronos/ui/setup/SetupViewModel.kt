@@ -7,6 +7,7 @@ import com.baccours.kronos.model.Task
 import com.baccours.kronos.model.TaskType
 import com.baccours.kronos.model.TimerConfig
 import com.baccours.kronos.model.TimerMode
+import com.baccours.kronos.repository.TimerConfigStorage
 import com.baccours.kronos.repository.TimerPreferencesRepository
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -23,7 +24,7 @@ import kotlin.time.Duration.Companion.milliseconds
 @OptIn(FlowPreview::class)
 class SetupViewModel @JvmOverloads constructor(
     application: Application,
-    private val preferencesRepository: TimerPreferencesRepository = TimerPreferencesRepository(application)
+    private val preferencesRepository: TimerConfigStorage = TimerPreferencesRepository(application)
 ) : AndroidViewModel(application) {
 
     /** Null until the saved setup is loaded: the UI draws nothing and edits are ignored. */

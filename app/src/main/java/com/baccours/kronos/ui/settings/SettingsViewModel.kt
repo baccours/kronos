@@ -5,6 +5,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.baccours.kronos.model.AppSettings
 import com.baccours.kronos.repository.SettingsRepository
+import com.baccours.kronos.repository.SettingsStorage
 import com.baccours.kronos.repository.SettingsStore
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.StateFlow
@@ -13,7 +14,7 @@ import kotlinx.coroutines.withContext
 
 class SettingsViewModel @JvmOverloads constructor(
     application: Application,
-    private val repository: SettingsRepository = SettingsRepository(application),
+    private val repository: SettingsStorage = SettingsRepository(application),
     private val store: SettingsStore = SettingsStore
 ) : AndroidViewModel(application) {
 
