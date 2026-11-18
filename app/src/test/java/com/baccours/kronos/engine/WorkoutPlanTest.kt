@@ -102,7 +102,7 @@ class WorkoutPlanTest {
         assertEquals(99, last.round)
         // Every index maps to a segment: a walk over the whole plan never throws.
         var count = 0
-        for (i in 0 until plan.size) { plan[i]; count++ }
+        for (i in plan.indices) { plan[i]; count++ }
         assertEquals(plan.size, count)
     }
 

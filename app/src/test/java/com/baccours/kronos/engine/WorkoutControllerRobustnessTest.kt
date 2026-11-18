@@ -57,7 +57,7 @@ class WorkoutControllerRobustnessTest {
             task()
         }
 
-        /** Fires every tick on time until nothing is scheduled any more. */
+        /** Fires every tick on time until nothing is scheduled anymore. */
         fun runToTheEnd(limit: Int = 10_000) {
             var n = 0
             while (pending != null && n++ < limit) fire(dueAt)

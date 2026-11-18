@@ -42,6 +42,12 @@ android {
         includeInApk = false
         includeInBundle = false
     }
+    testOptions {
+        unitTests {
+            // The audio logic under test logs warnings through android.util.Log.
+            isReturnDefaultValues = true
+        }
+    }
 }
 
 dependencies {

@@ -11,7 +11,7 @@ import java.util.concurrent.TimeUnit
  * Process-wide cache for decoded mono 16-bit [SAMPLE_RATE] PCM clips.
  * Thread-safe. [pcm] is blocking and must be called off the main thread.
  */
-class ClipLibrary private constructor(context: Context) {
+class ClipLibrary private constructor(context: Context) : ClipSource {
 
     private val assets = context.applicationContext.assets
 
@@ -40,13 +40,13 @@ class ClipLibrary private constructor(context: Context) {
     fun has(name: String): Boolean = name + ClipCatalog.EXTENSION in available
 
     /** True if [name] exists and has not recently failed decoding. */
-    fun isUsable(name: String): Boolean = has(name) && !cache.recentlyFailed(name)
+    override fun isUsable(name: String): Boolean = has(name) && !cache.recentlyFailed(name)
 
     /** Returns decoded PCM for [name], decoding on demand. Returns null on failure. */
-    fun pcm(name: String): ShortArray? = if (has(name)) cache.get(name) else null
+    override fun pcm(name: String): ShortArray? = if (has(name)) cache.get(name) else null
 
     /** Preloads [names] asynchronously in background. */
-    fun preload(names: Collection<String>) {
+    override fun preload(names: Collection<String>) {
         val todo = names.filter { isUsable(it) && !cache.contains(it) }
         if (todo.isEmpty()) return
         preloader.execute { for (name in todo) pcm(name) }

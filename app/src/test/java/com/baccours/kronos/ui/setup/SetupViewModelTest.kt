@@ -19,6 +19,8 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
+import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.seconds
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class SetupViewModelTest {
@@ -153,7 +155,7 @@ class SetupViewModelTest {
     fun nothingIsSavedForTheConfigThatWasJustLoaded() = runTest {
         val storage = FakeStorage()
         viewModel(storage)
-        advanceTimeBy(5_000)
+        advanceTimeBy(5.seconds)
         runCurrent()
         assertTrue(storage.saved.isEmpty())
     }
@@ -164,11 +166,11 @@ class SetupViewModelTest {
         val vm = viewModel(storage)
 
         vm.updateSets(3)
-        advanceTimeBy(299)
+        advanceTimeBy(299.milliseconds)
         runCurrent()
         assertTrue("too early", storage.saved.isEmpty())
 
-        advanceTimeBy(2)
+        advanceTimeBy(2.milliseconds)
         runCurrent()
         assertEquals(listOf(vm.config()), storage.saved)
         assertEquals(3, storage.saved.single().sets)
@@ -180,11 +182,11 @@ class SetupViewModelTest {
         val vm = viewModel(storage)
 
         vm.updateSets(2)
-        advanceTimeBy(100)
+        advanceTimeBy(100.milliseconds)
         vm.updateSets(3)
-        advanceTimeBy(100)
+        advanceTimeBy(100.milliseconds)
         vm.updateSets(4)
-        advanceTimeBy(301)
+        advanceTimeBy(301.milliseconds)
         runCurrent()
 
         assertEquals(listOf(4), storage.saved.map { it.sets })
@@ -196,20 +198,20 @@ class SetupViewModelTest {
         val vm = viewModel(storage)
 
         vm.updateSets(3)
-        advanceTimeBy(301)
+        advanceTimeBy(301.milliseconds)
         runCurrent()
         assertEquals(listOf(3), storage.saved.map { it.sets }) // attempted, failed
 
         // Back to what is on disk: nothing to write.
         vm.updateSets(1)
-        advanceTimeBy(301)
+        advanceTimeBy(301.milliseconds)
         runCurrent()
         assertEquals(listOf(3), storage.saved.map { it.sets })
 
         // A different change is attempted again, and a success is remembered.
         storage.succeeds = true
         vm.updateSets(4)
-        advanceTimeBy(301)
+        advanceTimeBy(301.milliseconds)
         runCurrent()
         assertEquals(listOf(3, 4), storage.saved.map { it.sets })
         assertNotEquals(storage.saved[0], storage.saved[1])

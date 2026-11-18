@@ -38,10 +38,8 @@ class TimerAudioManager(
     private val tones = listOf(beep, startBuzzer, celebration)
 
     init {
-        // Maintain focus during speech playback
-        focus.isBusy = { announcer.isSpeaking }
-        // Cut speech when another app takes focus.
-        focus.onLost = { announcer.stop() }
+        // Keep focus during speech playback; cut speech when another app takes focus.
+        focus.bindTo(announcer)
     }
 
     override fun play(cue: Cue) {

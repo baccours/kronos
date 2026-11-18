@@ -36,6 +36,8 @@ class TimerStateStoreTest {
         a.updateState(TimerState(status = TimerStatus.RUNNING))
         assertEquals(TimerStatus.NOT_STARTED, b.timerState.value.status)
         assertNotSame(a, TimerStateStore)
+        assertEquals(TimerStatus.NOT_STARTED, TimerStateStore.timerState.value.status)
+        @Suppress("USELESS_IS_CHECK")
         assertTrue(TimerStateStore is TimerStateStore)
     }
 

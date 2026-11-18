@@ -1,48 +1,33 @@
 package com.baccours.kronos.audio
 
-import android.content.Context
-import android.media.AudioAttributes
-import android.media.AudioTrack
-import android.os.Handler
-import android.os.Looper
 import android.util.Log
 import com.baccours.kronos.engine.Cue
 import com.baccours.kronos.engine.Speech
 import java.util.concurrent.ExecutorService
-import java.util.concurrent.Executors
 
 /**
- * [Announcer] playing concatenated audio clips via [ClipLibrary] and [AudioTrack].
+ * [Announcer] playing concatenated audio clips from a [ClipSource].
  * Skips the entire announcement and returns false if any required clip is missing.
- * Public methods are main-thread only; background worker handles audio decoding.
+ * Public methods are main-thread only; the background [worker] assembles the audio.
+ *
+ * Everything platform-specific is behind the interfaces in `AudioPorts.kt`; the production wiring
+ * is the `ClipAnnouncer(context, focus)` factory in `AndroidAudio.kt`.
  */
-class ClipAnnouncer(
-    context: Context,
-    private val focus: AudioFocusController,
-    private val library: ClipLibrary = ClipLibrary.get(context)
+class ClipAnnouncer internal constructor(
+    private val focus: FocusGate,
+    private val library: ClipSource,
+    private val mainThread: MainThread,
+    private val worker: ExecutorService,
+    private val clips: ClipFactory
 ) : Announcer {
-
-    private val handler = Handler(Looper.getMainLooper())
-
-    private val attributes = AudioAttributes.Builder()
-        .setUsage(AudioAttributes.USAGE_MEDIA)
-        .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
-        .build()
-
-    private val worker: ExecutorService = Executors.newSingleThreadExecutor { r ->
-        Thread(r, "clip-announcer").apply { isDaemon = true }
-    }
 
     // Playback state (main thread)
 
-    /** Announcement ready for playback with PCM written to [track]. */
-    private class Prepared(val track: AudioTrack, val frames: Int)
-
-    private class Playing(val id: Int, val track: AudioTrack, val frames: Int) {
+    private class Playing(val id: Int, val clip: PreparedClip) {
         lateinit var end: Runnable
     }
 
-    private val queue = ArrayDeque<Prepared>()
+    private val queue = ArrayDeque<PreparedClip>()
     private var current: Playing? = null
     private var playCounter = 0
 
@@ -78,7 +63,7 @@ class ClipAnnouncer(
         if (!focus.request()) return false
         val gen = generation
         inFlight++
-        // Sequential worker thread creates AudioTrack and preserves clip order.
+        // Sequential worker thread creates the clip and preserves clip order.
         // Voice starts after the segment buzzer so long phrases stay intelligible.
         val lead = if (cue.interrupt) LEAD_SILENCE else null
         worker.execute {
@@ -87,12 +72,12 @@ class ClipAnnouncer(
             val prepared = try {
                 val pcm = assemble(names, lead)
                 if (pcm == null) Log.w(TAG, "Dropped \"${cue.text}\": a clip could not be decoded")
-                pcm?.takeIf { it.isNotEmpty() && gen == generation }?.let(::buildTrack)
+                pcm?.takeIf { it.isNotEmpty() && gen == generation }?.let(clips::create)
             } catch (e: Exception) {
                 Log.e(TAG, "Dropped \"${cue.text}\": cannot prepare", e)
                 null
             }
-            handler.post { onPrepared(gen, prepared) }
+            mainThread.post { onPrepared(gen, prepared) }
         }
         return true
     }
@@ -114,10 +99,10 @@ class ClipAnnouncer(
         return PcmUtil.concat(if (lead != null) listOf(lead) + parts else parts)
     }
 
-    private fun onPrepared(gen: Int, prepared: Prepared?) {
+    private fun onPrepared(gen: Int, prepared: PreparedClip?) {
         if (gen != generation) {
-            // Discard track if playback was stopped during preparation.
-            prepared?.let { releaseTrack(it.track) }
+            // Discard the clip if playback was stopped during preparation.
+            prepared?.let(::releaseClip)
             return
         }
         inFlight--
@@ -130,74 +115,63 @@ class ClipAnnouncer(
     }
 
     private fun playNext() {
-        val prepared = queue.removeFirstOrNull()
-        if (prepared == null) {
+        val clip = queue.removeFirstOrNull()
+        if (clip == null) {
             if (!isSpeaking) focus.releaseAfter(FOCUS_TAIL_MS)
             return
         }
-        val track = prepared.track
-        val playing = Playing(++playCounter, track, prepared.frames)
+        val playing = Playing(++playCounter, clip)
         playing.end = Runnable { finish(playing.id) }
         current = playing
-        track.setPlaybackPositionUpdateListener(object : AudioTrack.OnPlaybackPositionUpdateListener {
-            override fun onMarkerReached(t: AudioTrack?) {
-                // Allow remaining audio frames to flush before finishing.
-                handler.removeCallbacks(playing.end)
-                handler.postDelayed(playing.end, OUTPUT_TAIL_MS)
-            }
-
-            override fun onPeriodicNotification(t: AudioTrack?) = Unit
-        }, handler)
-        track.notificationMarkerPosition = playing.frames
         if (!focus.request()) { // Focus lost since enqueue (e.g. a call started).
             finish(playing.id)
             return
         }
         try {
-            track.play()
+            clip.start {
+                // Allow remaining audio frames to flush before finishing.
+                mainThread.cancel(playing.end)
+                mainThread.postDelayed(playing.end, OUTPUT_TAIL_MS)
+            }
         } catch (e: IllegalStateException) {
             Log.e(TAG, "Cannot start playback", e)
             finish(playing.id)
             return
         }
-        // Fallback timeout in case notification marker fails.
-        handler.postDelayed(playing.end, playing.frames * 1000L / SAMPLE_RATE + FALLBACK_MS)
+        // Fallback timeout in case the end-of-clip notification never arrives.
+        mainThread.postDelayed(playing.end, clip.frames * 1000L / SAMPLE_RATE + FALLBACK_MS)
     }
 
     private fun finish(id: Int) {
         val playing = current ?: return
         if (playing.id != id) return
-        handler.removeCallbacks(playing.end)
+        mainThread.cancel(playing.end)
         current = null
-        releaseTrack(playing.track)
+        releaseClip(playing.clip)
         playNext()
     }
 
     private fun stopPlayback() {
         generation++
         inFlight = 0
-        queue.forEach { releaseTrack(it.track) }
+        queue.forEach { releaseClip(it) }
         queue.clear()
         current?.let {
-            handler.removeCallbacks(it.end)
-            releaseTrack(it.track)
+            mainThread.cancel(it.end)
+            releaseClip(it.clip)
         }
         current = null
     }
 
-    /** Builds a static AudioTrack from [pcm] on the worker thread. */
-    private fun buildTrack(pcm: ShortArray): Prepared? =
-        createStaticTrack(pcm, attributes)?.let { Prepared(it, pcm.size) }
-
-    private fun releaseTrack(track: AudioTrack) {
+    private fun releaseClip(clip: PreparedClip) {
         try {
-            track.release()
+            clip.release()
         } catch (e: Exception) {
             Log.e(TAG, "Cannot release AudioTrack", e)
         }
     }
 
-    private companion object {
+    internal companion object {
         const val TAG = "ClipAnnouncer"
         const val FOCUS_TAIL_MS = AudioFocusController.TAIL_MS
         const val OUTPUT_TAIL_MS = 60L

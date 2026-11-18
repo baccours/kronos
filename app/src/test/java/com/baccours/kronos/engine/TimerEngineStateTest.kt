@@ -19,12 +19,12 @@ import org.junit.Test
  */
 class TimerEngineStateTest {
 
-    private fun work(s: Int) = Task(type = TaskType.WORK, durationSeconds = s)
-    private fun rest(s: Int) = Task(type = TaskType.REST, durationSeconds = s)
+    private fun work(s: Int = 5) = Task(type = TaskType.WORK, durationSeconds = s)
+    private fun rest(s: Int = 3) = Task(type = TaskType.REST, durationSeconds = s)
     private fun EngineResult.spoken() = cues.filterIsInstance<Cue.Speak>().map { it.text }
 
     /** READY 10 s, WORK 5 s, REST 3 s: the workout part lasts 8 s. */
-    private val simple = TimerConfig(tasks = listOf(work(5), rest(3)))
+    private val simple = TimerConfig(tasks = listOf(work(), rest()))
     private val ready = WorkoutPlan.READY_SECONDS * 1000L
 
     private fun started(config: TimerConfig = simple) = TimerEngine(config).also { it.start(0) }
@@ -193,7 +193,7 @@ class TimerEngineStateTest {
     @Test
     fun aTimerIgnoresTheTotalCapOfAForTimeSetup() {
         // The setup keeps the cap when the user flips the mode; a Timer must still run to its end.
-        val config = TimerConfig(sets = 2, totalTimeCap = 5, tasks = listOf(work(5)))
+        val config = TimerConfig(sets = 2, totalTimeCap = 5, tasks = listOf(work()))
         val engine = TimerEngine(config)
         engine.start(0)
         assertEquals(10, engine.snapshot(0).totalRemainingSeconds)
