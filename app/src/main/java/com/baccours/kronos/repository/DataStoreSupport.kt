@@ -14,11 +14,13 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
 import java.io.IOException
 
+/** A corrupt file would otherwise fail every later save. */
+internal val kronosCorruptionHandler = ReplaceFileCorruptionHandler { emptyPreferences() }
+
 /** The app's single preferences file, shared by the settings and the saved setup. */
 internal val Context.kronosDataStore: DataStore<Preferences> by preferencesDataStore(
     name = "kronos_prefs",
-    // A corrupt file would otherwise fail every later save.
-    corruptionHandler = ReplaceFileCorruptionHandler { emptyPreferences() }
+    corruptionHandler = kronosCorruptionHandler
 )
 
 /** Reads [transform] of the preferences; [default] if the file cannot be read or decoded. */

@@ -38,7 +38,7 @@ app/src/main/java/com/baccours/kronos/
 ├── model/        # Data models (TimerConfig incl. limits and `sanitized()`, Task, TimerState, Lap, etc.) and TimerConfigCodec (JSON)
 ├── repository/   # TimerStateStore (live state), SettingsStore (live settings) & DataStore repositories
 ├── audio/        # TimerAudioManager (routes cues to the tones or the Announcer); Announcer, ClipAnnouncer, ClipLibrary, ClipCatalog, ClipDecoder (voice clips); ToneSynth, StaticTrack (beeps); PcmUtil; AudioFocusController
-├── service/      # TimerService (thin Foreground Service shell), TimerNotifier, WorkoutCommands (UI -> service), HandlerTickScheduler
+├── service/      # TimerService (thin Foreground Service shell), WorkoutSession (its logic: no Android imports, tested with virtual time), TimerNotifier, WorkoutCommands (UI -> service), HandlerTickScheduler
 ├── format/       # Display helpers shared by the UI and the notification (formatDuration, phaseLabel, caps)
 └── ui/           # Setup, Running and Settings screens with their view models, components (Keypad, TimeInput), Theme
 ```

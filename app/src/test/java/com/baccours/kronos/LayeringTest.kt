@@ -20,13 +20,18 @@ class LayeringTest {
     /** Packages that must stay free of Android APIs (pure JVM, tested with virtual time). */
     private val pureJvm = setOf("model", "engine")
 
+    /** Files inside an Android package that must stay pure JVM, so that their tests run as plain JUnit. */
+    private val pureFiles = setOf("service/WorkoutSession.kt")
+
     private val importPattern = Regex("""^import com\.baccours\.kronos\.(\w+)""")
+
+    private fun sourceRoot() = listOf("src/main/java", "app/src/main/java")
+        .map { File(it, "com/baccours/kronos") }
+        .first { it.isDirectory }
 
     @Test
     fun packagesOnlyDependOnTheirAllowedLayers() {
-        val root = listOf("src/main/java", "app/src/main/java")
-            .map { File(it, "com/baccours/kronos") }
-            .first { it.isDirectory }
+        val root = sourceRoot()
         val violations = ArrayList<String>()
         for ((pkg, deps) in allowed) {
             for (file in File(root, pkg).walkTopDown().filter { it.extension == "kt" }) {
@@ -39,5 +44,16 @@ class LayeringTest {
             }
         }
         assertTrue("Layering violations:\n" + violations.joinToString("\n"), violations.isEmpty())
+    }
+
+    @Test
+    fun theServiceLogicStaysFreeOfAndroid() {
+        val root = sourceRoot()
+        val violations = pureFiles.flatMap { name ->
+            File(root, name).readLines()
+                .filter { it.startsWith("import android.") || it.startsWith("import androidx.") }
+                .map { "$name: $it" }
+        }
+        assertTrue("Android imports in pure files:\n" + violations.joinToString("\n"), violations.isEmpty())
     }
 }

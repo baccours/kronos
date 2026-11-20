@@ -1,13 +1,19 @@
 package com.baccours.kronos.repository
 
 import android.content.Context
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import com.baccours.kronos.model.AppSettings
 import com.baccours.kronos.model.ThemeMode
 import kotlinx.coroutines.flow.Flow
 
-class SettingsRepository(private val context: Context) : SettingsStorage {
+class SettingsRepository internal constructor(
+    private val dataStore: DataStore<Preferences>
+) : SettingsStorage {
+
+    constructor(context: Context) : this(context.kronosDataStore)
 
     private object Keys {
         val BEEPS = booleanPreferencesKey("beeps")
@@ -15,7 +21,7 @@ class SettingsRepository(private val context: Context) : SettingsStorage {
         val THEME = stringPreferencesKey("theme")
     }
 
-    override val settings: Flow<AppSettings> = context.kronosDataStore.readSafely(TAG, AppSettings()) { prefs ->
+    override val settings: Flow<AppSettings> = dataStore.readSafely(TAG, AppSettings()) { prefs ->
         val defaults = AppSettings()
         AppSettings(
             beeps = prefs[Keys.BEEPS] ?: defaults.beeps,
@@ -25,7 +31,7 @@ class SettingsRepository(private val context: Context) : SettingsStorage {
     }
 
     override suspend fun save(settings: AppSettings): Boolean =
-        context.kronosDataStore.editSafely(TAG) { prefs ->
+        dataStore.editSafely(TAG) { prefs ->
             prefs[Keys.BEEPS] = settings.beeps
             prefs[Keys.VOICE] = settings.voice
             prefs[Keys.THEME] = settings.theme.name

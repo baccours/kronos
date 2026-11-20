@@ -18,7 +18,7 @@ import com.baccours.kronos.model.TimerStatus
 /**
  * Manages workout notifications using system chronometer rendering.
  */
-class TimerNotifier(private val context: Context) {
+internal class TimerNotifier(private val context: Context) : SessionNotifier {
 
     private val manager = context.getSystemService(NotificationManager::class.java)
 
@@ -65,24 +65,24 @@ class TimerNotifier(private val context: Context) {
     }
 
     /** Posts notification for [state]. */
-    fun show(state: TimerState) {
+    override fun show(state: TimerState) {
         if (state.status == TimerStatus.NOT_STARTED) return
         lastKey = keyOf(state)
         manager.notify(NOTIFICATION_ID, build(state))
     }
 
     /** Updates notification if non-chronometer state changed. */
-    fun updateIfChanged(state: TimerState) {
+    override fun updateIfChanged(state: TimerState) {
         if (keyOf(state) != lastKey) show(state)
     }
 
-    fun cancel() {
+    override fun cancel() {
         lastKey = null
         manager.cancel(NOTIFICATION_ID)
     }
 
     /** Tells the user that a forgotten pause ended the workout. */
-    fun showPauseTimeout() {
+    override fun showPauseTimeout() {
         manager.notify(
             TIMEOUT_NOTIFICATION_ID,
             NotificationCompat.Builder(context, CHANNEL_ID)
@@ -178,7 +178,7 @@ class TimerNotifier(private val context: Context) {
 
     companion object {
         const val NOTIFICATION_ID = 1
-        private const val TIMEOUT_NOTIFICATION_ID = 2
+        const val TIMEOUT_NOTIFICATION_ID = 2
         private const val CHANNEL_ID = "timer_channel"
     }
 }

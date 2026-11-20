@@ -10,12 +10,9 @@ import android.os.Looper
 import android.os.SystemClock
 import android.util.Log
 import com.baccours.kronos.audio.TimerAudioManager
-import com.baccours.kronos.engine.Cue
 import com.baccours.kronos.engine.WorkoutController
-import com.baccours.kronos.model.TimerConfig
 import com.baccours.kronos.model.TimerConfigCodec
 import com.baccours.kronos.model.TimerState
-import com.baccours.kronos.model.TimerStatus
 import com.baccours.kronos.repository.SettingsStore
 import com.baccours.kronos.repository.TimerStateStore
 import kotlinx.coroutines.MainScope
@@ -25,31 +22,17 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
 /**
- * Foreground service maintaining workout execution in background.
- * Delegates logic to [WorkoutController] and notification updates to [TimerNotifier].
+ * Foreground service keeping a workout running in the background. A thin shell: the logic lives in
+ * [WorkoutSession] (unit-tested with a virtual clock), the platform pieces are wired in here.
  */
-class TimerService : Service(), WorkoutController.Listener {
+class TimerService : Service() {
 
-    private val store: TimerStateStore = TimerStateStore
     private val handler = Handler(Looper.getMainLooper())
     private val scope = MainScope()
 
     private lateinit var notifier: TimerNotifier
-    private lateinit var wakeLock: WakeLockHolder
-    private lateinit var pauseTimeout: PauseTimeout
+    private lateinit var session: WorkoutSession
     private var audio: TimerAudioManager? = null
-    private var controller: WorkoutController? = null
-
-    private var finishedState: TimerState? = null
-
-    /** Ends the service after the closing audio; the completion notification stays. */
-    private val finishRunnable = Runnable {
-        wakeLock.release()
-        stopForeground(STOP_FOREGROUND_DETACH)
-        // Re-post once detached so it is a normal, dismissible notification.
-        finishedState?.let { notifier.show(it) }
-        stopSelf()
-    }
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -57,162 +40,96 @@ class TimerService : Service(), WorkoutController.Listener {
         super.onCreate()
         notifier = TimerNotifier(this)
         notifier.createChannel()
-        wakeLock = WakeLockHolder(this, "kronos:timer")
-        pauseTimeout = PauseTimeout(this, handler, onTimeout = ::endForgottenPause)
+        session = WorkoutSession(
+            host = AndroidHost(),
+            notifier = notifier,
+            wakeLock = WakeLockHolder(this, "kronos:timer"),
+            pauseAlarm = PauseTimeout(this, handler, onTimeout = { session.endForgottenPause() }),
+            lingerTimer = HandlerTickScheduler(handler),
+            store = TimerStateStore,
+            newController = ::newController
+        )
         // Muting the voice cuts the phrase being spoken; later cues are filtered by the audio manager.
         // Unmuting preloads the clips skipped at start, so the next phrase is not late.
         scope.launch {
             SettingsStore.settings.map { it?.voice }.distinctUntilChanged().collect { voice ->
-                if (voice == false) audio?.stopSpeaking() else if (voice == true) controller?.prepareCues()
+                if (voice == false) audio?.stopSpeaking() else if (voice == true) session.prepareCues()
             }
         }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
-            ACTION_START -> startTimer(TimerConfigCodec.decode(intent.getStringExtra(EXTRA_CONFIG)))
-            ACTION_PAUSE -> pauseTimer()
-            ACTION_RESUME -> resumeTimer()
-            ACTION_SKIP -> controller?.skip()
-            ACTION_LAP -> controller?.lap()
-            ACTION_STOP -> stopTimer()
+            ACTION_START -> session.start(TimerConfigCodec.decode(intent.getStringExtra(EXTRA_CONFIG)))
+            ACTION_PAUSE -> session.pause()
+            ACTION_RESUME -> session.resume()
+            ACTION_SKIP -> session.skip()
+            ACTION_LAP -> session.lap()
+            ACTION_STOP -> session.stop()
         }
-        // A command for a workout that no longer exists must not leave an idle service behind.
-        if (controller == null) stopSelf()
+        session.endOfCommand()
         return START_NOT_STICKY
     }
 
-    private fun startTimer(config: TimerConfig?) {
-        val current = controller
-        if (current != null && current.isActive) {
-            // Re-enter foreground for duplicate start requests
-            enterForeground(current.lastState)
-            return
-        }
-        if (config == null) {
-            enterForeground(TimerState())
-            store.reportStartFailure()
-            stopSelf()
-            return
-        }
-        handler.removeCallbacks(finishRunnable)
-        // Enter foreground immediately before background setup
-        if (!enterForeground(TimerState(status = TimerStatus.RUNNING, config = config))) {
-            store.reportStartFailure()
-            stopSelf()
-            return
-        }
-        wakeLock.acquire()
-        controllerForStart().start(config)
-    }
-
-    private fun controllerForStart(): WorkoutController {
-        controller?.let { return it }
+    private fun newController(listener: WorkoutController.Listener): WorkoutController {
         val player = audio ?: TimerAudioManager(this, settings = { SettingsStore.current }).also { audio = it }
         return WorkoutController(
             cues = player,
             scheduler = HandlerTickScheduler(handler),
             clock = SystemClock::elapsedRealtime,
-            listener = this
-        ).also { controller = it }
-    }
-
-    private fun pauseTimer() {
-        val c = controller ?: return
-        c.pause()
-        wakeLock.release()
-        if (c.status == TimerStatus.PAUSED) pauseTimeout.start()
-    }
-
-    private fun resumeTimer() {
-        val c = controller ?: return
-        if (c.status != TimerStatus.PAUSED) return
-        pauseTimeout.cancel()
-        wakeLock.acquire()
-        c.resume()
-    }
-
-    /** A forgotten pause ends the workout; say so, since the app silently returns to Set up. */
-    private fun endForgottenPause() {
-        stopTimer()
-        notifier.showPauseTimeout()
-    }
-
-    private fun stopTimer() {
-        handler.removeCallbacks(finishRunnable)
-        pauseTimeout.cancel()
-        controller?.stop()
-        wakeLock.release()
-        store.reset()
-        stopForeground(STOP_FOREGROUND_REMOVE)
-        notifier.cancel()
-        stopSelf()
-    }
-
-    /** Returns false if the system refuses (foreground start not allowed, missing permission). */
-    private fun enterForeground(state: TimerState): Boolean {
-        val notification = notifier.buildForForeground(state)
-        return try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-                startForeground(
-                    TimerNotifier.NOTIFICATION_ID,
-                    notification,
-                    ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
-                )
-            } else {
-                startForeground(TimerNotifier.NOTIFICATION_ID, notification)
-            }
-            true
-        } catch (e: RuntimeException) {
-            Log.e(TAG, "Cannot enter the foreground", e)
-            false
-        }
-    }
-
-    override fun onStateChanged(state: TimerState) {
-        store.updateState(state)
-        if (state.status == TimerStatus.RUNNING) wakeLock.renewIfDue()
-        if (state.status != TimerStatus.FINISHED) {
-            notifier.updateIfChanged(state)
-        }
-    }
-
-    override fun onFinished(state: TimerState) {
-        pauseTimeout.cancel()
-        finishedState = state
-        notifier.show(state)
-        // Stay foreground (wake lock held) until the closing audio has played: from Android 17
-        // background audio is silenced once the service leaves the foreground.
-        handler.removeCallbacks(finishRunnable)
-        handler.postDelayed(finishRunnable, FINISH_LINGER_MS)
-    }
-
-    override fun onLateTick(lateMs: Long) {
-        // Log execution delay for Doze/power saving diagnostics
-        Log.w(TAG, "A tick ran $lateMs ms late")
-    }
-
-    override fun onCueError(cue: Cue, error: Exception) {
-        Log.e(TAG, "Cannot play $cue", error)
-    }
-
-    override fun onListenerError(callback: String, error: Exception) {
-        Log.e(TAG, "$callback failed", error)
+            listener = listener
+        )
     }
 
     override fun onDestroy() {
         scope.cancel()
         handler.removeCallbacksAndMessages(null)
-        pauseTimeout.cancel()
-        controller?.stop()
-        controller = null
-        wakeLock.release()
+        session.destroy()
         audio?.release()
         audio = null
-        // If the service goes away while the process lives (and not after a finished workout, whose
-        // results stay on screen), the UI must not be left showing a timer that no longer runs.
-        if (store.timerState.value.status != TimerStatus.FINISHED) store.reset()
         super.onDestroy()
+    }
+
+    /** The platform side of [SessionHost]. */
+    private inner class AndroidHost : SessionHost {
+
+        /** Returns false if the system refuses (foreground start not allowed, missing permission). */
+        override fun enterForeground(state: TimerState): Boolean {
+            val notification = notifier.buildForForeground(state)
+            return try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                    startForeground(
+                        TimerNotifier.NOTIFICATION_ID,
+                        notification,
+                        ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
+                    )
+                } else {
+                    startForeground(TimerNotifier.NOTIFICATION_ID, notification)
+                }
+                true
+            } catch (e: RuntimeException) {
+                Log.e(TAG, "Cannot enter the foreground", e)
+                false
+            }
+        }
+
+        override fun leaveForeground(removeNotification: Boolean) {
+            stopForeground(
+                if (removeNotification) STOP_FOREGROUND_REMOVE else STOP_FOREGROUND_DETACH
+            )
+        }
+
+        override fun stopSelf() {
+            this@TimerService.stopSelf()
+        }
+
+        override fun logWarning(message: String) {
+            Log.w(TAG, message)
+        }
+
+        override fun logError(message: String, error: Throwable) {
+            Log.e(TAG, message, error)
+        }
     }
 
     companion object {
@@ -225,6 +142,5 @@ class TimerService : Service(), WorkoutController.Listener {
         const val EXTRA_CONFIG = "EXTRA_CONFIG"
 
         private const val TAG = "TimerService"
-        private const val FINISH_LINGER_MS = 4_000L
     }
 }

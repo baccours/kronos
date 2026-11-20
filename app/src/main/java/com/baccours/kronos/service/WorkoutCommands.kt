@@ -1,27 +1,37 @@
 package com.baccours.kronos.service
 
 import android.content.Context
-import android.content.Intent
 import android.util.Log
-import androidx.core.app.NotificationManagerCompat
-import androidx.core.content.ContextCompat
 import com.baccours.kronos.model.TimerConfig
 import com.baccours.kronos.model.TimerConfigCodec
 import com.baccours.kronos.model.TimerStatus
 import com.baccours.kronos.repository.TimerStateStore
 
+/** How commands reach [TimerService]; an interface so that the refusal paths can be tested. */
+internal interface CommandTransport {
+    /** Starts the service in the foreground with the encoded workout. Throws if the system refuses. */
+    fun startWorkout(encodedConfig: String)
+
+    /** Sends [action] to the service. Throws [IllegalStateException] if the system refuses. */
+    fun send(action: String)
+
+    fun stopService()
+
+    fun cancelNotification()
+}
+
 /** Helper class sending workout command intents to [TimerService]. */
-class WorkoutCommands(
-    private val context: Context,
-    private val store: TimerStateStore = TimerStateStore
+class WorkoutCommands internal constructor(
+    private val transport: CommandTransport,
+    private val store: TimerStateStore
 ) {
+
+    constructor(context: Context, store: TimerStateStore = TimerStateStore) :
+        this(AndroidCommandTransport(context), store)
 
     /** Returns false if system prevents starting foreground service. */
     fun start(config: TimerConfig): Boolean = try {
-        val intent = Intent(context, TimerService::class.java)
-            .setAction(TimerService.ACTION_START)
-            .putExtra(TimerService.EXTRA_CONFIG, TimerConfigCodec.encode(config))
-        ContextCompat.startForegroundService(context, intent)
+        transport.startWorkout(TimerConfigCodec.encode(config))
         true
     } catch (e: IllegalStateException) {
         // Handles foreground service launch restrictions
@@ -44,16 +54,16 @@ class WorkoutCommands(
     fun stop() {
         val finished = store.timerState.value.status == TimerStatus.FINISHED
         // A finished workout has nothing left to stop, but a lingering service may remain.
-        if (finished) context.stopService(Intent(context, TimerService::class.java))
+        if (finished) transport.stopService()
         if (finished || !send(TimerService.ACTION_STOP)) {
             store.reset()
-            NotificationManagerCompat.from(context).cancel(TimerNotifier.NOTIFICATION_ID)
+            transport.cancelNotification()
         }
     }
 
     /** Returns false if the system refuses the command. */
     private fun send(action: String): Boolean = try {
-        context.startService(Intent(context, TimerService::class.java).setAction(action))
+        transport.send(action)
         true
     } catch (e: IllegalStateException) {
         Log.w(TAG, "Cannot send $action to the workout service", e)
