@@ -9,12 +9,11 @@ import android.os.IBinder
 import android.os.Looper
 import android.os.SystemClock
 import android.util.Log
+import com.baccours.kronos.appContainer
 import com.baccours.kronos.audio.TimerAudioManager
 import com.baccours.kronos.engine.WorkoutController
 import com.baccours.kronos.model.TimerConfigCodec
 import com.baccours.kronos.model.TimerState
-import com.baccours.kronos.repository.SettingsStore
-import com.baccours.kronos.repository.TimerStateStore
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -29,6 +28,7 @@ class TimerService : Service() {
 
     private val handler = Handler(Looper.getMainLooper())
     private val scope = MainScope()
+    private val container by lazy { appContainer }
 
     private lateinit var notifier: TimerNotifier
     private lateinit var session: WorkoutSession
@@ -46,13 +46,13 @@ class TimerService : Service() {
             wakeLock = WakeLockHolder(this, "kronos:timer"),
             pauseAlarm = PauseTimeout(this, handler, onTimeout = { session.endForgottenPause() }),
             lingerTimer = HandlerTickScheduler(handler),
-            store = TimerStateStore,
+            store = container.timerStateStore,
             newController = ::newController
         )
         // Muting the voice cuts the phrase being spoken; later cues are filtered by the audio manager.
         // Unmuting preloads the clips skipped at start, so the next phrase is not late.
         scope.launch {
-            SettingsStore.settings.map { it?.voice }.distinctUntilChanged().collect { voice ->
+            container.settingsStore.settings.map { it?.voice }.distinctUntilChanged().collect { voice ->
                 if (voice == false) audio?.stopSpeaking() else if (voice == true) session.prepareCues()
             }
         }
@@ -72,7 +72,7 @@ class TimerService : Service() {
     }
 
     private fun newController(listener: WorkoutController.Listener): WorkoutController {
-        val player = audio ?: TimerAudioManager(this, settings = { SettingsStore.current }).also { audio = it }
+        val player = audio ?: TimerAudioManager(this, settings = { container.settingsStore.current }).also { audio = it }
         return WorkoutController(
             cues = player,
             scheduler = HandlerTickScheduler(handler),

@@ -1,10 +1,8 @@
 package com.baccours.kronos.ui.settings
 
-import android.app.Application
-import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.baccours.kronos.model.AppSettings
-import com.baccours.kronos.repository.SettingsRepository
 import com.baccours.kronos.repository.SettingsStorage
 import com.baccours.kronos.repository.SettingsStore
 import kotlinx.coroutines.NonCancellable
@@ -12,11 +10,10 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-class SettingsViewModel @JvmOverloads constructor(
-    application: Application,
-    private val repository: SettingsStorage = SettingsRepository(application),
-    private val store: SettingsStore = SettingsStore
-) : AndroidViewModel(application) {
+class SettingsViewModel(
+    private val repository: SettingsStorage,
+    private val store: SettingsStore
+) : ViewModel() {
 
     /** Null until the saved settings are loaded: the UI draws nothing until then. */
     val settings: StateFlow<AppSettings?> = store.settings

@@ -72,7 +72,7 @@ internal class WorkoutSession(
     private var controller: WorkoutController? = null
     private var finishedState: TimerState? = null
 
-    /** [config] is null when the start request could not be decoded. */
+    /** [config] is null when the start request could not be decoded. One with nothing to run is refused too. */
     fun start(config: TimerConfig?) {
         val current = controller
         if (current != null && current.isActive) {
@@ -80,7 +80,7 @@ internal class WorkoutSession(
             host.enterForeground(current.lastState)
             return
         }
-        if (config == null) {
+        if (config == null || !config.canStart) {
             host.enterForeground(TimerState())
             store.reportStartFailure()
             host.stopSelf()
@@ -99,9 +99,11 @@ internal class WorkoutSession(
 
     fun pause() {
         val c = controller ?: return
+        // Not while finished (the lock is kept for the closing audio) or already paused.
+        if (c.status != TimerStatus.RUNNING) return
         c.pause()
         wakeLock.release()
-        if (c.status == TimerStatus.PAUSED) pauseAlarm.start()
+        pauseAlarm.start()
     }
 
     fun resume() {

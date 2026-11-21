@@ -18,7 +18,13 @@ class TimerConfigCodecTest {
         assertNull(TimerConfigCodec.decode(null))
         assertNull(TimerConfigCodec.decode(""))
         assertNull(TimerConfigCodec.decode("{not json"))
-        assertNull(TimerConfigCodec.decode("""{"mode":"NO_SUCH_MODE"}"""))
+    }
+
+    @Test
+    fun anUnknownEnumValueFallsBackToItsDefaultAndKeepsTheRest() {
+        val decoded = TimerConfigCodec.decode("""{"mode":"NO_SUCH_MODE","sets":4}""")
+        assertEquals(TimerMode.TIMER, decoded?.mode)
+        assertEquals(4, decoded?.sets)
     }
 
     @Test

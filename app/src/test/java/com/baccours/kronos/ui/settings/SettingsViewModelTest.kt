@@ -1,6 +1,5 @@
 package com.baccours.kronos.ui.settings
 
-import android.app.Application
 import com.baccours.kronos.MainDispatcherRule
 import com.baccours.kronos.model.AppSettings
 import com.baccours.kronos.model.ThemeMode
@@ -29,7 +28,7 @@ class SettingsViewModelTest {
 
     private val store = SettingsStore()
     private val storage = FakeStorage()
-    private fun viewModel() = SettingsViewModel(Application(), storage, store)
+    private fun viewModel() = SettingsViewModel(storage, store)
 
     @Test
     fun theSettingsAreUnknownUntilTheyAreLoaded() {

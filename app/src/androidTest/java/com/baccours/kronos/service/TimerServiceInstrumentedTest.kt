@@ -7,6 +7,7 @@ import androidx.test.ext.junit.rules.ActivityScenarioRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.baccours.kronos.MainActivity
+import com.baccours.kronos.appContainer
 import com.baccours.kronos.model.AppSettings
 import com.baccours.kronos.model.Phase
 import com.baccours.kronos.model.Task
@@ -15,8 +16,6 @@ import com.baccours.kronos.model.TimerConfig
 import com.baccours.kronos.model.TimerMode
 import com.baccours.kronos.model.TimerState
 import com.baccours.kronos.model.TimerStatus
-import com.baccours.kronos.repository.SettingsStore
-import com.baccours.kronos.repository.TimerStateStore
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -43,8 +42,10 @@ class TimerServiceInstrumentedTest {
     val foreground = ActivityScenarioRule(MainActivity::class.java)
 
     private val context: Context = InstrumentationRegistry.getInstrumentation().targetContext
-    private val commands = WorkoutCommands(context)
-    private val store = TimerStateStore
+    private val container = context.appContainer
+    private val store = container.timerStateStore
+    private val settingsStore = container.settingsStore
+    private val commands = WorkoutCommands(context, store)
     private val state: TimerState get() = store.timerState.value
 
     private lateinit var savedSettings: AppSettings
@@ -59,15 +60,15 @@ class TimerServiceInstrumentedTest {
 
     @Before
     fun muteAndStartClean() {
-        savedSettings = SettingsStore.current
-        SettingsStore.set(savedSettings.copy(beeps = false, voice = false))
+        savedSettings = settingsStore.current
+        settingsStore.set(savedSettings.copy(beeps = false, voice = false))
         endWhateverIsLeft()
     }
 
     @After
     fun cleanUp() {
         endWhateverIsLeft()
-        SettingsStore.set(savedSettings)
+        settingsStore.set(savedSettings)
     }
 
     private fun endWhateverIsLeft() {

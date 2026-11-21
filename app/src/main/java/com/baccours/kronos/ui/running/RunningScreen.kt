@@ -39,7 +39,6 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.baccours.kronos.R
 import com.baccours.kronos.model.AppSettings
 import com.baccours.kronos.model.Phase
@@ -76,10 +75,10 @@ class RunningActions(
 
 @Composable
 fun RunningScreen(
+    viewModel: WorkoutViewModel,
     actions: RunningActions,
     settings: AppSettings = AppSettings(),
-    onSettingsChange: (AppSettings) -> Unit = {},
-    viewModel: WorkoutViewModel = viewModel()
+    onSettingsChange: (AppSettings) -> Unit = {}
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
 

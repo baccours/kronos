@@ -26,8 +26,8 @@ class WorkoutCommands internal constructor(
     private val store: TimerStateStore
 ) {
 
-    constructor(context: Context, store: TimerStateStore = TimerStateStore) :
-        this(AndroidCommandTransport(context), store)
+    constructor(context: Context, store: TimerStateStore) :
+        this(AndroidCommandTransport(context.applicationContext), store)
 
     /** Returns false if system prevents starting foreground service. */
     fun start(config: TimerConfig): Boolean = try {

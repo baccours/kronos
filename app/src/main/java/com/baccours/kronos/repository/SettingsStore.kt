@@ -7,10 +7,10 @@ import kotlinx.coroutines.flow.asStateFlow
 
 /**
  * Settings: the single source of truth for the UI and the service (like [TimerStateStore]).
- * The app uses the process-wide instance reached through the companion (`SettingsStore.current`),
- * loaded once by [com.baccours.kronos.KronosApp]. Tests create their own with `SettingsStore()`.
+ * One instance per process, owned by [com.baccours.kronos.AppContainer] and loaded once by
+ * [com.baccours.kronos.KronosApp]; tests create their own.
  */
-open class SettingsStore {
+class SettingsStore {
     private val _settings = MutableStateFlow<AppSettings?>(null)
 
     /** Null until the saved settings are loaded. */
@@ -27,7 +27,4 @@ open class SettingsStore {
     fun set(settings: AppSettings) {
         _settings.value = settings
     }
-
-    /** The process-wide instance. */
-    companion object : SettingsStore()
 }

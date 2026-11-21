@@ -92,11 +92,7 @@ class TimerEngine(private val config: TimerConfig) {
                     finish(cues)
                     break
                 }
-                advance()
-                segmentStartMs = boundary
-                lapStartMs = boundary
-                lastElapsedSecond = 0
-                cues += cuePolicy.startCues(index)
+                cues += enterNext(boundary)
                 continue
             }
             val elapsedSecond = (elapsedMs / 1000).toInt()
@@ -146,12 +142,8 @@ class TimerEngine(private val config: TimerConfig) {
         if (index >= plan.lastIndex) {
             finish(cues)
         } else {
-            advance()
-            segmentStartMs = t
-            lapStartMs = t
-            lastElapsedSecond = 0
+            val start = enterNext(t)
             // While paused, announce on resume instead; finishing still announces the end.
-            val start = cuePolicy.startCues(index)
             if (status == TimerStatus.RUNNING) cues += start else pendingCues = start
         }
         return EngineResult(snapshot(now), cues)
@@ -265,10 +257,14 @@ class TimerEngine(private val config: TimerConfig) {
         cues += Cue.Speak(Speech.WellDone, interrupt = true)
     }
 
-    /** Moves to the next segment. */
-    private fun advance() {
+    /** Moves to the next segment, which starts at [startMs]; returns its start cues. */
+    private fun enterNext(startMs: Long): List<Cue> {
         index++
         secondsAfter -= plan[index].durationSeconds
+        segmentStartMs = startMs
+        lapStartMs = startMs
+        lastElapsedSecond = 0
+        return cuePolicy.startCues(index)
     }
 
     companion object {

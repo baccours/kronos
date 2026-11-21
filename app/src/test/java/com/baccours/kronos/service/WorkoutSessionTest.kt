@@ -61,6 +61,17 @@ class WorkoutSessionTest {
     }
 
     @Test
+    fun aConfigWithNothingToRunFailsLikeAnUndecodableOne() {
+        val r = rig()
+        r.session.start(TimerConfig(tasks = listOf(work(0))))
+        assertEquals(1, r.journal.count("host.enterForeground(NOT_STARTED)"))
+        assertEquals(1, r.startFailures.size)
+        assertEquals(1, r.host.stopSelfCalls)
+        assertEquals(0, r.fakeLock().acquires)
+        assertEquals(TimerStatus.NOT_STARTED, r.status)
+    }
+
+    @Test
     fun aRefusedForegroundStartLeavesNoWorkoutAndNoWakeLock() {
         val r = rig()
         r.host.allowForeground = false
@@ -248,6 +259,24 @@ class WorkoutSessionTest {
         r.session.pause()
         assertEquals(0, r.alarm.starts)
         assertEquals(TimerStatus.FINISHED, r.status)
+    }
+
+    @Test
+    fun aStrayPauseDuringTheClosingLingerKeepsTheWakeLock() {
+        val r = rig()
+        r.session.start(shortWorkout)
+        r.runToTheEnd()
+        r.session.pause()
+        assertTrue("the closing audio still needs the CPU", r.fakeLock().held)
+    }
+
+    @Test
+    fun pausingTwiceArmsTheTimeoutOnce() {
+        val r = rig()
+        r.session.start(shortWorkout)
+        r.session.pause()
+        r.session.pause()
+        assertEquals(1, r.alarm.starts)
     }
 
     @Test

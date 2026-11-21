@@ -19,7 +19,7 @@ import kotlinx.coroutines.flow.stateIn
  * the workout was stopped from the notification. The mapping is cheap, so keeping it hot costs nothing.
  */
 class WorkoutViewModel(
-    store: TimerStateStore = TimerStateStore
+    store: TimerStateStore
 ) : ViewModel() {
 
     val startFailures: Flow<Unit> = store.startFailures

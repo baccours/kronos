@@ -63,10 +63,10 @@ class TimerPreferencesRepositoryTest {
     }
 
     @Test
-    fun aSetupWrittenByAnotherVersionWithAnUnknownModeGivesTheDefaultSetup() = runTest {
+    fun aSetupWrittenByAnotherVersionWithAnUnknownModeFallsBackToDefaultModeAndKeepsTheRest() = runTest {
         val store = openStore()
         store.store("""{"mode":"HYPERSPACE","sets":4}""")
-        assertEquals(TimerConfig(), TimerPreferencesRepository(store).timerConfigFlow.first())
+        assertEquals(TimerConfig(sets = 4), TimerPreferencesRepository(store).timerConfigFlow.first())
     }
 
     @Test

@@ -9,6 +9,7 @@ object TimerConfigCodec {
     private val json = Json {
         ignoreUnknownKeys = true
         encodeDefaults = true
+        coerceInputValues = true // unknown enum value -> default, not a lost setup
     }
 
     fun encode(config: TimerConfig): String = json.encodeToString(TimerConfig.serializer(), config)
