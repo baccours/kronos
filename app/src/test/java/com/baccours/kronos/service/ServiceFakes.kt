@@ -11,7 +11,7 @@ import com.baccours.kronos.model.TimerConfig
 import com.baccours.kronos.model.TimerMode
 import com.baccours.kronos.model.TimerState
 import com.baccours.kronos.model.TimerStatus
-import com.baccours.kronos.repository.TimerStateStore
+import com.baccours.kronos.repository.WorkoutStateStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -188,7 +188,7 @@ internal class Rig(
     val cues = RecordingCues()
     val ticker = FakeScheduler(time)
     val linger = FakeScheduler(time)
-    val store = TimerStateStore()
+    val store = WorkoutStateStore()
 
     val session = WorkoutSession(host, notifier, lock, alarm, linger, store) { listener ->
         WorkoutController(cues, ticker, { time.now }, listener)

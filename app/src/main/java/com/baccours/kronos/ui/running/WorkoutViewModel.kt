@@ -3,7 +3,7 @@ package com.baccours.kronos.ui.running
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.baccours.kronos.model.TimerStatus
-import com.baccours.kronos.repository.TimerStateStore
+import com.baccours.kronos.repository.WorkoutStateStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -19,7 +19,7 @@ import kotlinx.coroutines.flow.stateIn
  * the workout was stopped from the notification. The mapping is cheap, so keeping it hot costs nothing.
  */
 class WorkoutViewModel(
-    store: TimerStateStore
+    store: WorkoutStateStore
 ) : ViewModel() {
 
     val startFailures: Flow<Unit> = store.startFailures

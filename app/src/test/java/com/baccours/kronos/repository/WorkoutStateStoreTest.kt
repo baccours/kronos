@@ -12,11 +12,11 @@ import org.junit.Assert.assertFalse
 import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
-class TimerStateStoreTest {
+class WorkoutStateStoreTest {
 
     @Test
     fun startsIdleAndFollowsUpdatesAndReset() {
-        val store = TimerStateStore()
+        val store = WorkoutStateStore()
         assertEquals(TimerState(), store.timerState.value)
 
         val running = TimerState(status = TimerStatus.RUNNING, segmentIndex = 3)
@@ -29,15 +29,15 @@ class TimerStateStoreTest {
 
     @Test
     fun instancesAreIsolated() {
-        val a = TimerStateStore()
-        val b = TimerStateStore()
+        val a = WorkoutStateStore()
+        val b = WorkoutStateStore()
         a.updateState(TimerState(status = TimerStatus.RUNNING))
         assertEquals(TimerStatus.NOT_STARTED, b.timerState.value.status)
     }
 
     @Test
     fun startFailureReachesAnActiveCollectorEachTime() = runTest {
-        val store = TimerStateStore()
+        val store = WorkoutStateStore()
         var received = 0
         val job = launch(UnconfinedTestDispatcher(testScheduler)) {
             store.startFailures.collect { received++ }
@@ -50,7 +50,7 @@ class TimerStateStoreTest {
 
     @Test
     fun startFailureIsNotReplayedToALateCollector() = runTest {
-        val store = TimerStateStore()
+        val store = WorkoutStateStore()
         store.reportStartFailure() // nobody listening: the event is dropped, not kept
 
         var received = false

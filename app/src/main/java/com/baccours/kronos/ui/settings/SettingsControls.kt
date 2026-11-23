@@ -33,11 +33,14 @@ import com.baccours.kronos.ui.icons.Speech
 import com.baccours.kronos.ui.icons.SpeechOff
 import com.baccours.kronos.ui.icons.ThemeAuto
 
+/** Applies a change to the current settings. A transform, not a new value, so quick changes cannot overwrite each other. */
+typealias SettingsUpdater = ((AppSettings) -> AppSettings) -> Unit
+
 /** Setting wheel button opening a vertical dropdown menu. */
 @Composable
 internal fun SettingsMenuButton(
     settings: AppSettings,
-    onChange: (AppSettings) -> Unit,
+    onChange: SettingsUpdater,
     modifier: Modifier = Modifier,
     onOpen: () -> Unit = {}
 ) {
@@ -59,7 +62,7 @@ internal fun SettingsMenuButton(
 @Composable
 private fun SettingsVerticalControls(
     settings: AppSettings,
-    onChange: (AppSettings) -> Unit,
+    onChange: SettingsUpdater,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -68,20 +71,20 @@ private fun SettingsVerticalControls(
     ) {
         SettingToggle(
             checked = settings.beeps,
-            onCheckedChange = { onChange(settings.copy(beeps = it)) },
+            onCheckedChange = { on -> onChange { it.copy(beeps = on) } },
             icon = if (settings.beeps) Icons.Bell else Icons.BellOff,
             label = stringResource(R.string.setting_beeps)
         )
         SettingToggle(
             checked = settings.voice,
-            onCheckedChange = { onChange(settings.copy(voice = it)) },
+            onCheckedChange = { on -> onChange { it.copy(voice = on) } },
             icon = if (settings.voice) Icons.Speech else Icons.SpeechOff,
             label = stringResource(R.string.setting_voice)
         )
         // Not a toggle: cycles through three themes, the current one is announced as the state.
         val themeState = stringResource(settings.theme.label())
         IconButton(
-            onClick = { onChange(settings.copy(theme = settings.theme.next())) },
+            onClick = { onChange { it.copy(theme = it.theme.next()) } },
             modifier = Modifier.semantics { stateDescription = themeState }
         ) {
             Icon(

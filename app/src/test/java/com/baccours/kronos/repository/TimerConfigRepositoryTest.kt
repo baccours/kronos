@@ -20,7 +20,7 @@ import org.junit.rules.TemporaryFolder
 import java.io.File
 
 /** The saved workout setup, including what a damaged or foreign file can contain. */
-class TimerPreferencesRepositoryTest {
+class TimerConfigRepositoryTest {
 
     @get:Rule
     val tmp = TemporaryFolder()
@@ -37,12 +37,12 @@ class TimerPreferencesRepositoryTest {
 
     @Test
     fun nothingSavedGivesTheDefaultSetup() = runTest {
-        assertEquals(TimerConfig(), TimerPreferencesRepository(openStore()).timerConfigFlow.first())
+        assertEquals(TimerConfig(), TimerConfigRepository(openStore()).timerConfigFlow.first())
     }
 
     @Test
     fun aSavedSetupComesBack() = runTest {
-        val repository = TimerPreferencesRepository(openStore())
+        val repository = TimerConfigRepository(openStore())
         val config = TimerConfig(
             mode = TimerMode.FOR_TIME,
             sets = 3,
@@ -59,14 +59,14 @@ class TimerPreferencesRepositoryTest {
     fun garbageInTheFileGivesTheDefaultSetup() = runTest {
         val store = openStore()
         store.store("{ this is not json")
-        assertEquals(TimerConfig(), TimerPreferencesRepository(store).timerConfigFlow.first())
+        assertEquals(TimerConfig(), TimerConfigRepository(store).timerConfigFlow.first())
     }
 
     @Test
     fun aSetupWrittenByAnotherVersionWithAnUnknownModeFallsBackToDefaultModeAndKeepsTheRest() = runTest {
         val store = openStore()
         store.store("""{"mode":"HYPERSPACE","sets":4}""")
-        assertEquals(TimerConfig(sets = 4), TimerPreferencesRepository(store).timerConfigFlow.first())
+        assertEquals(TimerConfig(sets = 4), TimerConfigRepository(store).timerConfigFlow.first())
     }
 
     @Test
@@ -74,7 +74,7 @@ class TimerPreferencesRepositoryTest {
         // The engine's overflow guarantees rest on these limits, whatever the file says.
         val store = openStore()
         store.store("""{"sets":5000,"rounds":0,"timeCap":99999999}""")
-        val loaded = TimerPreferencesRepository(store).timerConfigFlow.first()
+        val loaded = TimerConfigRepository(store).timerConfigFlow.first()
         assertEquals(TimerConfig.MAX_SETS, loaded.sets)
         assertEquals(1, loaded.rounds)
         assertTrue(loaded.timeCap <= TimerConfig.MAX_DURATION_SECONDS)

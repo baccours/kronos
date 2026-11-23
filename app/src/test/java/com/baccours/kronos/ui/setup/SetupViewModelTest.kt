@@ -1,6 +1,5 @@
 package com.baccours.kronos.ui.setup
 
-import android.app.Application
 import com.baccours.kronos.MainDispatcherRule
 import com.baccours.kronos.model.Task
 import com.baccours.kronos.model.TaskType
@@ -48,7 +47,7 @@ class SetupViewModelTest {
     private fun work(id: String, s: Int) = Task(id, TaskType.WORK, s)
     private fun rest(id: String, s: Int) = Task(id, TaskType.REST, s)
 
-    private fun viewModel(storage: FakeStorage) = SetupViewModel(Application(), storage)
+    private fun viewModel(storage: FakeStorage) = SetupViewModel(storage)
 
     private fun SetupViewModel.config() = uiState.value!!
 

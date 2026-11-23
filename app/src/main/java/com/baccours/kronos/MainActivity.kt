@@ -19,24 +19,23 @@ import com.baccours.kronos.service.WorkoutCommands
 import com.baccours.kronos.ui.running.RunningActions
 import com.baccours.kronos.ui.running.RunningScreen
 import com.baccours.kronos.ui.running.WorkoutViewModel
-import com.baccours.kronos.ui.settings.SettingsViewModel
 import com.baccours.kronos.ui.setup.SetupScreen
+import com.baccours.kronos.ui.setup.SetupViewModel
 import com.baccours.kronos.ui.setup.rememberStartWithNotificationPermission
 import com.baccours.kronos.ui.theme.KronosTheme
 import com.baccours.kronos.ui.theme.isDark
 
 class MainActivity : ComponentActivity() {
     private val viewModel: WorkoutViewModel by viewModels {
-        val store = appContainer.timerStateStore
+        val store = appContainer.workoutStateStore
         viewModelFactory { initializer { WorkoutViewModel(store) } }
     }
-    private val settingsViewModel: SettingsViewModel by viewModels {
-        val container = appContainer
-        viewModelFactory {
-            initializer { SettingsViewModel(container.settingsRepository, container.settingsStore) }
-        }
+    private val setupViewModel: SetupViewModel by viewModels {
+        val storage = appContainer.timerConfigRepository
+        viewModelFactory { initializer { SetupViewModel(storage) } }
     }
-    private val commands by lazy { WorkoutCommands(this, appContainer.timerStateStore) }
+    private val settingsRepository get() = appContainer.settingsRepository
+    private val commands by lazy { WorkoutCommands(this, appContainer.workoutStateStore) }
     private val runningActions by lazy {
         RunningActions(commands::pause, commands::resume, commands::stop, commands::skip, commands::lap)
     }
@@ -50,7 +49,7 @@ class MainActivity : ComponentActivity() {
             LaunchedEffect(Unit) {
                 viewModel.startFailures.collect { showStartFailed() }
             }
-            val saved by settingsViewModel.settings.collectAsStateWithLifecycle()
+            val saved by settingsRepository.settings.collectAsStateWithLifecycle()
             // Draw nothing until the saved settings are loaded, so the first frame has the right theme.
             val settings = saved ?: return@setContent
             val dark = settings.theme.isDark()
@@ -68,8 +67,9 @@ class MainActivity : ComponentActivity() {
 
                 if (status == TimerStatus.NOT_STARTED) {
                     SetupScreen(
+                        viewModel = setupViewModel,
                         settings = settings,
-                        onSettingsChange = settingsViewModel::update,
+                        onSettingsChange = settingsRepository::update,
                         onStartTimer = onStart
                     )
                 } else {
@@ -77,7 +77,7 @@ class MainActivity : ComponentActivity() {
                         viewModel = viewModel,
                         actions = runningActions,
                         settings = settings,
-                        onSettingsChange = settingsViewModel::update
+                        onSettingsChange = settingsRepository::update
                     )
                 }
             }

@@ -4,7 +4,7 @@ import com.baccours.kronos.model.TimerConfig
 import com.baccours.kronos.model.TimerConfigCodec
 import com.baccours.kronos.model.TimerState
 import com.baccours.kronos.model.TimerStatus
-import com.baccours.kronos.repository.TimerStateStore
+import com.baccours.kronos.repository.WorkoutStateStore
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -35,7 +35,7 @@ class WorkoutCommandsTest {
     }
 
     private val transport = FakeTransport()
-    private val store = TimerStateStore()
+    private val store = WorkoutStateStore()
     private val commands = WorkoutCommands(transport, store)
 
     private fun showing(status: TimerStatus) = store.updateState(TimerState(status = status))

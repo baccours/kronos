@@ -6,7 +6,7 @@ import com.baccours.kronos.engine.WorkoutController
 import com.baccours.kronos.model.TimerConfig
 import com.baccours.kronos.model.TimerState
 import com.baccours.kronos.model.TimerStatus
-import com.baccours.kronos.repository.TimerStateStore
+import com.baccours.kronos.repository.WorkoutStateStore
 
 /** What the session needs from the Android service it runs in. */
 internal interface SessionHost {
@@ -65,7 +65,7 @@ internal class WorkoutSession(
     private val wakeLock: HeldLock,
     private val pauseAlarm: PauseAlarm,
     private val lingerTimer: TickScheduler,
-    private val store: TimerStateStore,
+    private val store: WorkoutStateStore,
     private val newController: (WorkoutController.Listener) -> WorkoutController
 ) : WorkoutController.Listener {
 

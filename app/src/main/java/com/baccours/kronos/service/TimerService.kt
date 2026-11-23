@@ -46,13 +46,13 @@ class TimerService : Service() {
             wakeLock = WakeLockHolder(this, "kronos:timer"),
             pauseAlarm = PauseTimeout(this, handler, onTimeout = { session.endForgottenPause() }),
             lingerTimer = HandlerTickScheduler(handler),
-            store = container.timerStateStore,
+            store = container.workoutStateStore,
             newController = ::newController
         )
         // Muting the voice cuts the phrase being spoken; later cues are filtered by the audio manager.
         // Unmuting preloads the clips skipped at start, so the next phrase is not late.
         scope.launch {
-            container.settingsStore.settings.map { it?.voice }.distinctUntilChanged().collect { voice ->
+            container.settingsRepository.settings.map { it?.voice }.distinctUntilChanged().collect { voice ->
                 if (voice == false) audio?.stopSpeaking() else if (voice == true) session.prepareCues()
             }
         }
@@ -72,7 +72,7 @@ class TimerService : Service() {
     }
 
     private fun newController(listener: WorkoutController.Listener): WorkoutController {
-        val player = audio ?: TimerAudioManager(this, settings = { container.settingsStore.current }).also { audio = it }
+        val player = audio ?: TimerAudioManager(this, settings = { container.settingsRepository.current }).also { audio = it }
         return WorkoutController(
             cues = player,
             scheduler = HandlerTickScheduler(handler),

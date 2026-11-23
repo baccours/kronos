@@ -5,7 +5,7 @@ import android.util.Log
 import com.baccours.kronos.model.TimerConfig
 import com.baccours.kronos.model.TimerConfigCodec
 import com.baccours.kronos.model.TimerStatus
-import com.baccours.kronos.repository.TimerStateStore
+import com.baccours.kronos.repository.WorkoutStateStore
 
 /** How commands reach [TimerService]; an interface so that the refusal paths can be tested. */
 internal interface CommandTransport {
@@ -23,10 +23,10 @@ internal interface CommandTransport {
 /** Helper class sending workout command intents to [TimerService]. */
 class WorkoutCommands internal constructor(
     private val transport: CommandTransport,
-    private val store: TimerStateStore
+    private val store: WorkoutStateStore
 ) {
 
-    constructor(context: Context, store: TimerStateStore) :
+    constructor(context: Context, store: WorkoutStateStore) :
         this(AndroidCommandTransport(context.applicationContext), store)
 
     /** Returns false if system prevents starting foreground service. */

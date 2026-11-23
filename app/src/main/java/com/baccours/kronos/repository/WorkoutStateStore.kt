@@ -13,7 +13,7 @@ import kotlinx.coroutines.flow.asStateFlow
  *
  * One instance per process, owned by [com.baccours.kronos.AppContainer]; tests create their own.
  */
-class TimerStateStore {
+class WorkoutStateStore {
     private val _timerState = MutableStateFlow(TimerState())
     val timerState: StateFlow<TimerState> = _timerState.asStateFlow()
 

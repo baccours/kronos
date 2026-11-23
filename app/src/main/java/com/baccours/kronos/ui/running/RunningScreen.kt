@@ -46,6 +46,7 @@ import com.baccours.kronos.model.TimerStatus
 import com.baccours.kronos.ui.icons.Close
 import com.baccours.kronos.ui.icons.Icons
 import com.baccours.kronos.ui.settings.SettingsMenuButton
+import com.baccours.kronos.ui.settings.SettingsUpdater
 
 // Layout structure: Top bar, Set/Round stats, active phase timer, lap section, overall progress, controls.
 
@@ -78,7 +79,7 @@ fun RunningScreen(
     viewModel: WorkoutViewModel,
     actions: RunningActions,
     settings: AppSettings = AppSettings(),
-    onSettingsChange: (AppSettings) -> Unit = {}
+    onSettingsChange: SettingsUpdater = {}
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
 
@@ -186,7 +187,7 @@ private fun PortraitContent(
     onClose: () -> Unit,
     actions: RunningActions,
     settings: AppSettings,
-    onSettingsChange: (AppSettings) -> Unit
+    onSettingsChange: SettingsUpdater
 ) {
     Box(modifier = Modifier.fillMaxSize()) {
         Column(
@@ -223,7 +224,7 @@ private fun LandscapeContent(
     onClose: () -> Unit,
     actions: RunningActions,
     settings: AppSettings,
-    onSettingsChange: (AppSettings) -> Unit
+    onSettingsChange: SettingsUpdater
 ) {
     Box(modifier = Modifier.fillMaxSize()) {
         Row(

@@ -9,6 +9,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -35,13 +36,16 @@ fun rememberStartWithNotificationPermission(startWorkout: (TimerConfig) -> Unit)
         if (config != null) currentStart(config)
     }
 
-    return { config ->
-        if (!asked && context.needsNotificationPermission()) {
-            asked = true
-            pendingConfig = TimerConfigCodec.encode(config)
-            launcher.launch(Manifest.permission.POST_NOTIFICATIONS)
-        } else {
-            currentStart(config)
+    // Remembered, so the lambda stays the same between recompositions.
+    return remember(context, launcher) {
+        { config: TimerConfig ->
+            if (!asked && context.needsNotificationPermission()) {
+                asked = true
+                pendingConfig = TimerConfigCodec.encode(config)
+                launcher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            } else {
+                currentStart(config)
+            }
         }
     }
 }

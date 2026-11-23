@@ -5,7 +5,7 @@ import com.baccours.kronos.model.Phase
 import com.baccours.kronos.model.TimerConfig
 import com.baccours.kronos.model.TimerState
 import com.baccours.kronos.model.TimerStatus
-import com.baccours.kronos.repository.TimerStateStore
+import com.baccours.kronos.repository.WorkoutStateStore
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -24,8 +24,8 @@ class WorkoutViewModelTest {
     val mainDispatcher = MainDispatcherRule()
 
     @Test
-    fun startFailuresForwardsEventsFromTimerStateStore() = runTest {
-        val store = TimerStateStore()
+    fun startFailuresForwardsEventsFromWorkoutStateStore() = runTest {
+        val store = WorkoutStateStore()
         val viewModel = WorkoutViewModel(store)
 
         var emitted = false
@@ -44,7 +44,7 @@ class WorkoutViewModelTest {
     fun statusAndUiStateAreCurrentEvenWithNobodyCollecting() {
         // Regression: with WhileSubscribed the cached value went stale while the UI was stopped,
         // and the first frame after returning could show the previous screen.
-        val store = TimerStateStore()
+        val store = WorkoutStateStore()
         val viewModel = WorkoutViewModel(store)
         assertEquals(TimerStatus.NOT_STARTED, viewModel.status.value)
 
@@ -62,7 +62,7 @@ class WorkoutViewModelTest {
     @Test
     fun aWorkoutAlreadyRunningWhenTheViewModelIsCreatedIsShownAtOnce() {
         // The Activity is recreated while the service keeps running: no flash of the setup screen.
-        val store = TimerStateStore()
+        val store = WorkoutStateStore()
         store.updateState(TimerState(status = TimerStatus.PAUSED, config = TimerConfig()))
         val viewModel = WorkoutViewModel(store)
         assertEquals(TimerStatus.PAUSED, viewModel.status.value)

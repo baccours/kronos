@@ -52,7 +52,6 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.baccours.kronos.R
 import com.baccours.kronos.format.caps
 import com.baccours.kronos.format.formatDuration
@@ -68,6 +67,7 @@ import com.baccours.kronos.ui.components.rememberKeypadState
 import com.baccours.kronos.ui.icons.Icons
 import com.baccours.kronos.ui.icons.Play
 import com.baccours.kronos.ui.settings.SettingsMenuButton
+import com.baccours.kronos.ui.settings.SettingsUpdater
 import com.baccours.kronos.ui.theme.KronosTheme
 
 /** Encapsulates setup screen action callbacks. */
@@ -87,9 +87,9 @@ class SetupActions(
 
 @Composable
 fun SetupScreen(
-    viewModel: SetupViewModel = viewModel(),
+    viewModel: SetupViewModel,
     settings: AppSettings = AppSettings(),
-    onSettingsChange: (AppSettings) -> Unit = {},
+    onSettingsChange: SettingsUpdater = {},
     onStartTimer: (TimerConfig) -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -127,7 +127,7 @@ internal fun SetupScreenContent(
     totalDuration: String,
     actions: SetupActions,
     settings: AppSettings = AppSettings(),
-    onSettingsChange: (AppSettings) -> Unit = {}
+    onSettingsChange: SettingsUpdater = {}
 ) {
     val scrollState = rememberScrollState()
 
@@ -250,7 +250,7 @@ private fun Modifier.contentWidth(): Modifier =
 @Composable
 private fun TitleRow(
     settings: AppSettings,
-    onSettingsChange: (AppSettings) -> Unit,
+    onSettingsChange: SettingsUpdater,
     onOpenSettings: () -> Unit,
     modifier: Modifier = Modifier
 ) {

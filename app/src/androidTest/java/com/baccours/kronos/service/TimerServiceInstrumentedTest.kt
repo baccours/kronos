@@ -43,8 +43,8 @@ class TimerServiceInstrumentedTest {
 
     private val context: Context = InstrumentationRegistry.getInstrumentation().targetContext
     private val container = context.appContainer
-    private val store = container.timerStateStore
-    private val settingsStore = container.settingsStore
+    private val store = container.workoutStateStore
+    private val settings = container.settingsRepository
     private val commands = WorkoutCommands(context, store)
     private val state: TimerState get() = store.timerState.value
 
@@ -60,15 +60,15 @@ class TimerServiceInstrumentedTest {
 
     @Before
     fun muteAndStartClean() {
-        savedSettings = settingsStore.current
-        settingsStore.set(savedSettings.copy(beeps = false, voice = false))
+        savedSettings = settings.current
+        settings.update { it.copy(beeps = false, voice = false) }
         endWhateverIsLeft()
     }
 
     @After
     fun cleanUp() {
         endWhateverIsLeft()
-        settingsStore.set(savedSettings)
+        settings.update { savedSettings }
     }
 
     private fun endWhateverIsLeft() {

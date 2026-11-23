@@ -36,8 +36,8 @@ Kronos is an Android workout timer application supporting customizable interval 
 app/src/main/java/com/baccours/kronos/
 ├── engine/       # TimerEngine (clock + state machine) and WorkoutController (tick scheduling, cues, state reporting; no Android dependencies, tested with virtual time)
 ├── model/        # Data models (TimerConfig incl. limits and `sanitized()`, Task, TimerState, Lap, etc.) and TimerConfigCodec (JSON)
-├── AppContainer  # the shared TimerStateStore / SettingsStore / SettingsRepository, created by KronosApp (composition root)
-├── repository/   # TimerStateStore (live state), SettingsStore (live settings) & DataStore repositories
+├── AppContainer  # the shared WorkoutStateStore / SettingsRepository / TimerConfigRepository, created by KronosApp (composition root)
+├── repository/   # WorkoutStateStore (live workout state) & the DataStore repositories (SettingsRepository also holds the live settings and saves every change)
 ├── audio/        # TimerAudioManager (routes cues to the tones or the Announcer); Announcer, ClipAnnouncer, ClipLibrary, ClipCatalog, ClipDecoder (voice clips); ToneSynth, StaticTrack (beeps); PcmUtil; AudioFocusController
 ├── service/      # TimerService (thin Foreground Service shell), WorkoutSession (its logic: no Android imports, tested with virtual time), TimerNotifier, WorkoutCommands (UI -> service), HandlerTickScheduler
 ├── format/       # Display helpers shared by the UI and the notification (formatDuration, phaseLabel, caps)

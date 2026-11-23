@@ -271,6 +271,17 @@ class TimerEngineStateTest {
     }
 
     @Test
+    fun aSegmentThatWasPausedJustPastItsEndEndsAtOnceOnResume() {
+        val engine = started()
+        engine.tick(ready) // WORK (5 s) starts
+        engine.pause(ready + 5_001) // 1 ms past its end, before the tick ran
+        engine.resume(ready + 6_000)
+
+        assertEquals(10L, engine.millisUntilNextTick(ready + 6_000)) // not a second later
+        assertEquals(Phase.REST, engine.tick(ready + 6_010).state.phase)
+    }
+
+    @Test
     fun theTickIsPulledForwardToLandOnTheTotalCapExpiry() {
         val engine = TimerEngine(TimerConfig(mode = TimerMode.FOR_TIME, sets = 2, totalTimeCap = 3))
         engine.start(0)

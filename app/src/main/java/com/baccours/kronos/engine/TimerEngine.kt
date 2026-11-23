@@ -164,6 +164,9 @@ class TimerEngine(private val config: TimerConfig) {
     fun millisUntilNextTick(now: Long): Long {
         if (status != TimerStatus.RUNNING) return IDLE_TICK_MS
         val elapsed = (now - segmentStartMs).coerceAtLeast(0)
+        // Already past the planned end (paused just after the boundary): transition now, not in a second.
+        val d = plan[index].durationSeconds
+        if (d > 0 && elapsed >= d * 1000L) return TICK_SLACK_MS
         val toNextSecond = (1000 - (elapsed % 1000)) + TICK_SLACK_MS
         // Align tick with total cap expiration.
         val capLeft = plan.getOrNull(index)?.let { totalCapLeftMs(it) } ?: return toNextSecond

@@ -8,7 +8,7 @@ import com.baccours.kronos.model.TimerConfig
 import com.baccours.kronos.model.TimerConfigCodec
 import kotlinx.coroutines.flow.Flow
 
-class TimerPreferencesRepository internal constructor(
+class TimerConfigRepository internal constructor(
     private val dataStore: DataStore<Preferences>
 ) : TimerConfigStorage {
 
