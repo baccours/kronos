@@ -37,6 +37,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.baccours.kronos.R
@@ -47,6 +48,7 @@ import com.baccours.kronos.ui.icons.Close
 import com.baccours.kronos.ui.icons.Icons
 import com.baccours.kronos.ui.settings.SettingsMenuButton
 import com.baccours.kronos.ui.settings.SettingsUpdater
+import com.baccours.kronos.ui.theme.KronosTheme
 
 // Layout structure: Top bar, Set/Round stats, active phase timer, lap section, overall progress, controls.
 
@@ -82,7 +84,17 @@ fun RunningScreen(
     onSettingsChange: SettingsUpdater = {}
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    RunningScreenContent(state, actions, settings, onSettingsChange)
+}
 
+/** Stateless running screen: previewable and testable without a view model. */
+@Composable
+internal fun RunningScreenContent(
+    state: RunningUiState,
+    actions: RunningActions,
+    settings: AppSettings = AppSettings(),
+    onSettingsChange: SettingsUpdater = {}
+) {
     // Keep the screen on only while the timer is actually running.
     val view = LocalView.current
     val keepScreenOn = state.status == TimerStatus.RUNNING
@@ -280,5 +292,28 @@ private fun LandscapeContent(
 private fun CloseButton(onClose: () -> Unit, modifier: Modifier = Modifier) {
     IconButton(onClick = onClose, modifier = modifier) {
         Icon(Icons.Close, contentDescription = stringResource(R.string.action_close))
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun RunningScreenPreview() {
+    KronosTheme {
+        RunningScreenContent(
+            state = RunningUiState(
+                status = TimerStatus.RUNNING,
+                phase = Phase.WORK,
+                workIndex = 1,
+                totalSets = 2,
+                totalRounds = 3,
+                currentRound = 2,
+                displayTime = "00:25",
+                segmentProgress = 0.4f,
+                segmentProgressNext = 0.43f,
+                overallProgress = 0.3f,
+                totalRemaining = "05:00"
+            ),
+            actions = RunningActions()
+        )
     }
 }

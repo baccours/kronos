@@ -34,6 +34,9 @@ class TimerService : Service() {
     private lateinit var session: WorkoutSession
     private var audio: TimerAudioManager? = null
 
+    /** ID of the latest start request, so a stop never kills a start still in flight. */
+    private var lastStartId = 0
+
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onCreate() {
@@ -59,6 +62,7 @@ class TimerService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        lastStartId = startId
         when (intent?.action) {
             ACTION_START -> session.start(TimerConfigCodec.decode(intent.getStringExtra(EXTRA_CONFIG)))
             ACTION_PAUSE -> session.pause()
@@ -120,7 +124,8 @@ class TimerService : Service() {
         }
 
         override fun stopSelf() {
-            this@TimerService.stopSelf()
+            // No-op if a newer start request is pending.
+            stopSelfResult(lastStartId)
         }
 
         override fun logWarning(message: String) {
