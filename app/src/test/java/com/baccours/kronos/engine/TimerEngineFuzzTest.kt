@@ -25,8 +25,9 @@ class TimerEngineFuzzTest {
         for (set in 1..c.sets) {
             if (c.mode == TimerMode.TIMER) {
                 repeat(c.rounds) {
-                    for (t in c.tasks.filter { it.durationSeconds > 0 }) {
-                        add(Seg(if (t.type == TaskType.WORK) Phase.WORK else Phase.REST, t.durationSeconds, set))
+                    for ((_, type, durationSeconds) in c.tasks.filter { it.durationSeconds > 0 }) {
+                        add(Seg(if (type == TaskType.WORK) Phase.WORK else Phase.REST,
+                            durationSeconds, set))
                     }
                 }
             } else {
