@@ -1,0 +1,95 @@
+<resources>
+    <string name="app_name">Kronos</string>
+    <string name="timer_service_description">Maintains active timer when the app is in the background.</string>
+
+    <!-- Natural case: the UI upper-cases where the design wants capitals (see format/Caps.kt). -->
+    <!-- Phases -->
+    <string name="phase_ready">Get ready</string>
+    <string name="phase_work">Work</string>
+    <string name="phase_work_n">Work %1$d</string>
+    <string name="phase_rest">Rest</string>
+    <string name="phase_set_rest">Rest between sets</string>
+
+    <!-- Setup -->
+    <string name="mode_timer">Beat the beep</string>
+    <string name="mode_for_time">Stop the clock</string>
+    <string name="setup_total_duration">Total duration: %1$s</string>
+    <string name="setup_start">Start</string>
+    <string name="setup_sets">Sets</string>
+    <string name="setup_rounds">Rounds</string>
+    <string name="setup_rest_label">rest:</string>
+    <string name="setup_time_cap">Time Cap</string>
+    <string name="setup_time_cap_suffix">(per set)</string>
+    <string name="setup_time_cap_none">none</string>
+    <string name="setup_total_time_cap">Total Time Cap</string>
+    <string name="setup_add_work">Work</string>
+    <string name="setup_add_rest">Rest</string>
+    <string name="task_work">Work</string>
+    <string name="task_rest">Rest</string>
+    <string name="task_delete">Delete</string>
+    <string name="stepper_decrease">Decrease</string>
+    <string name="stepper_increase">Increase</string>
+    <string name="edit_value">Edit value</string>
+    <string name="unit_min">min</string>
+    <string name="keypad_n_min">%1$d min</string>
+    <string name="keypad_ok">OK</string>
+    <string name="keypad_delete">Delete</string>
+    <string name="keypad_clear">Clear</string>
+    <string name="duration_a11y">%1$d min %2$d sec</string>
+
+    <!-- Running -->
+    <string name="running_set">Set</string>
+    <string name="running_round">Round</string>
+    <string name="running_paused">Paused</string>
+    <string name="running_next">Next: %1$s</string>
+    <string name="running_next_with_time">Next: %1$s · %2$s</string>
+    <string name="running_next_set">Set %1$d</string>
+    <string name="running_next_finish">Finish</string>
+    <string name="action_round">Round</string>
+    <string name="action_finish_set">Finish set</string>
+    <string name="action_finish">Finish</string>
+    <string name="action_pause">Pause</string>
+    <string name="action_resume">Resume</string>
+    <string name="action_skip">Skip</string>
+    <string name="hint_hold_skip">Hold to skip</string>
+    <string name="hint_hold_finish">Hold to finish</string>
+    <string name="hint_hold_finish_set">Hold to finish set</string>
+    <string name="action_stop">Stop</string>
+    <string name="action_close">End workout</string>
+    <string name="stop_dialog_title">End workout?</string>
+    <string name="stop_dialog_text">Your progress and lap times will be lost.</string>
+    <string name="stop_dialog_confirm">End</string>
+    <string name="stop_dialog_dismiss">Keep going</string>
+
+    <!-- Settings (accessibility labels; the UI is icon-only) -->
+    <string name="action_settings">Settings</string>
+    <string name="setting_beeps">Beeps</string>
+    <string name="setting_voice">Voice</string>
+    <string name="setting_theme">Theme</string>
+    <string name="setting_state_on">On</string>
+    <string name="setting_state_off">Off</string>
+    <string name="theme_system">Follow system theme</string>
+    <string name="theme_light">Light theme</string>
+    <string name="theme_dark">Dark theme</string>
+
+    <!-- Lap rows -->
+    <string name="lap_label">Round %1$d</string>
+
+    <!-- Finished -->
+    <string name="finished_title">Workout complete</string>
+    <string name="finished_total_time">Total time %1$s</string>
+    <string name="finished_set_header">Set %1$d</string>
+    <string name="finished_exit">Exit</string>
+
+    <!-- Notification -->
+    <string name="notification_channel_name">Timer</string>
+    <string name="notification_channel_description">Shows the active workout timer</string>
+    <string name="notification_progress_timer">Set %1$d/%2$d · Round %3$d/%4$d</string>
+    <string name="notification_progress_for_time">Set %1$d/%2$d · Round %3$d</string>
+    <string name="notification_paused">Paused · %1$s</string>
+    <string name="notification_finished_title">Workout complete</string>
+    <string name="notification_finished_text">Great job!</string>
+    <string name="notification_timeout_title">Workout ended</string>
+    <string name="notification_timeout_text">It stayed paused for too long.</string>
+    <string name="start_failed">Could not start the workout. Please try again.</string>
+</resources>
