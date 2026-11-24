@@ -12,9 +12,9 @@ Kronos is an Android workout timer application supporting customizable interval 
 | <img src="screenshots/timer_01-setup.jpg" width="200"> | <img src="screenshots/timer_02-running.jpg" width="200"> |
 
 ### For time mode
-|                           Setup                           |                           Running                           |                             Finish                              |
-|:---------------------------------------------------------:|:-----------------------------------------------------------:|:---------------------------------------------------------------:|
-| <img src="screenshots/for-time_01-setup.jpg" width="200"> | <img src="screenshots/for-time_02-running.png" width="200"> | <img src="docs/screenshots/for-time_03-finish.jpg" width="200"> |
+|                           Setup                           |                           Running                           |                           Finish                           |
+|:---------------------------------------------------------:|:-----------------------------------------------------------:|:----------------------------------------------------------:|
+| <img src="screenshots/for-time_01-setup.jpg" width="200"> | <img src="screenshots/for-time_02-running.jpg" width="200"> | <img src="screenshots/for-time_03-finish.jpg" width="200"> |
 
 ---
 
